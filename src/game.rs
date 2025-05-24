@@ -17,8 +17,8 @@ use crate::{
 
 pub const SCREEN_WIDTH: f32 = 1280.0;
 pub const SCREEN_HEIGHT: f32 = 720.0;
-const INITIAL_MAX_HORRORS: u32 = 20;
-const INITIAL_SPAWN_INTERVAL_SECONDS: f32 = 2.0;
+const TARGET_WAVE3_MAX_HORRORS: u32 = 20;
+const TARGET_WAVE3_SPAWN_INTERVAL_SECONDS: f32 = 2.0;
 const DIFFICULTY_INCREASE_INTERVAL_SECONDS: f32 = 30.0;
 const MAX_HORRORS_INCREMENT: u32 = 10;
 const SPAWN_INTERVAL_DECREMENT_FACTOR: f32 = 0.9;
@@ -54,7 +54,7 @@ pub struct GameConfig { pub width: f32, pub height: f32, pub spawn_area_padding:
 impl Default for GameConfig { fn default() -> Self { Self { width: SCREEN_WIDTH, height: SCREEN_HEIGHT, spawn_area_padding: 50.0 } } }
 pub struct GamePlugin;
 #[derive(Resource, Default)]
-pub struct GameState { pub score: u32, pub cycle_number: u32, pub horror_count: u32, pub game_over_timer: Timer, pub game_timer: Timer, pub difficulty_timer: Timer, }
+pub struct GameState { pub score: u32, pub wave_number: u32, pub horror_count: u32, pub game_over_timer: Timer, pub game_timer: Timer, pub difficulty_timer: Timer, }
 #[derive(Event)] pub struct UpgradeChosenEvent(pub UpgradeCard);
 #[derive(Event)] pub struct ItemCollectedEvent(pub ItemId);
 
@@ -72,7 +72,7 @@ pub struct GameState { pub score: u32, pub cycle_number: u32, pub horror_count: 
 #[derive(Component)] struct EchoesText;
 #[derive(Component)] struct ScoreText;
 #[derive(Component)] struct TimerText;
-#[derive(Component)] struct CycleText;
+#[derive(Component)] struct WaveText;
 
 
 fn reset_for_new_game_session(
@@ -81,16 +81,16 @@ fn reset_for_new_game_session(
     mut max_horrors: ResMut<MaxHorrors>,
 ) {
     game_state.score = 0;
-    game_state.cycle_number = 1;
+    game_state.wave_number = 1;
     game_state.horror_count = 0;
     game_state.game_timer = Timer::from_seconds(3600.0, TimerMode::Once);
     game_state.game_timer.reset();
     game_state.game_timer.unpause();
     game_state.difficulty_timer = Timer::from_seconds(DIFFICULTY_INCREASE_INTERVAL_SECONDS, TimerMode::Repeating);
     game_state.difficulty_timer.reset();
-    horror_spawn_timer.timer.set_duration(std::time::Duration::from_secs_f32(INITIAL_SPAWN_INTERVAL_SECONDS));
+    horror_spawn_timer.timer.set_duration(std::time::Duration::from_secs_f32(4.0));
     horror_spawn_timer.timer.reset();
-    max_horrors.0 = INITIAL_MAX_HORRORS;
+    max_horrors.0 = 5;
 }
 
 fn on_enter_ingame_state_actions(mut game_state: ResMut<GameState>) {
@@ -113,8 +113,9 @@ impl Plugin for GamePlugin {
             .init_resource::<GameConfig>() .init_resource::<GameState>()
             .init_resource::<PreviousGameState>()
             .init_resource::<SelectedCharacter>() 
-            .insert_resource(HorrorSpawnTimer {timer: Timer::from_seconds(INITIAL_SPAWN_INTERVAL_SECONDS, TimerMode::Repeating)})
-            .insert_resource(MaxHorrors(INITIAL_MAX_HORRORS)) .add_plugins(EchoingSoulPlugin)
+            .insert_resource(HorrorSpawnTimer {timer: Timer::from_seconds(4.0, TimerMode::Repeating)}) // Initial value matches reset_for_new_game_session
+            .insert_resource(MaxHorrors(5)) // Initial value matches reset_for_new_game_session
+            .add_plugins(EchoingSoulPlugin)
 
             .add_systems(OnEnter(AppState::MainMenu), setup_main_menu_ui)
             .add_systems(Update, character_select_button_interaction_system.run_if(in_state(AppState::MainMenu))) 
@@ -430,10 +431,52 @@ fn update_collected_items_ui(
 }
 
 
-fn setup_ingame_ui(mut commands: Commands, asset_server: Res<AssetServer>) { commands.spawn(( NodeBundle { style: Style { width: Val::Percent(100.0), height: Val::Percent(100.0), flex_direction: FlexDirection::Column, justify_content: JustifyContent::SpaceBetween, padding: UiRect::all(Val::Px(10.0)), position_type: PositionType::Absolute, ..default() }, z_index: ZIndex::Global(1), ..default() }, InGameUI, )).with_children(|parent| { parent.spawn(NodeBundle { style: Style { width: Val::Percent(100.0), justify_content: JustifyContent::SpaceAround, align_items: AlignItems::Center, padding: UiRect::all(Val::Px(5.0)), ..default() }, background_color: Color::rgba(0.0, 0.0, 0.0, 0.3).into(), ..default() }).with_children(|top_bar| { top_bar.spawn((TextBundle::from_section( "Endurance: 100", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::GREEN, }, ), EnduranceText)); top_bar.spawn((TextBundle::from_section( "Insight: 1", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::CYAN, }, ), InsightText)); top_bar.spawn((TextBundle::from_section( "Echoes: 0/100", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::YELLOW, }, ), EchoesText)); top_bar.spawn((TextBundle::from_section( "Cycle: 1", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::ORANGE_RED, }, ), CycleText)); }); parent.spawn(NodeBundle { style: Style { width: Val::Percent(100.0), justify_content: JustifyContent::SpaceBetween, align_items: AlignItems::FlexEnd, padding: UiRect::all(Val::Px(5.0)), ..default() }, ..default() }).with_children(|bottom_bar| { bottom_bar.spawn((TextBundle::from_section( "Score: 0", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::WHITE, }, ), ScoreText)); bottom_bar.spawn((TextBundle::from_section( "Time: 00:00", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::WHITE, }, ), TimerText)); }); }); }
+fn setup_ingame_ui(mut commands: Commands, asset_server: Res<AssetServer>) { commands.spawn(( NodeBundle { style: Style { width: Val::Percent(100.0), height: Val::Percent(100.0), flex_direction: FlexDirection::Column, justify_content: JustifyContent::SpaceBetween, padding: UiRect::all(Val::Px(10.0)), position_type: PositionType::Absolute, ..default() }, z_index: ZIndex::Global(1), ..default() }, InGameUI, )).with_children(|parent| { parent.spawn(NodeBundle { style: Style { width: Val::Percent(100.0), justify_content: JustifyContent::SpaceAround, align_items: AlignItems::Center, padding: UiRect::all(Val::Px(5.0)), ..default() }, background_color: Color::rgba(0.0, 0.0, 0.0, 0.3).into(), ..default() }).with_children(|top_bar| { top_bar.spawn((TextBundle::from_section( "Endurance: 100", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::GREEN, }, ), EnduranceText)); top_bar.spawn((TextBundle::from_section( "Insight: 1", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::CYAN, }, ), InsightText)); top_bar.spawn((TextBundle::from_section( "Echoes: 0/100", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::YELLOW, }, ), EchoesText)); top_bar.spawn((TextBundle::from_section( "Wave: 1", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::ORANGE_RED, }, ), WaveText)); }); parent.spawn(NodeBundle { style: Style { width: Val::Percent(100.0), justify_content: JustifyContent::SpaceBetween, align_items: AlignItems::FlexEnd, padding: UiRect::all(Val::Px(5.0)), ..default() }, ..default() }).with_children(|bottom_bar| { bottom_bar.spawn((TextBundle::from_section( "Score: 0", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::WHITE, }, ), ScoreText)); bottom_bar.spawn((TextBundle::from_section( "Time: 00:00", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::WHITE, }, ), TimerText)); }); }); }
 fn update_game_timer(mut game_state: ResMut<GameState>, time: Res<Time>) { if !game_state.game_timer.paused() { game_state.game_timer.tick(time.delta()); } }
-fn difficulty_scaling_system(time: Res<Time>, mut game_state: ResMut<GameState>, mut horror_spawn_timer: ResMut<HorrorSpawnTimer>, mut max_horrors: ResMut<MaxHorrors>,) { if game_state.difficulty_timer.paused() { return; } game_state.difficulty_timer.tick(time.delta()); if game_state.difficulty_timer.just_finished() { game_state.cycle_number += 1; max_horrors.0 = (INITIAL_MAX_HORRORS + (game_state.cycle_number -1) * MAX_HORRORS_INCREMENT).min(200); let current_duration = horror_spawn_timer.timer.duration().as_secs_f32(); let new_duration = (current_duration * SPAWN_INTERVAL_DECREMENT_FACTOR).max(MIN_SPAWN_INTERVAL_SECONDS); horror_spawn_timer.timer.set_duration(std::time::Duration::from_secs_f32(new_duration)); } }
-fn update_ingame_ui(player_query: Query<(&Survivor, &Health)>, game_state: Res<GameState>, mut ui_texts: ParamSet< ( Query<&mut Text, With<EnduranceText>>, Query<&mut Text, With<InsightText>>, Query<&mut Text, With<EchoesText>>, Query<&mut Text, With<ScoreText>>, Query<&mut Text, With<TimerText>>, Query<&mut Text, With<CycleText>>, )>,) { if let Ok((player_stats, player_health)) = player_query.get_single() { if let Ok(mut text) = ui_texts.p0().get_single_mut() { text.sections[0].value = format!("Endurance: {}/{}", player_health.0, player_stats.max_health); if player_health.0 < player_stats.max_health / 3 { text.sections[0].style.color = Color::RED; } else if player_health.0 < player_stats.max_health * 2 / 3 { text.sections[0].style.color = Color::YELLOW; } else { text.sections[0].style.color = Color::GREEN; } } if let Ok(mut text) = ui_texts.p1().get_single_mut() { text.sections[0].value = format!("Insight: {}", player_stats.level); } if let Ok(mut text) = ui_texts.p2().get_single_mut() { text.sections[0].value = format!("Echoes: {}/{}", player_stats.current_level_xp, player_stats.experience_to_next_level()); } } else { if let Ok(mut text) = ui_texts.p0().get_single_mut() { text.sections[0].value = "Endurance: --/--".to_string(); } if let Ok(mut text) = ui_texts.p1().get_single_mut() { text.sections[0].value = "Insight: --".to_string(); } if let Ok(mut text) = ui_texts.p2().get_single_mut() { text.sections[0].value = "Echoes: --/--".to_string(); } } if let Ok(mut text) = ui_texts.p3().get_single_mut() { text.sections[0].value = format!("Score: {}", game_state.score); } if let Ok(mut text) = ui_texts.p4().get_single_mut() { let elapsed_seconds = game_state.game_timer.elapsed().as_secs(); let minutes = elapsed_seconds / 60; let seconds = elapsed_seconds % 60; text.sections[0].value = format!("Time: {:02}:{:02}", minutes, seconds); } if let Ok(mut text) = ui_texts.p5().get_single_mut() { text.sections[0].value = format!("Cycle: {}", game_state.cycle_number); } }
+fn difficulty_scaling_system(
+    time: Res<Time>,
+    mut game_state: ResMut<GameState>,
+    mut horror_spawn_timer: ResMut<HorrorSpawnTimer>,
+    mut max_horrors: ResMut<MaxHorrors>,
+) {
+    if game_state.difficulty_timer.paused() { return; }
+    game_state.difficulty_timer.tick(time.delta());
+
+    if game_state.difficulty_timer.just_finished() {
+        game_state.wave_number += 1;
+
+        match game_state.wave_number {
+            1 => { // Should not happen here as wave_number starts at 1 and increments BEFORE this match
+                // This case is technically covered by reset_for_new_game_session
+                // max_horrors.0 = 5;
+                // horror_spawn_timer.timer.set_duration(std::time::Duration::from_secs_f32(4.0));
+            }
+            2 => { // Values for when wave 2 starts (after 30s)
+                max_horrors.0 = 10;
+                horror_spawn_timer.timer.set_duration(std::time::Duration::from_secs_f32(3.0));
+            }
+            3 => { // Values for when wave 3 starts (after 60s)
+                max_horrors.0 = TARGET_WAVE3_MAX_HORRORS; // Use the renamed constant (20)
+                horror_spawn_timer.timer.set_duration(std::time::Duration::from_secs_f32(TARGET_WAVE3_SPAWN_INTERVAL_SECONDS)); // Use the renamed constant (2.0)
+            }
+            _ => { // For wave 4 and onwards
+                // Increment max_horrors based on the increment value, ensuring it doesn't exceed a cap (e.g., 200)
+                // Note: TARGET_WAVE3_MAX_HORRORS is 20. MAX_HORRORS_INCREMENT is 10.
+                // So at wave 4, it becomes 20 + (4-3)*10 = 30.
+                // At wave 5, it becomes 20 + (5-3)*10 = 40. This seems correct.
+                max_horrors.0 = (TARGET_WAVE3_MAX_HORRORS + (game_state.wave_number - 3) * MAX_HORRORS_INCREMENT).min(200);
+
+                // Decrease spawn interval, ensuring it doesn't go below a minimum (e.g., MIN_SPAWN_INTERVAL_SECONDS)
+                let current_duration = horror_spawn_timer.timer.duration().as_secs_f32();
+                let new_duration = (current_duration * SPAWN_INTERVAL_DECREMENT_FACTOR).max(MIN_SPAWN_INTERVAL_SECONDS);
+                horror_spawn_timer.timer.set_duration(std::time::Duration::from_secs_f32(new_duration));
+            }
+        }
+        // Reset the timer for the next difficulty increase
+        game_state.difficulty_timer.reset();
+    }
+}
+fn update_ingame_ui(player_query: Query<(&Survivor, &Health)>, game_state: Res<GameState>, mut ui_texts: ParamSet< ( Query<&mut Text, With<EnduranceText>>, Query<&mut Text, With<InsightText>>, Query<&mut Text, With<EchoesText>>, Query<&mut Text, With<ScoreText>>, Query<&mut Text, With<TimerText>>, Query<&mut Text, With<WaveText>>, )>,) { if let Ok((player_stats, player_health)) = player_query.get_single() { if let Ok(mut text) = ui_texts.p0().get_single_mut() { text.sections[0].value = format!("Endurance: {}/{}", player_health.0, player_stats.max_health); if player_health.0 < player_stats.max_health / 3 { text.sections[0].style.color = Color::RED; } else if player_health.0 < player_stats.max_health * 2 / 3 { text.sections[0].style.color = Color::YELLOW; } else { text.sections[0].style.color = Color::GREEN; } } if let Ok(mut text) = ui_texts.p1().get_single_mut() { text.sections[0].value = format!("Insight: {}", player_stats.level); } if let Ok(mut text) = ui_texts.p2().get_single_mut() { text.sections[0].value = format!("Echoes: {}/{}", player_stats.current_level_xp, player_stats.experience_to_next_level()); } } else { if let Ok(mut text) = ui_texts.p0().get_single_mut() { text.sections[0].value = "Endurance: --/--".to_string(); } if let Ok(mut text) = ui_texts.p1().get_single_mut() { text.sections[0].value = "Insight: --".to_string(); } if let Ok(mut text) = ui_texts.p2().get_single_mut() { text.sections[0].value = "Echoes: --/--".to_string(); } } if let Ok(mut text) = ui_texts.p3().get_single_mut() { text.sections[0].value = format!("Score: {}", game_state.score); } if let Ok(mut text) = ui_texts.p4().get_single_mut() { let elapsed_seconds = game_state.game_timer.elapsed().as_secs(); let minutes = elapsed_seconds / 60; let seconds = elapsed_seconds % 60; text.sections[0].value = format!("Time: {:02}:{:02}", minutes, seconds); } if let Ok(mut text) = ui_texts.p5().get_single_mut() { text.sections[0].value = format!("Wave: {}", game_state.wave_number); } }
 
 fn setup_level_up_ui(mut commands: Commands, asset_server: Res<AssetServer>, player_query: Query<&Survivor>, upgrade_pool: Res<UpgradePool>,) {
     let player_level = if let Ok(player) = player_query.get_single() { player.level } else { 0 };
