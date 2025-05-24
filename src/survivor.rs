@@ -49,6 +49,62 @@ pub struct Survivor {
     pub equipped_skills: Vec<ActiveSkillInstance>,
     pub collected_item_ids: Vec<ItemId>,
     pub inherent_weapon_id: AutomaticWeaponId, 
+
+    // --- New Fields for Upgrades ---
+    // Auto-Attack Focused
+    pub auto_attack_bonus_fire_damage: u32,
+    pub auto_attack_bonus_cold_damage: u32,
+    pub auto_attack_bonus_lightning_damage: u32,
+    pub auto_attack_poison_dps: u32,
+    pub auto_attack_crit_chance: f32,
+    pub auto_attack_crit_damage_multiplier: f32, // Base is e.g. 1.5x or 2.0x, this adds to it.
+    pub auto_attack_execute_threshold: f32,
+    pub auto_attack_lifesteal_percent: f32,
+    pub auto_attack_chain_chance: f32,
+    pub auto_attack_fork_chance: f32,
+    pub auto_attack_chill_chance: f32,
+    pub auto_attack_stun_chance: f32,
+    pub auto_attack_burn_chance: f32,
+    pub auto_attack_reduce_healing_chance: f32,
+    pub auto_attack_aoe_on_hit_chance: f32,
+    pub auto_attack_aoe_on_hit_damage: u32,
+    pub auto_attack_projectile_duration_multiplier: f32,
+    pub auto_attack_homing_strength: f32,
+    pub auto_attack_ricochet_chance: f32,
+    pub auto_attack_shield_penetration_percent: f32,
+    pub auto_attack_cull_strike_chance: f32,
+
+    // Survivor Defensive Stats
+    pub armor: u32,
+    pub evasion_chance: f32,
+    pub block_chance: f32,
+    pub damage_reduction_percent: f32,
+    pub tenacity_percent: f32,
+    pub status_effect_resistance_percent: f32,
+    pub healing_effectiveness_multiplier: f32,
+    pub on_hit_temp_armor_bonus: u32,
+    pub on_hit_temp_speed_bonus_percent: f32,
+    pub after_being_hit_retaliation_nova_damage: i32,
+
+    // Survivor Utility/Mobility
+    pub max_dash_charges: u32,
+    pub dash_cooldown_multiplier: f32,
+    pub dash_range_multiplier: f32,
+    pub dash_invulnerability_duration: f32,
+    pub movement_speed_out_of_combat_multiplier: f32,
+    pub slow_effectiveness_reduction_percent: f32,
+    pub shield_on_kill_amount: u32,
+    pub echoes_drop_rate_multiplier: f32,
+    pub relic_drop_rate_multiplier: f32,
+    pub free_skill_use_chance: f32,
+
+    // Weapon-Specific (Aura/Orbiter)
+    pub aura_size_per_kill_bonus_percent: f32,
+    pub orbiter_speed_per_kill_bonus_percent: f32,
+    pub aura_pull_enemies_chance: f32,
+    pub orbiter_explode_on_kill_chance: f32,
+    pub orbiter_explosion_damage: u32,
+    pub aura_debuff_enemies_damage_increase_percent: f32,
 }
 
 impl Survivor {
@@ -78,6 +134,58 @@ impl Survivor {
             equipped_skills: initial_skills,
             collected_item_ids: initial_items,
             inherent_weapon_id, 
+            
+            // Initialize new fields
+            auto_attack_bonus_fire_damage: 0,
+            auto_attack_bonus_cold_damage: 0,
+            auto_attack_bonus_lightning_damage: 0,
+            auto_attack_poison_dps: 0,
+            auto_attack_crit_chance: 0.0,
+            auto_attack_crit_damage_multiplier: 0.0, // This is a bonus, base crit multi (e.g. 2.0x) applied elsewhere
+            auto_attack_execute_threshold: 0.0,
+            auto_attack_lifesteal_percent: 0.0,
+            auto_attack_chain_chance: 0.0,
+            auto_attack_fork_chance: 0.0,
+            auto_attack_chill_chance: 0.0,
+            auto_attack_stun_chance: 0.0,
+            auto_attack_burn_chance: 0.0,
+            auto_attack_reduce_healing_chance: 0.0,
+            auto_attack_aoe_on_hit_chance: 0.0,
+            auto_attack_aoe_on_hit_damage: 0,
+            auto_attack_projectile_duration_multiplier: 1.0,
+            auto_attack_homing_strength: 0.0,
+            auto_attack_ricochet_chance: 0.0,
+            auto_attack_shield_penetration_percent: 0.0,
+            auto_attack_cull_strike_chance: 0.0,
+
+            armor: 0,
+            evasion_chance: 0.0,
+            block_chance: 0.0,
+            damage_reduction_percent: 0.0,
+            tenacity_percent: 0.0,
+            status_effect_resistance_percent: 0.0,
+            healing_effectiveness_multiplier: 1.0,
+            on_hit_temp_armor_bonus: 0,
+            on_hit_temp_speed_bonus_percent: 0.0,
+            after_being_hit_retaliation_nova_damage: 0,
+
+            max_dash_charges: 1, // Default to 1 dash charge
+            dash_cooldown_multiplier: 1.0,
+            dash_range_multiplier: 1.0,
+            dash_invulnerability_duration: 0.0,
+            movement_speed_out_of_combat_multiplier: 1.0,
+            slow_effectiveness_reduction_percent: 0.0,
+            shield_on_kill_amount: 0,
+            echoes_drop_rate_multiplier: 1.0,
+            relic_drop_rate_multiplier: 1.0,
+            free_skill_use_chance: 0.0,
+
+            aura_size_per_kill_bonus_percent: 0.0,
+            orbiter_speed_per_kill_bonus_percent: 0.0,
+            aura_pull_enemies_chance: 0.0,
+            orbiter_explode_on_kill_chance: 0.0,
+            orbiter_explosion_damage: 0,
+            aura_debuff_enemies_damage_increase_percent: 0.0,
         }
     }
 }
