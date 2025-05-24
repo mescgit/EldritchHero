@@ -434,21 +434,91 @@ fn setup_ingame_ui(mut commands: Commands, asset_server: Res<AssetServer>) { com
 fn update_game_timer(mut game_state: ResMut<GameState>, time: Res<Time>) { if !game_state.game_timer.paused() { game_state.game_timer.tick(time.delta()); } }
 fn difficulty_scaling_system(time: Res<Time>, mut game_state: ResMut<GameState>, mut horror_spawn_timer: ResMut<HorrorSpawnTimer>, mut max_horrors: ResMut<MaxHorrors>,) { if game_state.difficulty_timer.paused() { return; } game_state.difficulty_timer.tick(time.delta()); if game_state.difficulty_timer.just_finished() { game_state.cycle_number += 1; max_horrors.0 = (INITIAL_MAX_HORRORS + (game_state.cycle_number -1) * MAX_HORRORS_INCREMENT).min(200); let current_duration = horror_spawn_timer.timer.duration().as_secs_f32(); let new_duration = (current_duration * SPAWN_INTERVAL_DECREMENT_FACTOR).max(MIN_SPAWN_INTERVAL_SECONDS); horror_spawn_timer.timer.set_duration(std::time::Duration::from_secs_f32(new_duration)); } }
 fn update_ingame_ui(player_query: Query<(&Survivor, &Health)>, game_state: Res<GameState>, mut ui_texts: ParamSet< ( Query<&mut Text, With<EnduranceText>>, Query<&mut Text, With<InsightText>>, Query<&mut Text, With<EchoesText>>, Query<&mut Text, With<ScoreText>>, Query<&mut Text, With<TimerText>>, Query<&mut Text, With<CycleText>>, )>,) { if let Ok((player_stats, player_health)) = player_query.get_single() { if let Ok(mut text) = ui_texts.p0().get_single_mut() { text.sections[0].value = format!("Endurance: {}/{}", player_health.0, player_stats.max_health); if player_health.0 < player_stats.max_health / 3 { text.sections[0].style.color = Color::RED; } else if player_health.0 < player_stats.max_health * 2 / 3 { text.sections[0].style.color = Color::YELLOW; } else { text.sections[0].style.color = Color::GREEN; } } if let Ok(mut text) = ui_texts.p1().get_single_mut() { text.sections[0].value = format!("Insight: {}", player_stats.level); } if let Ok(mut text) = ui_texts.p2().get_single_mut() { text.sections[0].value = format!("Echoes: {}/{}", player_stats.current_level_xp, player_stats.experience_to_next_level()); } } else { if let Ok(mut text) = ui_texts.p0().get_single_mut() { text.sections[0].value = "Endurance: --/--".to_string(); } if let Ok(mut text) = ui_texts.p1().get_single_mut() { text.sections[0].value = "Insight: --".to_string(); } if let Ok(mut text) = ui_texts.p2().get_single_mut() { text.sections[0].value = "Echoes: --/--".to_string(); } } if let Ok(mut text) = ui_texts.p3().get_single_mut() { text.sections[0].value = format!("Score: {}", game_state.score); } if let Ok(mut text) = ui_texts.p4().get_single_mut() { let elapsed_seconds = game_state.game_timer.elapsed().as_secs(); let minutes = elapsed_seconds / 60; let seconds = elapsed_seconds % 60; text.sections[0].value = format!("Time: {:02}:{:02}", minutes, seconds); } if let Ok(mut text) = ui_texts.p5().get_single_mut() { text.sections[0].value = format!("Cycle: {}", game_state.cycle_number); } }
-fn setup_level_up_ui(mut commands: Commands, asset_server: Res<AssetServer>, player_query: Query<&Survivor>, upgrade_pool: Res<UpgradePool>,) { let player_level = if let Ok(player) = player_query.get_single() { player.level } else { 0 }; let current_offered_upgrades = OfferedUpgrades { choices: upgrade_pool.get_random_upgrades(3) }; commands.spawn(( NodeBundle { style: Style { width: Val::Percent(100.0), height: Val::Percent(100.0), position_type: PositionType::Absolute, justify_content: JustifyContent::Center, align_items: AlignItems::Center, flex_direction: FlexDirection::Column, row_gap: Val::Px(30.0), ..default() }, background_color: Color::rgba(0.1, 0.1, 0.2, 0.9).into(), z_index: ZIndex::Global(10), ..default() }, LevelUpUI, current_offered_upgrades.clone(), )).with_children(|parent| { parent.spawn( TextBundle::from_section( format!("Revelation! Insight: {}", player_level), TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 50.0, color: Color::GOLD, }, ).with_style(Style { margin: UiRect::bottom(Val::Px(20.0)), ..default()}) ); for (index, card) in current_offered_upgrades.choices.iter().enumerate() { 
+
+fn setup_level_up_ui(mut commands: Commands, asset_server: Res<AssetServer>, player_query: Query<&Survivor>, upgrade_pool: Res<UpgradePool>,) {
+    let player_level = if let Ok(player) = player_query.get_single() { player.level } else { 0 };
+    let current_offered_upgrades = OfferedUpgrades { choices: upgrade_pool.get_random_upgrades(3) };
+    commands.spawn((
+        NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                position_type: PositionType::Absolute,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(30.0),
+                ..default()
+            },
+            background_color: Color::rgba(0.1, 0.1, 0.2, 0.9).into(),
+            z_index: ZIndex::Global(10),
+            ..default()
+        },
+        LevelUpUI,
+        current_offered_upgrades.clone(),
+    ))
+    .with_children(|parent| {
+        parent.spawn(
+            TextBundle::from_section(
+                format!("Revelation! Insight: {}", player_level),
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 50.0,
+                    color: Color::GOLD,
+                },
+            )
+            .with_style(Style { margin: UiRect::bottom(Val::Px(20.0)), ..default()})
+        );
+        for (index, card) in current_offered_upgrades.choices.iter().enumerate() { 
             let border_color_val = match card.rarity {
                 UpgradeRarity::Regular => Color::rgb(0.75, 0.75, 0.75), // Light Gray
                 UpgradeRarity::Rare => Color::PURPLE,
                 UpgradeRarity::Legendary => Color::GOLD,
             };
             
-            parent.spawn(( ButtonBundle { style: Style { width: Val::Px(400.0), height: Val::Px(120.0), padding: UiRect::all(Val::Px(10.0)), justify_content: JustifyContent::Center, align_items: AlignItems::FlexStart, flex_direction: FlexDirection::Column, border: UiRect::all(Val::Px(3.0)), // Increased border width for visibility margin: UiRect::bottom(Val::Px(10.0)), ..default() }, border_color: BorderColor(border_color_val), background_color: Color::GRAY.into(), ..default() }, UpgradeButton(card.clone()), Name::new(format!("Upgrade Button {}", index + 1)), ))
+            parent.spawn((
+                ButtonBundle {
+                    style: Style {
+                        width: Val::Px(400.0),
+                        height: Val::Px(120.0),
+                        padding: UiRect::all(Val::Px(10.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::FlexStart,
+                        flex_direction: FlexDirection::Column,
+                        border: UiRect::all(Val::Px(3.0)), // Increased border width for visibility
+                        margin: UiRect::bottom(Val::Px(10.0)),
+                        ..default()
+                    },
+                    border_color: BorderColor(border_color_val),
+                    background_color: Color::GRAY.into(),
+                    ..default()
+                },
+                UpgradeButton(card.clone()),
+                Name::new(format!("Upgrade Button {}", index + 1)),
+            ))
             .with_children(|button_parent| { 
-                button_parent.spawn(TextBundle::from_section( &card.name, TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 24.0, color: Color::WHITE, }, ).with_style(Style { margin: UiRect::bottom(Val::Px(5.0)), ..default() })); 
-                button_parent.spawn(TextBundle::from_section( &card.description, TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 18.0, color: Color::rgb(0.9, 0.9, 0.9), }, )); 
-            }); // Semicolon added for the parent.spawn of ButtonBundle
+                button_parent.spawn(TextBundle::from_section(
+                    &card.name,
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 24.0,
+                        color: Color::WHITE,
+                    },
+                )
+                .with_style(Style { margin: UiRect::bottom(Val::Px(5.0)), ..default() })); 
+                button_parent.spawn(TextBundle::from_section(
+                    &card.description,
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 18.0,
+                        color: Color::rgb(0.9, 0.9, 0.9),
+                    },
+                )); 
+            });
         } 
-    }); // Semicolon added for the commands.spawn of LevelUpUI NodeBundle
+    });
 }
+
 fn handle_upgrade_choice_interaction(mut interaction_query: Query< (&Interaction, &UpgradeButton, &mut BackgroundColor), (Changed<Interaction>, With<Button>), >, mut upgrade_chosen_event: EventWriter<UpgradeChosenEvent>, mut next_app_state: ResMut<NextState<AppState>>, keyboard_input: Res<ButtonInput<KeyCode>>, level_up_ui_query: Query<&OfferedUpgrades, With<LevelUpUI>>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (interaction, upgrade_button_data, mut bg_color) in interaction_query.iter_mut() { match *interaction { Interaction::Pressed => { sound_event_writer.send(PlaySoundEvent(SoundEffect::OmenAccepted)); upgrade_chosen_event.send(UpgradeChosenEvent(upgrade_button_data.0.clone())); next_app_state.set(AppState::InGame); return; } Interaction::Hovered => { *bg_color = Color::DARK_GREEN.into(); } Interaction::None => { *bg_color = Color::GRAY.into(); } } } if let Ok(offered) = level_up_ui_query.get_single() { let choice_made = if keyboard_input.just_pressed(KeyCode::Digit1) && offered.choices.len() > 0 { Some(offered.choices[0].clone()) } else if keyboard_input.just_pressed(KeyCode::Digit2) && offered.choices.len() > 1 { Some(offered.choices[1].clone()) } else if keyboard_input.just_pressed(KeyCode::Digit3) && offered.choices.len() > 2 { Some(offered.choices[2].clone()) } else { None }; if let Some(chosen_card) = choice_made { sound_event_writer.send(PlaySoundEvent(SoundEffect::OmenAccepted)); upgrade_chosen_event.send(UpgradeChosenEvent(chosen_card)); next_app_state.set(AppState::InGame); } } }
 
 fn apply_chosen_upgrade(
@@ -663,14 +733,13 @@ fn apply_chosen_upgrade(
                 // TO-DO: Implement healing reduction debuff on enemy
             }
             UpgradeType::AutoAttackAreaDamageOnHitChance(base_aoe_damage) => { // base_val is AoE damage
-                let (actual_chance, actual_aoe_damage) = match rarity {
-                    UpgradeRarity::Regular => (10.0, *base_aoe_damage), // Example chance: 10%
-                    UpgradeRarity::Rare => (15.0, *base_aoe_damage * 2),   // Example chance: 15%
-                    UpgradeRarity::Legendary => (20.0, *base_aoe_damage * 3),// Example chance: 20%
+                let (actual_chance, actual_aoe_damage_f32) = match rarity {
+                    UpgradeRarity::Regular => (10.0, *base_aoe_damage), 
+                    UpgradeRarity::Rare => (15.0, *base_aoe_damage * 2.0),
+                    UpgradeRarity::Legendary => (20.0, *base_aoe_damage * 3.0),
                 };
-                player_stats.auto_attack_aoe_on_hit_chance = player_stats.auto_attack_aoe_on_hit_chance.max(actual_chance); // Take best chance
-                player_stats.auto_attack_aoe_on_hit_damage = player_stats.auto_attack_aoe_on_hit_damage.max(actual_aoe_damage); // Take best damage
-                // TO-DO: Implement AoE spawn on projectile hit
+                player_stats.auto_attack_aoe_on_hit_chance = player_stats.auto_attack_aoe_on_hit_chance.max(actual_chance); 
+                player_stats.auto_attack_aoe_on_hit_damage = player_stats.auto_attack_aoe_on_hit_damage.max(actual_aoe_damage_f32 as u32); 
             }
             UpgradeType::AutoAttackIncreaseDuration(base_val) => { // Percent increase
                 let actual_value = match rarity {
@@ -922,13 +991,13 @@ fn apply_chosen_upgrade(
                 // TO-DO: CircleOfWarding system to attempt pull on enemies within aura
             }
             UpgradeType::OrbiterExplodeOnKillChance(base_explosion_damage) => { // base_val is explosion damage
-                let (actual_chance, actual_damage) = match rarity {
-                    UpgradeRarity::Regular => (10.0, *base_explosion_damage), // Example chance 10%
-                    UpgradeRarity::Rare => (15.0, *base_explosion_damage * 2), // Example chance 15%
-                    UpgradeRarity::Legendary => (20.0, *base_explosion_damage * 3), // Example chance 20%
+                let (actual_chance, actual_damage_f32) = match rarity {
+                    UpgradeRarity::Regular => (10.0, *base_explosion_damage), 
+                    UpgradeRarity::Rare => (15.0, *base_explosion_damage * 2.0), 
+                    UpgradeRarity::Legendary => (20.0, *base_explosion_damage * 3.0), 
                 };
                 player_stats.orbiter_explode_on_kill_chance = player_stats.orbiter_explode_on_kill_chance.max(actual_chance);
-                player_stats.orbiter_explosion_damage = player_stats.orbiter_explosion_damage.max(actual_damage);
+                player_stats.orbiter_explosion_damage = player_stats.orbiter_explosion_damage.max(actual_damage_f32 as u32);
                 // TO-DO: SwarmOfNightmares system to check this chance on kill and spawn explosion
             }
             UpgradeType::AuraDebuffEnemies(base_val) => { // Percent increased damage taken
