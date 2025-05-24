@@ -21,17 +21,16 @@ pub const INITIAL_SURVIVOR_MAX_HEALTH: i32 = 100;
 const BASE_SURVIVOR_SPEED: f32 = 250.0;
 const ITEM_COLLECTION_RADIUS: f32 = SURVIVOR_SIZE.x / 2.0 + crate::items::ITEM_DROP_SIZE.x / 2.0;
 const MIND_STRAIN_DEBUFF_DURATION: f32 = 5.0;
-const MIND_STRAIN_SPEED_REDUCTION_PER_STACK: f32 = 0.05; // 5% reduction
+const MIND_STRAIN_SPEED_REDUCTION_PER_STACK: f32 = 0.05; 
 const MAX_MIND_STRAIN_STACKS: u32 = 4;
 
 
 #[derive(Component)] pub struct SanityStrain { pub base_fire_rate_secs: f32, pub fire_timer: Timer, }
 
-// New Debuff Component
 #[derive(Component, Debug)]
 pub struct MindStrainDebuff {
     pub stacks: u32,
-    pub timer: Timer, // Timer for the duration of the current stack level
+    pub timer: Timer, 
 }
 
 pub struct SurvivorPlugin;
@@ -90,7 +89,7 @@ impl Plugin for SurvivorPlugin {
     fn build(&self, app: &mut App) {
         app .add_systems(OnEnter(AppState::InGame), spawn_survivor.run_if(no_survivor_exists))
             .add_systems(Update, (
-                survivor_movement, // Needs to account for MindStrainDebuff
+                survivor_movement, 
                 survivor_aiming,
                 survivor_casting_system,
                 survivor_health_regeneration_system,
@@ -98,7 +97,7 @@ impl Plugin for SurvivorPlugin {
                 survivor_invincibility_system,
                 check_survivor_death_system,
                 survivor_item_drop_collection_system,
-                mind_strain_debuff_update_system, // New system
+                mind_strain_debuff_update_system, 
             ).chain().run_if(in_state(AppState::InGame)))
             .add_systems(OnExit(AppState::InGame), despawn_survivor.run_if(should_despawn_survivor));
     }
@@ -171,7 +170,7 @@ fn survivor_movement(
         }
         if let Some(debuff) = mind_strain_opt {
             current_speed *= 1.0 - (debuff.stacks as f32 * MIND_STRAIN_SPEED_REDUCTION_PER_STACK);
-            current_speed = current_speed.max(BASE_SURVIVOR_SPEED * 0.1); // Ensure speed doesn't drop too low
+            current_speed = current_speed.max(BASE_SURVIVOR_SPEED * 0.1); 
         }
 
         velocity.0 = if direction != Vec2::ZERO { direction.normalize() * current_speed } else { Vec2::ZERO }; 
@@ -265,12 +264,13 @@ fn survivor_casting_system(
 fn survivor_horror_collision_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut survivor_query: Query<(Entity, &Transform, &mut ComponentHealth, &mut Survivor, Option<&mut ActiveShield>, Option<&mut MindStrainDebuff>)>, // Added MindStrainDebuff
-    horror_query: Query<(Entity, &Transform, &Horror)>, // Added Entity to horror query for despawn
+    mut survivor_query: Query<(Entity, &Transform, &mut ComponentHealth, &mut Survivor, Option<&mut ActiveShield>, Option<&mut MindStrainDebuff>)>, 
+    horror_query: Query<(Entity, &Transform, &Horror)>, 
     item_library: Res<ItemLibrary>,
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
 ) {
-    if let Ok((survivor_entity, survivor_transform, mut survivor_health, mut survivor_component, mut opt_active_shield, opt_mind_strain)) = survivor_query.get_single_mut() {
+    if let Ok((survivor_entity, survivor_transform, mut survivor_health, mut survivor_component, 
+               mut opt_active_shield, mut opt_mind_strain)) = survivor_query.get_single_mut() {
         if !survivor_component.invincibility_timer.finished() { return; }
 
         for (horror_entity, horror_transform, horror_stats) in horror_query.iter() {
@@ -282,22 +282,18 @@ fn survivor_horror_collision_system(
                 if survivor_component.invincibility_timer.finished() {
                     sound_event_writer.send(PlaySoundEvent(SoundEffect::SurvivorHit));
                     
-                    // Handle MindLeech specific interaction
                     if horror_stats.horror_type == crate::horror::HorrorType::MindLeech {
-                        if let Some(mut debuff) = opt_mind_strain {
+                        if let Some(debuff) = opt_mind_strain.as_mut() {
                             debuff.stacks = (debuff.stacks + 1).min(MAX_MIND_STRAIN_STACKS);
-                            debuff.timer.reset(); // Refresh duration
+                            debuff.timer.reset(); 
                         } else {
                             commands.entity(survivor_entity).insert(MindStrainDebuff {
                                 stacks: 1,
                                 timer: Timer::from_seconds(MIND_STRAIN_DEBUFF_DURATION, TimerMode::Once),
                             });
                         }
-                        // MindLeech despawns on hit
                         commands.entity(horror_entity).despawn_recursive(); 
-                        // No regular collision damage from MindLeech itself, only debuff
                     } else {
-                        // Regular collision damage for other horrors
                         let mut damage_to_take = horror_stats.damage_on_collision;
                         if let Some(ref mut shield) = opt_active_shield {
                             if shield.amount > 0 {
@@ -316,7 +312,6 @@ fn survivor_horror_collision_system(
 
                     survivor_component.invincibility_timer.reset();
 
-                    // Retaliation effects (common for all horror collisions)
                     let mut rng = rand::thread_rng();
                     for item_id in survivor_component.collected_item_ids.iter() {
                         if let Some(item_def) = item_library.get_item_definition(*item_id) {

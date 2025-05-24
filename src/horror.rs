@@ -4,7 +4,7 @@ use rand::{Rng, seq::SliceRandom};
 use std::time::Duration; 
 use crate::{
     components::{Velocity, Health, Damage, Lifetime},
-    survivor::Survivor, // No specific debuff component needed here for now
+    survivor::Survivor, 
     game::{AppState, GameState},
     audio::{PlaySoundEvent, SoundEffect},
     items::{ItemDrop, ItemLibrary, ITEM_DROP_SIZE, ItemEffect, SurvivorTemporaryBuff, TemporaryHealthRegenBuff},
@@ -23,7 +23,7 @@ pub const VOID_BLINKER_SIZE: Vec2 = Vec2::new(30.0, 45.0);
 pub const FLESH_WEAVER_SIZE: Vec2 = Vec2::new(45.0, 45.0);
 pub const CRAWLING_TORMENT_SIZE: Vec2 = Vec2::new(25.0, 25.0);
 pub const FRENZIED_BEHEMOTH_SIZE: Vec2 = Vec2::new(55.0, 50.0);
-pub const MIND_LEECH_SIZE: Vec2 = Vec2::new(28.0, 28.0); // New enemy size
+pub const MIND_LEECH_SIZE: Vec2 = Vec2::new(28.0, 28.0); 
 
 const ITEM_DROP_CHANCE: f64 = 0.05;
 const MINION_ITEM_DROP_CHANCE: f64 = 0.01;
@@ -60,7 +60,7 @@ pub struct MaxHorrors(pub u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HorrorType {
     SkitteringShadowling, FloatingEyeball, AmorphousFleshbeast, VoidBlinker, FleshWeaver, CrawlingTorment, FrenziedBehemoth,
-    MindLeech, // New enemy type
+    MindLeech, 
 }
 
 pub struct HorrorStats {
@@ -83,14 +83,14 @@ impl HorrorStats {
             HorrorType::FrenziedBehemoth => HorrorStats { horror_type, health: (70.0 * cycle_multiplier * 1.3).max(1.0) as i32, damage_on_collision: 25, speed: 80.0 + 15.0 * (cycle_multiplier - 1.0).max(0.0), size: FRENZIED_BEHEMOTH_SIZE, sprite_path: "sprites/frenzied_behemoth_placeholder.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: ECHOING_SOUL_VALUE + 25, item_drop_chance_override: Some(ITEM_DROP_CHANCE + 0.1), min_engagement_distance: None },
             HorrorType::MindLeech => HorrorStats { 
                 horror_type, 
-                health: (10.0 * cycle_multiplier).max(1.0) as i32, // Low health
-                damage_on_collision: 2, // Very low direct damage
-                speed: 130.0 + 25.0 * (cycle_multiplier - 1.0).max(0.0), // Fast
+                health: (10.0 * cycle_multiplier).max(1.0) as i32, 
+                damage_on_collision: 2, 
+                speed: 130.0 + 25.0 * (cycle_multiplier - 1.0).max(0.0), 
                 size: MIND_LEECH_SIZE, 
-                sprite_path: "sprites/mind_leech_placeholder.png", // Needs new sprite
+                sprite_path: "sprites/mind_leech_placeholder.png", 
                 projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, 
-                xp_value: ECHOING_SOUL_VALUE / 2, // Less XP
-                item_drop_chance_override: Some(ITEM_DROP_CHANCE * 0.5), // Lower item drop
+                xp_value: ECHOING_SOUL_VALUE / 2, 
+                item_drop_chance_override: Some(ITEM_DROP_CHANCE * 0.5), 
                 min_engagement_distance: None 
             },
         }
@@ -254,7 +254,6 @@ fn spawn_horror_type(
     let mut final_name = format!("{:?}", base_stats.horror_type); let mut sprite_color = Color::WHITE;
 
     if is_elite {
-        // MindLeech should not become elite
         if horror_type == HorrorType::MindLeech { return; }
 
         final_health = (final_health as f32 * 2.5).ceil() as i32;
@@ -280,8 +279,6 @@ fn spawn_horror_type(
         Health(final_health), Velocity(Vec2::ZERO), Name::new(final_name),
     ));
 
-    // Add specific behaviors based on horror_type
-    // Note: MindLeech doesn't need a special behavior component here, its effect is in collision logic
     match base_stats.horror_type {
         HorrorType::FloatingEyeball => { 
             horror_entity_commands.insert(RangedAttackerBehavior { 
@@ -298,7 +295,7 @@ fn spawn_horror_type(
         HorrorType::VoidBlinker => { horror_entity_commands.insert(VoidBlinkerBehavior::default()); }
         HorrorType::FleshWeaver => { horror_entity_commands.insert(FleshWeaverBehavior::default()); }
         HorrorType::FrenziedBehemoth => { horror_entity_commands.insert(FrenziedBehemothBehavior::default());}
-        _ => {} // SkitteringShadowling, AmorphousFleshbeast, CrawlingTorment, MindLeech use default chase
+        _ => {} 
     }
 }
 
@@ -319,7 +316,6 @@ fn horror_spawn_system(
     let final_spawn_pos = Vec3::new(spawn_pos.x, spawn_pos.y, 0.5);
     let cycle_multiplier = 1.0 + (game_state.cycle_number as f32 - 1.0) * 0.1; 
 
-    // Adjusted spawn table to include MindLeech
     let chosen_type = match game_state.cycle_number { 
         1..=2 => if rng.gen_bool(0.7) { HorrorType::SkitteringShadowling } else { HorrorType::MindLeech },
         3..=4 => { 
@@ -351,15 +347,11 @@ fn horror_spawn_system(
     let is_elite = rng.gen_bool(ELITE_SPAWN_CHANCE) &&
                    chosen_type != HorrorType::CrawlingTorment &&
                    chosen_type != HorrorType::FleshWeaver && 
-                   chosen_type != HorrorType::MindLeech && // MindLeech cannot be elite
+                   chosen_type != HorrorType::MindLeech && 
                    chosen_type != HorrorType::FrenziedBehemoth;
     spawn_horror_type(&mut commands, &asset_server, chosen_type, final_spawn_pos, cycle_multiplier, is_elite); 
 }
 
-// ... (rest of horror_movement_system, other AI systems, collision, death drops, etc. remain unchanged from previous correct version)
-// Make sure to copy the rest of the file from the previous correct version if only showing this diff.
-// For this specific change, only the HorrorType enum, HorrorStats, spawn_horror_type, and horror_spawn_system
-// and the collision system in survivor.rs are directly modified for the new enemy.
 
 fn horror_movement_system( mut query: Query<(&mut Transform, &mut Velocity, &Horror, Option<&mut RangedAttackerBehavior>, Option<&mut VoidBlinkerBehavior>, Option<&mut FleshWeaverBehavior>, Option<&mut FrenziedBehemothBehavior>, Option<&Frozen>)>, player_query: Query<&Transform, (With<Survivor>, Without<Horror>)>, time: Res<Time>,) {
     let Ok(player_transform) = player_query.get_single() else { return; }; 
@@ -574,7 +566,7 @@ fn void_blinker_ai_system(
                     behavior.action_timer.set_duration(Duration::from_secs_f32(PHASE_RIPPER_PHASE_DURATION_SECS)); 
                     behavior.action_timer.reset(); 
                     
-                    let dir_from_horror_to_player = (player_pos - horror_pos).normalize_or_else(Vec2::X); 
+                    let dir_from_horror_to_player = (player_pos - horror_pos).normalize_or_zero(); 
                     let teleport_base_pos = player_pos + dir_from_horror_to_player * VOID_BLINKER_FLANK_DISTANCE;
                     
                     let perpendicular_random_angle = rng.gen_range(-0.5..0.5) * std::f32::consts::PI; 
@@ -585,9 +577,9 @@ fn void_blinker_ai_system(
 
                     let dist_to_player = final_teleport_pos.distance(player_pos);
                     if dist_to_player < PHASE_RIPPER_TELEPORT_RANGE_MIN {
-                        final_teleport_pos = player_pos + (final_teleport_pos - player_pos).normalize_or_else(Vec2::X) * PHASE_RIPPER_TELEPORT_RANGE_MIN;
+                        final_teleport_pos = player_pos + (final_teleport_pos - player_pos).normalize_or_zero() * PHASE_RIPPER_TELEPORT_RANGE_MIN;
                     } else if dist_to_player > PHASE_RIPPER_TELEPORT_RANGE_MAX {
-                        final_teleport_pos = player_pos + (final_teleport_pos - player_pos).normalize_or_else(Vec2::X) * PHASE_RIPPER_TELEPORT_RANGE_MAX;
+                        final_teleport_pos = player_pos + (final_teleport_pos - player_pos).normalize_or_zero() * PHASE_RIPPER_TELEPORT_RANGE_MAX;
                     }
                     behavior.next_teleport_destination = Some(final_teleport_pos);
                     
@@ -676,10 +668,10 @@ fn flesh_weaver_ai_system(
                 if minions_spawned_this_cycle > 0 { 
                     summoner_behavior.is_evading = true;
                     summoner_behavior.evasion_timer.reset();
-                    let dir_to_player = (player_pos - fw_pos).normalize_or_else(Vec2::X);
+                    let dir_to_player = (player_pos - fw_pos).normalize_or_zero();
                     summoner_behavior.evasion_direction = if rng.gen_bool(0.5) { dir_to_player.perp() } else { -dir_to_player.perp() };
                     if summoner_behavior.evasion_direction == Vec2::ZERO { 
-                        summoner_behavior.evasion_direction = Vec2::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0)).normalize_or_else(Vec2::X);
+                        summoner_behavior.evasion_direction = Vec2::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0)).normalize_or_zero();
                     }
                 }
             } 
@@ -696,14 +688,24 @@ fn spawn_and_return_horror_entity( commands: &mut Commands, asset_server: &Res<A
         Name::new(format!("{:?}", stats.horror_type)), 
     )).id() 
 }
+
 fn frenzied_behemoth_ai_system(
     time: Res<Time>, 
-    mut charger_query: Query<(&mut Transform, &mut FrenziedBehemothBehavior, &mut Sprite, &Horror)>, 
-    player_query: Query<&Transform, With<Survivor>>,
+    mut q_set: ParamSet<(
+        Query<(&mut Transform, &mut FrenziedBehemothBehavior, &mut Sprite, &Horror)>,
+        Query<&Transform, With<Survivor>>,
+    )>,
 ){ 
-    let Ok(player_transform) = player_query.get_single() else { return; }; 
+    let player_query_interaction = q_set.p1(); // Bind the QueryInteraction part
+    let player_transform_result = player_query_interaction.get_single(); // Call get_single on the binding
+    
+    let player_transform = match player_transform_result {
+        Ok(t) => t,
+        Err(_) => return,
+    };
     let player_pos = player_transform.translation.truncate(); 
-    for (mut charger_transform, mut behavior, mut sprite, _horror_data) in charger_query.iter_mut() { 
+
+    for (mut charger_transform, mut behavior, mut sprite, _horror_data) in q_set.p0().iter_mut() { 
         let charger_pos = charger_transform.translation.truncate(); 
         match behavior.state { 
             FrenziedBehemothState::Roaming => { 
@@ -740,9 +742,8 @@ fn frenzied_behemoth_ai_system(
                 if behavior.telegraph_timer.just_finished() { 
                     behavior.state = FrenziedBehemothState::Charging; 
                     behavior.charge_duration_timer.reset(); 
-                    // Final direction is based on the last update or initial if no updates occurred
                     let final_charge_dir = behavior.charge_direction.unwrap_or_else(|| (player_pos - charger_pos).normalize_or_zero());
-                    behavior.charge_direction = Some(final_charge_dir); // Ensure it's set for charging state
+                    behavior.charge_direction = Some(final_charge_dir); 
 
                     if final_charge_dir != Vec2::ZERO {
                        charger_transform.rotation = Quat::from_rotation_z(final_charge_dir.y.atan2(final_charge_dir.x));

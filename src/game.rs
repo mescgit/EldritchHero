@@ -11,7 +11,7 @@ use crate::{
     audio::{PlaySoundEvent, SoundEffect},
     debug_menu::DebugMenuPlugin,
     items::{ItemId, ItemLibrary, AutomaticWeaponId, AutomaticWeaponLibrary}, 
-    skills::{ActiveSkillInstance, SkillLibrary}, 
+    skills::{ActiveSkillInstance}, 
     automatic_projectiles::AutomaticProjectile,
 };
 
@@ -307,9 +307,9 @@ fn character_select_button_interaction_system(
     >,
     mut next_app_state: ResMut<NextState<AppState>>,
     mut selected_character: ResMut<SelectedCharacter>,
-    game_state: ResMut<GameState>, // Removed mut
-    horror_spawn_timer: ResMut<HorrorSpawnTimer>, // Removed mut
-    max_horrors: ResMut<MaxHorrors>, // Removed mut
+    game_state: ResMut<GameState>, 
+    horror_spawn_timer: ResMut<HorrorSpawnTimer>, 
+    max_horrors: ResMut<MaxHorrors>, 
     player_entity_query: Query<Entity, With<Survivor>>,
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
 ) {
@@ -338,12 +338,7 @@ fn character_select_button_interaction_system(
             commands.entity(entity).despawn_recursive();
         }
         
-        // To pass ResMut to reset_for_new_game_session, we need mutable access from Commands
-        // because the system parameters game_state, horror_spawn_timer, max_horrors are not &mut ResMut<T>
-        let gs = commands.get_resource_mut::<GameState>().expect("GameState resource not found");
-        let hst = commands.get_resource_mut::<HorrorSpawnTimer>().expect("HorrorSpawnTimer resource not found");
-        let mh = commands.get_resource_mut::<MaxHorrors>().expect("MaxHorrors resource not found");
-        reset_for_new_game_session(gs, hst, mh);
+        reset_for_new_game_session(game_state, horror_spawn_timer, max_horrors);
         
         next_app_state.set(AppState::InGame);
     }
