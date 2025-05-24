@@ -314,11 +314,11 @@ fn horror_spawn_system(
     let relative_spawn_pos = Vec2::new(angle.cos() * distance, angle.sin() * distance);
     let spawn_pos = player_pos + relative_spawn_pos;
     let final_spawn_pos = Vec3::new(spawn_pos.x, spawn_pos.y, 0.5);
-    let cycle_multiplier = 1.0 + (game_state.cycle_number as f32 - 1.0) * 0.1; 
+    let wave_multiplier = 1.0 + (game_state.wave_number as f32 - 1.0) * 0.1;
 
-    let chosen_type = match game_state.cycle_number { 
+    let chosen_type = match game_state.wave_number {
         1..=2 => if rng.gen_bool(0.7) { HorrorType::SkitteringShadowling } else { HorrorType::MindLeech },
-        3..=4 => { 
+        3..=4 => {
             let roll = rng.gen_range(0..100);
             if roll < 30 { HorrorType::SkitteringShadowling }
             else if roll < 60 { HorrorType::MindLeech }
@@ -347,9 +347,9 @@ fn horror_spawn_system(
     let is_elite = rng.gen_bool(ELITE_SPAWN_CHANCE) &&
                    chosen_type != HorrorType::CrawlingTorment &&
                    chosen_type != HorrorType::FleshWeaver && 
-                   chosen_type != HorrorType::MindLeech && 
+                   chosen_type != HorrorType::MindLeech &&
                    chosen_type != HorrorType::FrenziedBehemoth;
-    spawn_horror_type(&mut commands, &asset_server, chosen_type, final_spawn_pos, cycle_multiplier, is_elite); 
+    spawn_horror_type(&mut commands, &asset_server, chosen_type, final_spawn_pos, wave_multiplier, is_elite);
 }
 
 
@@ -633,13 +633,13 @@ fn flesh_weaver_ai_system(
     asset_server: Res<AssetServer>, 
     game_state: Res<GameState>,
     player_query: Query<&Transform, With<Survivor>>,
-) { 
+) {
     let Ok(player_transform) = player_query.get_single() else { return; };
     let player_pos = player_transform.translation.truncate();
-    let cycle_multiplier = 1.0 + (game_state.cycle_number as f32 - 1.0) * 0.1; 
+    let wave_multiplier = 1.0 + (game_state.wave_number as f32 - 1.0) * 0.1;
     let mut rng = rand::thread_rng();
 
-    for (fw_g_transform, mut summoner_behavior, _fw_horror_data) in summoner_query.iter_mut() { 
+    for (fw_g_transform, mut summoner_behavior, _fw_horror_data) in summoner_query.iter_mut() {
         let fw_pos = fw_g_transform.translation().truncate();
         summoner_behavior.active_minion_entities.retain(|&minion_e| commands.get_entity(minion_e).is_some()); 
         
@@ -657,13 +657,13 @@ fn flesh_weaver_ai_system(
                 for _ in 0..SUMMONER_MINIONS_TO_SPAWN { 
                     if summoner_behavior.active_minion_entities.len() >= summoner_behavior.max_minions as usize { break; } 
                     let offset_angle = rng.gen_range(0.0..std::f32::consts::PI * 2.0); 
-                    let offset_distance = rng.gen_range(20.0..50.0); 
-                    let spawn_offset = Vec2::new(offset_angle.cos() * offset_distance, offset_angle.sin() * offset_distance); 
-                    let minion_spawn_pos = (fw_pos + spawn_offset).extend(0.5); 
-                    let minion_entity = spawn_and_return_horror_entity(&mut commands, &asset_server, HorrorType::CrawlingTorment, minion_spawn_pos, cycle_multiplier); 
-                    summoner_behavior.active_minion_entities.push(minion_entity); 
+                    let offset_distance = rng.gen_range(20.0..50.0);
+                    let spawn_offset = Vec2::new(offset_angle.cos() * offset_distance, offset_angle.sin() * offset_distance);
+                    let minion_spawn_pos = (fw_pos + spawn_offset).extend(0.5);
+                    let minion_entity = spawn_and_return_horror_entity(&mut commands, &asset_server, HorrorType::CrawlingTorment, minion_spawn_pos, wave_multiplier);
+                    summoner_behavior.active_minion_entities.push(minion_entity);
                     minions_spawned_this_cycle +=1;
-                } 
+                }
 
                 if minions_spawned_this_cycle > 0 { 
                     summoner_behavior.is_evading = true;

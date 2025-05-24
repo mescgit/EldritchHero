@@ -68,7 +68,7 @@ impl EnemyStats {
             EnemyType::BulwarkOfFlesh => EnemyStats { enemy_type, health: (60.0 * wave_multiplier * 1.5).max(1.0) as i32, damage_on_collision: 20, speed: 50.0 + 10.0 * (wave_multiplier - 1.0).max(0.0), size: BULWARK_OF_FLESH_SIZE, sprite_path: "sprites/bulwark_of_flesh.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: EXP_ORB_VALUE + 15, item_drop_chance_override: Some(ITEM_DROP_CHANCE + 0.05), },
             EnemyType::PhaseRipper => EnemyStats { enemy_type, health: (30.0 * wave_multiplier).max(1.0) as i32, damage_on_collision: 15, speed: 110.0 + 20.0 * (wave_multiplier - 1.0).max(0.0), size: PHASE_RIPPER_SIZE, sprite_path: "sprites/phase_ripper.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: EXP_ORB_VALUE + 10, item_drop_chance_override: Some(ITEM_DROP_CHANCE + 0.03), },
             EnemyType::BroodTender => EnemyStats { enemy_type, health: (40.0 * wave_multiplier * 1.2).max(1.0) as i32, damage_on_collision: 8, speed: 60.0 + 10.0 * (wave_multiplier - 1.0).max(0.0), size: BROOD_TENDER_SIZE, sprite_path: "sprites/brood_tender.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: EXP_ORB_VALUE + 20, item_drop_chance_override: Some(ITEM_DROP_CHANCE + 0.07), },
-            EnemyType::MindlessSpawn => EnemyStats { enemy_type, health: (5.0 * wave_multiplier).max(1.0) as i32, damage_on_collision: 5, speed: 120.0 + 10.0 * (wave_multiplier - 1.0).max(0.0), size: MINDLESS_SPAWN_SIZE, sprite_path: "sprites/mindless_spawn.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: EXP_ORB_VALUE / 5, item_drop_chance_override: Some(MINION_ITEM_DROP_CHANCE), },
+            EnemyType::MindlessSpawn => EnemyStats { enemy_type, health: (3.0 * wave_multiplier).max(1.0) as i32, damage_on_collision: 3, speed: 80.0 + 5.0 * (wave_multiplier - 1.0).max(0.0), size: MINDLESS_SPAWN_SIZE, sprite_path: "sprites/mindless_spawn.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: EXP_ORB_VALUE / 10, item_drop_chance_override: Some(MINION_ITEM_DROP_CHANCE), },
             EnemyType::RuinousCharger => EnemyStats { enemy_type, health: (70.0 * wave_multiplier * 1.3).max(1.0) as i32, damage_on_collision: 25, speed: 80.0 + 15.0 * (wave_multiplier - 1.0).max(0.0), size: RUINOUS_CHARGER_SIZE, sprite_path: "sprites/ruinous_charger.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: EXP_ORB_VALUE + 25, item_drop_chance_override: Some(ITEM_DROP_CHANCE + 0.1), },
         }
     }
@@ -217,15 +217,106 @@ fn enemy_spawn_system(
     let relative_spawn_pos = Vec2::new(angle.cos() * distance, angle.sin() * distance);
     let spawn_pos = player_pos + relative_spawn_pos;
     let final_spawn_pos = Vec3::new(spawn_pos.x, spawn_pos.y, 0.5);
-    let wave_multiplier = 1.0 + (game_state.wave_number as f32 - 1.0) * 0.1;
+    let wave_multiplier = 1.0 + (game_state.wave_number.saturating_sub(2) as f32) * 0.1;
 
     let chosen_type = match game_state.wave_number {
-        1..=2 => EnemyType::LingeringDreg,
-        3..=4 => { if rng.gen_bool(0.3) { EnemyType::LingeringDreg } else if rng.gen_bool(0.3) { EnemyType::GazingOrb } else { EnemyType::PhaseRipper } }
-        5..=6 => { let roll = rng.gen_range(0..100); if roll < 20 { EnemyType::LingeringDreg } else if roll < 40 { EnemyType::GazingOrb } else if roll < 60 { EnemyType::PhaseRipper } else { EnemyType::BroodTender } }
-        _ => { let roll = rng.gen_range(0..100); if roll < 15 { EnemyType::LingeringDreg } else if roll < 30 { EnemyType::GazingOrb } else if roll < 45 { EnemyType::PhaseRipper } else if roll < 60 { EnemyType::BroodTender } else if roll < 80 { EnemyType::RuinousCharger } else { EnemyType::BulwarkOfFlesh } }
+        1 => EnemyType::MindlessSpawn, // Only MindlessSpawn
+        2 => { // MindlessSpawn and LingeringDreg
+            if rng.gen_bool(0.7) { // 70% chance for MindlessSpawn
+                EnemyType::MindlessSpawn
+            } else { // 30% chance for LingeringDreg
+                EnemyType::LingeringDreg
+            }
+        }
+        3 => { // More LingeringDreg, some MindlessSpawn. Easier than current Wave 3.
+            if rng.gen_bool(0.6) { // 60% chance for LingeringDreg
+                EnemyType::LingeringDreg
+            } else { // 40% chance for MindlessSpawn
+                EnemyType::MindlessSpawn
+            }
+        }
+        4 => { // Introduce GazingOrb
+            let roll = rng.gen_range(0..100);
+            if roll < 50 { // 50% LingeringDreg
+                EnemyType::LingeringDreg
+            } else if roll < 80 { // 30% MindlessSpawn
+                EnemyType::MindlessSpawn
+            } else { // 20% GazingOrb
+                EnemyType::GazingOrb
+            }
+        }
+        5 => { // Introduce PhaseRipper, increase GazingOrb
+            let roll = rng.gen_range(0..100);
+            if roll < 40 { // 40% LingeringDreg
+                EnemyType::LingeringDreg
+            } else if roll < 60 { // 20% GazingOrb
+                EnemyType::GazingOrb
+            } else if roll < 80 { // 20% MindlessSpawn
+                EnemyType::MindlessSpawn
+            } else { // 20% PhaseRipper
+                EnemyType::PhaseRipper
+            }
+        }
+        6 => { // Introduce BroodTender
+            let roll = rng.gen_range(0..100);
+            if roll < 30 { // 30% LingeringDreg
+                EnemyType::LingeringDreg
+            } else if roll < 50 { // 20% GazingOrb
+                EnemyType::GazingOrb
+            } else if roll < 70 { // 20% PhaseRipper
+                EnemyType::PhaseRipper
+            } else { // 30% BroodTender (will also spawn MindlessSpawn)
+                EnemyType::BroodTender
+            }
+        }
+        7 => { // More BroodTender, PhaseRipper, GazingOrb
+            let roll = rng.gen_range(0..100);
+            if roll < 25 { // 25% BroodTender
+                EnemyType::BroodTender
+            } else if roll < 50 { // 25% PhaseRipper
+                EnemyType::PhaseRipper
+            } else if roll < 75 { // 25% GazingOrb
+                EnemyType::GazingOrb
+            } else { // 25% LingeringDreg
+                EnemyType::LingeringDreg
+            }
+        }
+        8..=9 => { // Introduce RuinousCharger
+            let roll = rng.gen_range(0..100);
+            if roll < 20 {
+                EnemyType::BroodTender
+            } else if roll < 40 {
+                EnemyType::PhaseRipper
+            } else if roll < 60 {
+                EnemyType::GazingOrb
+            } else if roll < 80 {
+                EnemyType::RuinousCharger // New
+            } else {
+                EnemyType::LingeringDreg
+            }
+        }
+        _ => { // Waves 10+ (previously default), introduce BulwarkOfFlesh and mix everything
+            let roll = rng.gen_range(0..100);
+            if roll < 15 {
+                EnemyType::RuinousCharger
+            } else if roll < 30 {
+                EnemyType::BroodTender
+            } else if roll < 45 {
+                EnemyType::BulwarkOfFlesh // New here
+            } else if roll < 60 {
+                EnemyType::PhaseRipper
+            } else if roll < 75 {
+                EnemyType::GazingOrb
+            } else if roll < 90 {
+                EnemyType::LingeringDreg
+            } else {
+                EnemyType::MindlessSpawn // Keep a few weak ones for variety
+            }
+        }
     };
-    let is_elite = rng.gen_bool(ELITE_SPAWN_CHANCE) &&
+    let can_be_elite_this_wave = game_state.wave_number >= 3;
+    let is_elite = can_be_elite_this_wave && // Only allow elites from wave 3 onwards
+                   rng.gen_bool(ELITE_SPAWN_CHANCE) &&
                    chosen_type != EnemyType::MindlessSpawn &&
                    chosen_type != EnemyType::BroodTender && // For now, summoners and chargers don't become elite
                    chosen_type != EnemyType::RuinousCharger;

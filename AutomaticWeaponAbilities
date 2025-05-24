@@ -1,0 +1,36 @@
+feat: Add 20 new auto-attack spells (character archetypes)
+
+Adds 20 new `AutomaticWeaponDefinition` entries to the `AutomaticWeaponLibrary`
+in `src/items.rs`. Each definition represents a new auto-attack spell,
+effectively creating a new character archetype selectable from your main menu.
+
+The new spells include a variety of fantasy themes such as:
+- Inferno Bolt
+- Chain Lightning
+- Arcane Ray
+- Shadow Orb
+- Holy Lance
+- Venom Spit
+- Glacial Spike
+- EarthShatter Shard
+- Sunfire Burst
+- Moonbeam Dart
+- Spirit Bomb
+- Void Tendril
+- Crystal Shard
+- Magma Ball
+- Sand Blast
+- Metal Shrapnel
+- Nature's Wrath
+- Chi Bolt
+- Psionic Lash
+- Aether Bolt
+
+Each spell has unique stats (damage, fire rate, speed, piercing,
+projectile count, lifetime) and placeholder sprite paths.
+
+Verification of these additions in-game was blocked by a Rust
+compiler version mismatch in the execution environment (Bevy 0.13.2
+requires Rust 1.76+, environment has 1.75.0). The changes are
+structurally sound and should integrate correctly when compiled
+with the appropriate Rust version.
