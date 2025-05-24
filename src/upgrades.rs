@@ -1,7 +1,9 @@
 // src/upgrades.rs
 use bevy::prelude::*;
 use rand::seq::SliceRandom;
-use crate::{skills::SkillId};
+use crate::{
+    skills::SkillId,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum UpgradeType {
@@ -12,7 +14,7 @@ pub enum UpgradeType {
     EchoesGainMultiplier(u32), 
     SoulAttractionRadius(u32), 
 
-    // Automatic Weapon Upgrades
+    // Automatic Weapon Upgrades (Now for Inherent Weapon)
     IncreaseAutoWeaponDamage(i32),          
     IncreaseAutoWeaponFireRate(u32),      
     IncreaseAutoWeaponProjectileSpeed(u32), 
@@ -105,6 +107,7 @@ impl UpgradePool {
             UpgradeCard {id: UpgradeId(703), name: "Learn: Glacial Nova".to_string(), description: "Unlock the Glacial Nova chilling skill.".to_string(), upgrade_type: UpgradeType::GrantSkill(SkillId(5)),},
             UpgradeCard {id: UpgradeId(704), name: "Learn: Psychic Sentry".to_string(), description: "Unlock the Psychic Sentry summon skill.".to_string(), upgrade_type: UpgradeType::GrantSkill(SkillId(6)),},
             UpgradeCard {id: UpgradeId(705), name: "Learn: Ethereal Ward".to_string(), description: "Unlock the Ethereal Ward defensive skill.".to_string(), upgrade_type: UpgradeType::GrantSkill(SkillId(7)),},
+            UpgradeCard {id: UpgradeId(706), name: "Learn: Gaze of the Abyss".to_string(), description: "Unlock the Gaze of the Abyss channeled beam skill.".to_string(), upgrade_type: UpgradeType::GrantSkill(SkillId(8)),},
 
 
             // Skill Meta Upgrades

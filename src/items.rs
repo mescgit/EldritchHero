@@ -9,10 +9,6 @@ use crate::{
     audio::{PlaySoundEvent, SoundEffect},
     skills::{SkillId, SkillLibrary, ActiveSkillInstance},
     weapons::{CircleOfWarding, SwarmOfNightmares},
-    // glyphs::GlyphId, // Commented out if no longer used by Survivor,
-                       // but survivor.rs still has commented out collected_glyphs.
-                       // For now, let's assume it might be re-enabled or used elsewhere indirectly.
-                       // If it causes an unused import warning later, we'll remove it.
 };
 
 // --- Standard Items (Relics) ---
@@ -41,7 +37,13 @@ pub enum ItemEffect {
 }
 
 #[derive(Debug, Clone, Reflect)]
-pub struct ItemDefinition { pub id: ItemId, pub name: String, pub description: String, pub effects: Vec<ItemEffect>, }
+pub struct ItemDefinition {
+    pub id: ItemId,
+    pub name: String,
+    pub description: String,
+    pub effects: Vec<ItemEffect>,
+    pub icon_path: &'static str, 
+}
 
 #[derive(Resource, Default, Reflect)] #[reflect(Resource)]
 pub struct ItemLibrary { pub items: Vec<ItemDefinition>, }
@@ -75,7 +77,6 @@ pub struct AutomaticWeaponDefinition {
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
-    // pub base_glyph_slots: u8, // Commented out
 }
 
 #[derive(Resource, Default, Reflect)]
@@ -117,7 +118,6 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         projectile_size: Vec2::new(10.0, 10.0),
         projectile_color: Color::rgb(0.7, 0.5, 1.0),
         projectile_lifetime_secs: 2.0,
-        // base_glyph_slots: 2, // Commented out
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
@@ -132,7 +132,6 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         projectile_size: Vec2::new(8.0, 16.0),
         projectile_color: Color::rgb(0.3, 0.9, 0.4),
         projectile_lifetime_secs: 1.5,
-        // base_glyph_slots: 3, // Commented out
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
@@ -147,23 +146,67 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         projectile_size: Vec2::new(18.0, 18.0),
         projectile_color: Color::rgb(0.4, 0.1, 0.7),
         projectile_lifetime_secs: 2.5,
-        // base_glyph_slots: 1, // Commented out
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(3), 
+        name: "Spectral Blades".to_string(),
+        base_damage: 12,
+        base_fire_rate_secs: 0.75, 
+        base_projectile_speed: 400.0,
+        base_piercing: 0,
+        additional_projectiles: 2, 
+        projectile_sprite_path: "sprites/spectral_blade_placeholder.png", 
+        projectile_size: Vec2::new(20.0, 8.0), 
+        projectile_color: Color::rgb(0.6, 0.9, 1.0), 
+        projectile_lifetime_secs: 0.4, 
     });
 }
 
 fn populate_item_library(mut library: ResMut<ItemLibrary>) {
-    library.items.push(ItemDefinition { id: ItemId(1), name: "Corrupted Heart".to_string(), description: "Increases Max Health by 25.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: Some(25), speed_multiplier: None, damage_increase: None, xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], });
-    library.items.push(ItemDefinition { id: ItemId(2), name: "Whispering Idol".to_string(), description: "Increases Movement Speed by 15%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: Some(1.15), damage_increase: None, xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], });
-    library.items.push(ItemDefinition { id: ItemId(3), name: "Shard of Agony".to_string(), description: "Increases automatic weapon damage by 5.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: Some(5), xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], });
-    library.items.push(ItemDefinition { id: ItemId(4), name: "Occult Tome Fragment".to_string(), description: "Increases XP gain by 20%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: None, xp_gain_multiplier: Some(1.20), pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], });
-    library.items.push(ItemDefinition { id: ItemId(5), name: "Grasping Tentacle (Dried)".to_string(), description: "Increases pickup radius by 25%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: None, xp_gain_multiplier: None, pickup_radius_increase: Some(0.25), auto_weapon_projectile_speed_multiplier_increase: None }], });
-    library.items.push(ItemDefinition { id: ItemId(6), name: "Fragmented Sanity".to_string(), description: "Your automatic projectiles have a chance to violently detonate on impact.".to_string(), effects: vec![ItemEffect::OnAutomaticProjectileHitExplode { chance: 0.15, explosion_damage: 20, explosion_radius: 75.0, explosion_color: Color::rgba(1.0, 0.5, 0.2, 0.6), }], });
-    library.items.push(ItemDefinition { id: ItemId(7), name: "Cloak of VengefulSpirits".to_string(), description: "When struck, has a chance to unleash a damaging psychic nova.".to_string(), effects: vec![ItemEffect::OnSurvivorHitRetaliate { chance: 0.25, retaliation_damage: 30, retaliation_radius: 120.0, retaliation_color: Color::rgba(0.9, 0.1, 0.1, 0.5), }], });
-    library.items.push(ItemDefinition { id: ItemId(8), name: "Soul Siphon Shard".to_string(), description: "Defeated foes have a 20% chance to grant brief, rapid health regeneration.".to_string(), effects: vec![ItemEffect::OnHorrorKillTrigger { chance: 0.20, effect: SurvivorTemporaryBuff::HealthRegen { rate: 5.0, duration_secs: 3.0 }, }], });
-    library.items.push(ItemDefinition { id: ItemId(9), name: "Tome of Forbidden Rites".to_string(), description: "Grants knowledge of the 'Void Lance' skill.".to_string(), effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(3) }], });
-    library.items.push(ItemDefinition { id: ItemId(10), name: "Glyph-Etched Wardstone".to_string(), description: "Activates a Circle of Warding, damaging nearby foes.".to_string(), effects: vec![ItemEffect::ActivateCircleOfWarding { base_damage: 3, base_radius: 75.0, base_tick_interval: 0.5, }], });
-    library.items.push(ItemDefinition { id: ItemId(11), name: "Broodmother's Oculus".to_string(), description: "Summons a Swarm of Nightmares to orbit and attack enemies.".to_string(), effects: vec![ItemEffect::ActivateSwarmOfNightmares { num_larvae: 2, base_damage: 5, base_orbit_radius: 80.0, base_rotation_speed: std::f32::consts::PI / 2.0, }], });
-    library.items.push(ItemDefinition { id: ItemId(12), name: "Crystalline Conduit".to_string(), description: "Increases automatic weapon damage by +3 and projectile speed by +10%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: Some(3), xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: Some(0.10) }], });
+    library.items.push(ItemDefinition { id: ItemId(1), name: "Corrupted Heart".to_string(), description: "Increases Max Health by 25.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: Some(25), speed_multiplier: None, damage_increase: None, xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_corrupted_heart_placeholder.png" });
+    library.items.push(ItemDefinition { id: ItemId(2), name: "Whispering Idol".to_string(), description: "Increases Movement Speed by 15%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: Some(1.15), damage_increase: None, xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_whispering_idol_placeholder.png" });
+    library.items.push(ItemDefinition { id: ItemId(3), name: "Shard of Agony".to_string(), description: "Increases automatic weapon damage by 5.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: Some(5), xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_shard_of_agony_placeholder.png" });
+    library.items.push(ItemDefinition { id: ItemId(4), name: "Occult Tome Fragment".to_string(), description: "Increases XP gain by 20%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: None, xp_gain_multiplier: Some(1.20), pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_occult_tome_placeholder.png" });
+    library.items.push(ItemDefinition { id: ItemId(5), name: "Grasping Tentacle (Dried)".to_string(), description: "Increases pickup radius by 25%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: None, xp_gain_multiplier: None, pickup_radius_increase: Some(0.25), auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_grasping_tentacle_placeholder.png" });
+    library.items.push(ItemDefinition { id: ItemId(6), name: "Fragmented Sanity".to_string(), description: "Your automatic projectiles have a chance to violently detonate on impact.".to_string(), effects: vec![ItemEffect::OnAutomaticProjectileHitExplode { chance: 0.15, explosion_damage: 20, explosion_radius: 75.0, explosion_color: Color::rgba(1.0, 0.5, 0.2, 0.6), }], icon_path: "sprites/icons/item_fragmented_sanity_placeholder.png" });
+    library.items.push(ItemDefinition { id: ItemId(7), name: "Cloak of VengefulSpirits".to_string(), description: "When struck, has a chance to unleash a damaging psychic nova.".to_string(), effects: vec![ItemEffect::OnSurvivorHitRetaliate { chance: 0.25, retaliation_damage: 30, retaliation_radius: 120.0, retaliation_color: Color::rgba(0.9, 0.1, 0.1, 0.5), }], icon_path: "sprites/icons/item_cloak_vengeful_spirits_placeholder.png" });
+    library.items.push(ItemDefinition { id: ItemId(8), name: "Soul Siphon Shard".to_string(), description: "Defeated foes have a 20% chance to grant brief, rapid health regeneration.".to_string(), effects: vec![ItemEffect::OnHorrorKillTrigger { chance: 0.20, effect: SurvivorTemporaryBuff::HealthRegen { rate: 5.0, duration_secs: 3.0 }, }], icon_path: "sprites/icons/item_soul_siphon_shard_placeholder.png" });
+    library.items.push(ItemDefinition { id: ItemId(9), name: "Tome of Forbidden Rites".to_string(), description: "Grants knowledge of the 'Void Lance' skill.".to_string(), effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(3) }], icon_path: "sprites/icons/item_tome_forbidden_rites_placeholder.png" }); // Existing Tome
+    library.items.push(ItemDefinition { id: ItemId(10), name: "Glyph-Etched Wardstone".to_string(), description: "Activates a Circle of Warding, damaging nearby foes.".to_string(), effects: vec![ItemEffect::ActivateCircleOfWarding { base_damage: 3, base_radius: 75.0, base_tick_interval: 0.5, }], icon_path: "sprites/icons/item_glyph_wardstone_placeholder.png" });
+    library.items.push(ItemDefinition { id: ItemId(11), name: "Broodmother's Oculus".to_string(), description: "Summons a Swarm of Nightmares to orbit and attack enemies.".to_string(), effects: vec![ItemEffect::ActivateSwarmOfNightmares { num_larvae: 2, base_damage: 5, base_orbit_radius: 80.0, base_rotation_speed: std::f32::consts::PI / 2.0, }], icon_path: "sprites/icons/item_broodmother_oculus_placeholder.png" });
+    library.items.push(ItemDefinition { id: ItemId(12), name: "Crystalline Conduit".to_string(), description: "Increases automatic weapon damage by +3 and projectile speed by +10%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: Some(3), xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: Some(0.10) }], icon_path: "sprites/icons/item_crystalline_conduit_placeholder.png" });
+
+    // New Tomes for Granting Skills
+    library.items.push(ItemDefinition { 
+        id: ItemId(13), 
+        name: "Tome of Shattered Thoughts".to_string(), 
+        description: "Unlocks the 'Mind Shatter' psychic burst skill.".to_string(), 
+        effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(2) }], 
+        icon_path: "sprites/icons/item_tome_mind_shatter_placeholder.png" 
+    });
+    library.items.push(ItemDefinition { 
+        id: ItemId(14), 
+        name: "Tome of the Glacial Heart".to_string(), 
+        description: "Unlocks the 'Glacial Nova' chilling skill.".to_string(), 
+        effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(5) }], 
+        icon_path: "sprites/icons/item_tome_glacial_nova_placeholder.png" 
+    });
+    library.items.push(ItemDefinition { 
+        id: ItemId(15), 
+        name: "Tome of the Watcher".to_string(), 
+        description: "Unlocks the 'Psychic Sentry' summoning skill.".to_string(), 
+        effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(6) }], 
+        icon_path: "sprites/icons/item_tome_psychic_sentry_placeholder.png" 
+    });
+     library.items.push(ItemDefinition { 
+        id: ItemId(16), 
+        name: "Tome of Ethereal Defense".to_string(), 
+        description: "Unlocks the 'Ethereal Ward' defensive skill.".to_string(), 
+        effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(7) }], 
+        icon_path: "sprites/icons/item_tome_ethereal_ward_placeholder.png" 
+    });
+
 }
 
 fn apply_collected_item_effects_system(
@@ -176,23 +219,20 @@ fn apply_collected_item_effects_system(
         for event in events.read() {
             let item_id = event.0;
             let is_new_item = !player.collected_item_ids.contains(&item_id);
-            if is_new_item {
-                // player.collected_item_ids.push(item_id); // This will be pushed after processing effects for safety
-            }
-
+            
             if let Some(item_def) = item_library.get_item_definition(item_id) {
-                let mut applied_successfully = true; // Flag to check if this item should be marked as collected
-                for effect in &item_def.effects {
-                    match effect {
-                        ItemEffect::PassiveStatBoost {
-                            max_health_increase,
-                            speed_multiplier,
-                            damage_increase,
-                            xp_gain_multiplier,
-                            pickup_radius_increase,
-                            auto_weapon_projectile_speed_multiplier_increase
-                        } => {
-                            if is_new_item {
+                let mut applied_successfully = true; 
+                if is_new_item { // Most effects only apply once, when the item is first collected.
+                    for effect in &item_def.effects {
+                        match effect {
+                            ItemEffect::PassiveStatBoost {
+                                max_health_increase,
+                                speed_multiplier,
+                                damage_increase,
+                                xp_gain_multiplier,
+                                pickup_radius_increase,
+                                auto_weapon_projectile_speed_multiplier_increase
+                            } => {
                                 if let Some(hp_boost) = max_health_increase { player.max_health += *hp_boost; if let Some(ref mut health_comp) = opt_health_component { health_comp.0 += *hp_boost; health_comp.0 = health_comp.0.min(player.max_health); } }
                                 if let Some(speed_mult) = speed_multiplier { player.speed *= *speed_mult; }
                                 if let Some(dmg_inc) = damage_increase { player.auto_weapon_damage_bonus += *dmg_inc; }
@@ -200,50 +240,64 @@ fn apply_collected_item_effects_system(
                                 if let Some(radius_inc_percent) = pickup_radius_increase { player.pickup_radius_multiplier *= 1.0 + radius_inc_percent; }
                                 if let Some(projectile_speed_inc) = auto_weapon_projectile_speed_multiplier_increase { player.auto_weapon_projectile_speed_multiplier *= 1.0 + projectile_speed_inc; }
                             }
-                        }
-                        ItemEffect::GrantSpecificSkill { skill_id } => {
-                            if is_new_item {
-                                if let Some(skill_to_grant_def) = skill_library.get_skill_definition(*skill_id) {
+                            ItemEffect::GrantSpecificSkill { skill_id } => {
+                                if let Some(_skill_to_grant_def) = skill_library.get_skill_definition(*skill_id) {
                                     let already_has_skill = player.equipped_skills.iter().any(|s| s.definition_id == *skill_id);
-                                    if !already_has_skill { if player.equipped_skills.len() < 5 { // Assuming max 5 skills
-                                        player.equipped_skills.push(ActiveSkillInstance::new(*skill_id /*, skill_to_grant_def.base_glyph_slots // Commented out */));
-                                    } else { applied_successfully = false; /* Potentially log or notify player skill slots full */ }
-                                    } else { applied_successfully = false; /* Already has skill */ }
-                                } else { applied_successfully = false; /* Skill def not found */ }
+                                    if !already_has_skill { if player.equipped_skills.len() < 5 { 
+                                        player.equipped_skills.push(ActiveSkillInstance::new(*skill_id ));
+                                    } else { applied_successfully = false; }
+                                    } else { applied_successfully = false; /* Already has skill, don't mark as new for collection if this is the only effect */ }
+                                } else { applied_successfully = false; }
+                            }
+                            ItemEffect::ActivateCircleOfWarding { base_damage, base_radius, base_tick_interval } => {
+                                if let Some(ref mut circle_aura) = opt_circle_aura {
+                                    if !circle_aura.is_active {
+                                        circle_aura.is_active = true;
+                                        circle_aura.base_damage_per_tick = *base_damage;
+                                        circle_aura.current_radius = *base_radius;
+                                        circle_aura.damage_tick_timer = Timer::from_seconds(*base_tick_interval, TimerMode::Repeating);
+                                    } else { 
+                                        circle_aura.base_damage_per_tick += 1; 
+                                        circle_aura.current_radius *= 1.05; // Slight radius increase for stacking
+                                    }
+                                } else { applied_successfully = false; }
+                            }
+                            ItemEffect::ActivateSwarmOfNightmares { num_larvae, base_damage, base_orbit_radius, base_rotation_speed } => {
+                                if let Some(ref mut nightmare_swarm) = opt_nightmare_swarm {
+                                    if !nightmare_swarm.is_active {
+                                        nightmare_swarm.is_active = true;
+                                        nightmare_swarm.num_larvae = *num_larvae;
+                                        nightmare_swarm.damage_per_hit = *base_damage;
+                                        nightmare_swarm.orbit_radius = *base_orbit_radius;
+                                        nightmare_swarm.rotation_speed = *base_rotation_speed;
+                                    } else { 
+                                        nightmare_swarm.num_larvae = (nightmare_swarm.num_larvae + 1).min(8); // Max 8 larvae
+                                        nightmare_swarm.damage_per_hit += 1;
+                                    }
+                                } else { applied_successfully = false; }
+                            }
+                             // OnHit/OnKill effects are passive listeners, no direct application here, just need the item in collected_item_ids
+                            ItemEffect::OnAutomaticProjectileHitExplode {..} | ItemEffect::OnSurvivorHitRetaliate {..} | ItemEffect::OnHorrorKillTrigger {..} => {
+                                // These effects are checked elsewhere, just need the item ID to be in the list.
+                                // If an item *only* had these, it would still be "applied_successfully".
                             }
                         }
-                        ItemEffect::ActivateCircleOfWarding { base_damage, base_radius, base_tick_interval } => {
-                            if let Some(ref mut circle_aura) = opt_circle_aura {
-                                if !circle_aura.is_active {
-                                    circle_aura.is_active = true;
-                                    circle_aura.base_damage_per_tick = *base_damage;
-                                    circle_aura.current_radius = *base_radius;
-                                    circle_aura.damage_tick_timer = Timer::from_seconds(*base_tick_interval, TimerMode::Repeating);
-                                } else { // If already active, collecting another of the same item could upgrade it
-                                    circle_aura.base_damage_per_tick += 1; // Example upgrade
-                                }
-                            } else { applied_successfully = false; /* Player doesn't have the component */ }
-                        }
-                        ItemEffect::ActivateSwarmOfNightmares { num_larvae, base_damage, base_orbit_radius, base_rotation_speed } => {
-                            if let Some(ref mut nightmare_swarm) = opt_nightmare_swarm {
-                                if !nightmare_swarm.is_active {
-                                    nightmare_swarm.is_active = true;
-                                    nightmare_swarm.num_larvae = *num_larvae;
-                                    nightmare_swarm.damage_per_hit = *base_damage;
-                                    nightmare_swarm.orbit_radius = *base_orbit_radius;
-                                    nightmare_swarm.rotation_speed = *base_rotation_speed;
-                                } else { // Example upgrade
-                                    nightmare_swarm.num_larvae = (nightmare_swarm.num_larvae + 1).min(5);
-                                    nightmare_swarm.damage_per_hit += 1;
-                                }
-                            } else { applied_successfully = false; /* Player doesn't have the component */ }
-                        }
-                        _ => {}
                     }
                 }
+                // Add to collected_item_ids only if it's genuinely new and all primary effects applied
+                // or if the item is meant to be stackable for some effects even if not "new" in terms of granting.
+                // For simplicity now, if it's new and any core granting effect was attempted, we add it.
+                // Passive stat boosts are always "new" in their effect if the item is new.
                 if is_new_item && applied_successfully {
-                    player.collected_item_ids.push(item_id);
+                     player.collected_item_ids.push(item_id);
+                } else if !is_new_item {
+                    // Handle effects for already owned items that might stack (like Circle of Warding / Swarm in current logic)
+                    // This part might need refinement if some effects are one-time and others stackable.
+                    // The current logic in ActivateCircle/Swarm handles basic stacking.
+                    // PassiveStatBoosts are currently only applied if is_new_item.
                 }
+
+
             }
         }
     }

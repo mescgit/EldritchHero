@@ -10,10 +10,9 @@ use crate::{
     weapons::{CircleOfWarding, SwarmOfNightmares},
     audio::{PlaySoundEvent, SoundEffect},
     debug_menu::DebugMenuPlugin,
-    items::{ItemId, ItemLibrary, AutomaticWeaponId, AutomaticWeaponLibrary},
-    skills::{ActiveSkillInstance, SkillLibrary}, // Removed SkillDefinition here as it was unused previously
+    items::{ItemId, ItemLibrary, AutomaticWeaponId, AutomaticWeaponLibrary}, 
+    skills::{ActiveSkillInstance, SkillLibrary}, 
     automatic_projectiles::AutomaticProjectile,
-    // glyphs::{GlyphLibrary, GlyphId}, // Commented out: GlyphLibrary, GlyphId might be used if debug_menu still uses them
 };
 
 pub const SCREEN_WIDTH: f32 = 1280.0;
@@ -24,6 +23,10 @@ const DIFFICULTY_INCREASE_INTERVAL_SECONDS: f32 = 30.0;
 const MAX_HORRORS_INCREMENT: u32 = 10;
 const SPAWN_INTERVAL_DECREMENT_FACTOR: f32 = 0.9;
 const MIN_SPAWN_INTERVAL_SECONDS: f32 = 0.3;
+const COLLECTED_ITEM_ICON_SIZE: f32 = 32.0;
+const COLLECTED_ITEM_UI_PADDING: f32 = 5.0;
+const COLLECTED_ITEMS_TOP_MARGIN: f32 = 75.0; 
+
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum AppState {
@@ -32,11 +35,19 @@ pub enum AppState {
     LevelUp,
     GameOver,
     DebugUpgradeMenu,
-    // GlyphScreen, // Commented out
 }
 
 #[derive(Resource, Default)]
 struct PreviousGameState(Option<AppState>);
+
+#[derive(Resource)]
+pub struct SelectedCharacter(pub AutomaticWeaponId); 
+
+impl Default for SelectedCharacter {
+    fn default() -> Self {
+        SelectedCharacter(AutomaticWeaponId(0)) 
+    }
+}
 
 #[derive(Resource)]
 pub struct GameConfig { pub width: f32, pub height: f32, pub spawn_area_padding: f32, }
@@ -47,48 +58,21 @@ pub struct GameState { pub score: u32, pub cycle_number: u32, pub horror_count: 
 #[derive(Event)] pub struct UpgradeChosenEvent(pub UpgradeCard);
 #[derive(Event)] pub struct ItemCollectedEvent(pub ItemId);
 
-// --- Components for Glyph Screen UI (Commented out) ---
 #[derive(Component)] struct MainMenuUI;
+#[derive(Component)] struct CharacterSelectButton(AutomaticWeaponId); 
 #[derive(Component)] struct LevelUpUI;
 #[derive(Component)] struct UpgradeButton(UpgradeCard);
 #[derive(Component)] struct GameOverUI;
 #[derive(Component)] struct InGameUI;
-// #[derive(Component)] struct GlyphScreenUI; // Commented out
+#[derive(Component)] struct CollectedItemsUI; 
+#[derive(Component)] struct CollectedItemIcon(ItemId); 
+
 #[derive(Component)] struct EnduranceText;
 #[derive(Component)] struct InsightText;
 #[derive(Component)] struct EchoesText;
 #[derive(Component)] struct ScoreText;
 #[derive(Component)] struct TimerText;
 #[derive(Component)] struct CycleText;
-
-// #[derive(Component)] // Commented out
-// struct GlyphInventoryButton(GlyphId);
-
-// #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)] // Commented out
-// enum GlyphSocketTargetType {
-//     ActiveSkill,
-//     AutomaticWeapon,
-// }
-
-// #[derive(Component)] // Commented out
-// struct GlyphTargetSlotButton {
-//     target_type: GlyphSocketTargetType,
-//     target_entity_slot_idx: usize, 
-//     glyph_slot_idx: usize,
-// }
-
-// --- Event for Socketing (Commented out) ---
-// #[derive(Event)] // Commented out
-// struct SocketGlyphRequestedEvent {
-//     glyph_to_socket: GlyphId,
-//     target_type: GlyphSocketTargetType,
-//     target_entity_slot_idx: usize,
-//     glyph_slot_idx: usize,
-// }
-
-// --- Resource to track selected glyph (Commented out) ---
-// #[derive(Resource, Default)] // Commented out
-// struct SelectedGlyphForSocketing(Option<GlyphId>);
 
 
 fn reset_for_new_game_session(
@@ -125,27 +109,35 @@ fn log_exiting_debug_menu_state() {}
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app .add_event::<UpgradeChosenEvent>() .add_event::<ItemCollectedEvent>()
-            // .add_event::<SocketGlyphRequestedEvent>() // Commented out
             .add_plugins((UpgradePlugin, DebugMenuPlugin)) .init_state::<AppState>()
             .init_resource::<GameConfig>() .init_resource::<GameState>()
             .init_resource::<PreviousGameState>()
-            // .init_resource::<SelectedGlyphForSocketing>() // Commented out
+            .init_resource::<SelectedCharacter>() 
             .insert_resource(HorrorSpawnTimer {timer: Timer::from_seconds(INITIAL_SPAWN_INTERVAL_SECONDS, TimerMode::Repeating)})
             .insert_resource(MaxHorrors(INITIAL_MAX_HORRORS)) .add_plugins(EchoingSoulPlugin)
 
             .add_systems(OnEnter(AppState::MainMenu), setup_main_menu_ui)
-            .add_systems(Update, main_menu_input_system.run_if(in_state(AppState::MainMenu)))
+            .add_systems(Update, character_select_button_interaction_system.run_if(in_state(AppState::MainMenu))) 
             .add_systems(OnExit(AppState::MainMenu), despawn_ui_by_marker::<MainMenuUI>)
 
-            .add_systems(OnEnter(AppState::InGame), (on_enter_ingame_state_actions, setup_ingame_ui,))
+            .add_systems(OnEnter(AppState::InGame), (
+                on_enter_ingame_state_actions,
+                setup_ingame_ui,
+                setup_collected_items_ui, 
+            ))
             .add_systems(Update, (
                 update_ingame_ui,
+                update_collected_items_ui, 
                 update_game_timer,
                 difficulty_scaling_system,
                 global_key_listener,
-                debug_weapon_switch_system,
+                debug_character_switch_system, 
             ).chain().run_if(in_state(AppState::InGame).or_else(in_state(AppState::DebugUpgradeMenu))))
-            .add_systems(OnExit(AppState::InGame), (cleanup_session_entities, despawn_ui_by_marker::<InGameUI>))
+            .add_systems(OnExit(AppState::InGame), (
+                cleanup_session_entities,
+                despawn_ui_by_marker::<InGameUI>,
+                despawn_ui_by_marker::<CollectedItemsUI>, 
+            ))
 
             .add_systems(OnEnter(AppState::LevelUp), (setup_level_up_ui, on_enter_pause_like_state_actions))
             .add_systems(Update, handle_upgrade_choice_interaction.run_if(in_state(AppState::LevelUp)))
@@ -154,20 +146,6 @@ impl Plugin for GamePlugin {
 
             .add_systems(OnEnter(AppState::DebugUpgradeMenu), (on_enter_pause_like_state_actions, log_entering_debug_menu_state))
             .add_systems(OnExit(AppState::DebugUpgradeMenu), (on_enter_ingame_state_actions, log_exiting_debug_menu_state));
-
-            // --- Commented out GlyphScreen systems ---
-            // .add_systems(OnEnter(AppState::GlyphScreen), (setup_glyph_screen_ui, on_enter_pause_like_state_actions))
-            // .add_systems(Update, (
-            //     glyph_screen_input_system,
-            //     glyph_screen_button_interaction_system,
-            //     handle_socket_glyph_request_system.run_if(on_event::<SocketGlyphRequestedEvent>()),
-            // ).chain().run_if(in_state(AppState::GlyphScreen)))
-            // .add_systems(OnExit(AppState::GlyphScreen), (
-            //     despawn_ui_by_marker::<GlyphScreenUI>,
-            //     on_enter_ingame_state_actions,
-            //     |mut selected_glyph: ResMut<SelectedGlyphForSocketing>| selected_glyph.0 = None,
-            // ))
-            // --- End Commented out GlyphScreen systems ---
 
             app.add_systems(OnEnter(AppState::GameOver), setup_game_over_ui)
             .add_systems(Update, game_over_input_system.run_if(in_state(AppState::GameOver)))
@@ -197,89 +175,11 @@ fn global_key_listener(
             _ => {}
         }
     }
-    // --- Commented out 'G' key for GlyphScreen ---
-    // if keyboard_input.just_pressed(KeyCode::KeyG) {
-    //     match current_app_state.get() {
-    //         AppState::InGame => {
-    //             prev_game_state.0 = Some(AppState::InGame);
-    //             next_app_state.set(AppState::GlyphScreen);
-    //         }
-    //         AppState::DebugUpgradeMenu => {
-    //             prev_game_state.0 = Some(AppState::DebugUpgradeMenu);
-    //             next_app_state.set(AppState::GlyphScreen);
-    //         }
-    //         AppState::GlyphScreen => {
-    //             if let Some(prev) = prev_game_state.0.take() {
-    //                 next_app_state.set(prev);
-    //             } else {
-    //                 next_app_state.set(AppState::InGame);
-    //             }
-    //         }
-    //         _ => {}
-    //     }
-    // }
-    // --- End Commented out 'G' key ---
 }
 
-// --- Commented out GlyphScreen functions ---
-/*
-fn glyph_screen_input_system(
+fn debug_character_switch_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut next_app_state: ResMut<NextState<AppState>>,
-    mut prev_game_state: ResMut<PreviousGameState>,
-) {
-    if keyboard_input.just_pressed(KeyCode::Escape) || keyboard_input.just_pressed(KeyCode::KeyG) {
-        if let Some(prev) = prev_game_state.0.take() {
-            next_app_state.set(prev);
-        } else {
-            next_app_state.set(AppState::InGame);
-        }
-    }
-}
-
-fn setup_glyph_screen_ui(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    player_query: Query<&Survivor>,
-    glyph_library: Res<GlyphLibrary>,
-    skill_library: Res<SkillLibrary>,
-    weapon_library: Res<AutomaticWeaponLibrary>,
-    selected_glyph: Res<SelectedGlyphForSocketing>,
-) {
-    // ... entire function body commented ...
-}
-
-fn glyph_screen_button_interaction_system(
-    mut param_set: ParamSet<(
-        Query<(&Interaction, &GlyphInventoryButton), (Changed<Interaction>, With<Button>)>,
-        Query<(&Interaction, &GlyphTargetSlotButton), (Changed<Interaction>, With<Button>)>,
-        Query<(&Interaction, &GlyphInventoryButton, &mut BackgroundColor, &mut BorderColor), With<Button>>,
-        Query<(&Interaction, &GlyphTargetSlotButton, &mut BackgroundColor), With<Button>>,
-    )>,
-    mut selected_glyph_for_socketing: ResMut<SelectedGlyphForSocketing>,
-    mut socket_event_writer: EventWriter<SocketGlyphRequestedEvent>,
-    mut sound_event_writer: EventWriter<PlaySoundEvent>,
-) {
-    // ... entire function body commented ...
-}
-
-fn handle_socket_glyph_request_system(
-    mut events: EventReader<SocketGlyphRequestedEvent>,
-    mut player_query: Query<&mut Survivor>,
-    mut commands: Commands,
-    ui_root_query: Query<Entity, With<GlyphScreenUI>>,
-    mut next_app_state: ResMut<NextState<AppState>>,
-    current_app_state: Res<State<AppState>>,
-) {
-    // ... entire function body commented ...
-}
-*/
-// --- End Commented out GlyphScreen functions ---
-
-
-fn debug_weapon_switch_system(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut player_query: Query<(&mut Survivor, &mut SanityStrain)>,
+    mut player_query: Query<(&mut Survivor, &mut SanityStrain, &mut Name)>,
     weapon_library: Res<AutomaticWeaponLibrary>,
     current_app_state: Res<State<AppState>>,
 ) {
@@ -287,32 +187,254 @@ fn debug_weapon_switch_system(
         return;
     }
 
-    if let Ok((mut survivor, mut sanity_strain)) = player_query.get_single_mut() {
+    if let Ok((mut survivor, mut sanity_strain, mut name)) = player_query.get_single_mut() {
         let num_defined_weapons = weapon_library.weapons.len() as u32;
         if num_defined_weapons == 0 { return; }
 
-        let mut current_weapon_idx = survivor.equipped_weapon_id.map_or(0, |id| id.0);
+        let mut current_weapon_idx = survivor.inherent_weapon_id.0; 
 
+        let mut switched = false;
         if keyboard_input.just_pressed(KeyCode::F5) {
             current_weapon_idx = (current_weapon_idx + 1) % num_defined_weapons;
+            switched = true;
         } else if keyboard_input.just_pressed(KeyCode::F6) {
             current_weapon_idx = if current_weapon_idx == 0 { num_defined_weapons - 1 } else { current_weapon_idx - 1};
-        } else {
-            return;
+            switched = true;
         }
+        
+        if switched {
+            let new_inherent_weapon_id = AutomaticWeaponId(current_weapon_idx);
+            if let Some(new_weapon_def) = weapon_library.get_weapon_definition(new_inherent_weapon_id) {
+                survivor.inherent_weapon_id = new_inherent_weapon_id;
+                sanity_strain.base_fire_rate_secs = new_weapon_def.base_fire_rate_secs;
+                
+                survivor.auto_weapon_damage_bonus = 0; 
+                survivor.auto_weapon_piercing_bonus = 0;
+                survivor.auto_weapon_additional_projectiles_bonus = 0;
+                survivor.auto_weapon_projectile_speed_multiplier = 1.0;
 
-        let new_weapon_id = AutomaticWeaponId(current_weapon_idx);
-        if let Some(new_weapon_def) = weapon_library.get_weapon_definition(new_weapon_id) {
-            survivor.equipped_weapon_id = Some(new_weapon_id);
-            sanity_strain.base_fire_rate_secs = new_weapon_def.base_fire_rate_secs;
-            // survivor.auto_weapon_equipped_glyphs = vec![None; new_weapon_def.base_glyph_slots as usize]; // Commented out
+                *name = Name::new(format!("Survivor ({})", new_weapon_def.name));
+                sanity_strain.fire_timer.reset();
+                sanity_strain.fire_timer.set_duration(std::time::Duration::from_secs_f32(new_weapon_def.base_fire_rate_secs.max(0.05)));
+
+            }
         }
     }
 }
 
+
 fn despawn_ui_by_marker<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) { for entity in query.iter() { commands.entity(entity).despawn_recursive(); } }
-fn setup_main_menu_ui(mut commands: Commands, asset_server: Res<AssetServer>) { commands.spawn(( NodeBundle { style: Style { width: Val::Percent(100.0), height: Val::Percent(100.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, flex_direction: FlexDirection::Column, row_gap: Val::Px(20.0), ..default() }, ..default() }, MainMenuUI, )).with_children(|parent| { parent.spawn( TextBundle::from_section( "Echoes of the Abyss", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 70.0, color: Color::WHITE, }, ).with_text_justify(JustifyText::Center) ); parent.spawn( TextBundle::from_section( "Embrace the Madness (SPACE)", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 40.0, color: Color::rgba(0.8, 0.8, 0.8, 1.0), }, ).with_text_justify(JustifyText::Center) ); }); }
-fn main_menu_input_system(mut commands: Commands, keyboard_input: Res<ButtonInput<KeyCode>>, mut next_app_state: ResMut<NextState<AppState>>, game_state: ResMut<GameState>, horror_spawn_timer: ResMut<HorrorSpawnTimer>, max_horrors: ResMut<MaxHorrors>, player_entity_query: Query<Entity, With<Survivor>>,) { if keyboard_input.just_pressed(KeyCode::Space) { for entity in player_entity_query.iter() { commands.entity(entity).despawn_recursive(); } reset_for_new_game_session(game_state, horror_spawn_timer, max_horrors); next_app_state.set(AppState::InGame); } }
+
+fn setup_main_menu_ui(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    weapon_library: Res<AutomaticWeaponLibrary>
+) {
+    commands.spawn((
+        NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(20.0),
+                ..default()
+            },
+            ..default()
+        },
+        MainMenuUI,
+    )).with_children(|parent| {
+        parent.spawn(
+            TextBundle::from_section(
+                "Echoes of the Abyss",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 70.0,
+                    color: Color::WHITE,
+                },
+            ).with_text_justify(JustifyText::Center)
+        );
+
+        parent.spawn(
+            TextBundle::from_section(
+                "Choose your Vessel:",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 40.0,
+                    color: Color::rgba(0.8, 0.8, 0.8, 1.0),
+                },
+            ).with_style(Style { margin: UiRect::bottom(Val::Px(20.0)), ..default()})
+        );
+
+        let button_style = Style {
+            width: Val::Px(300.0),
+            height: Val::Px(65.0),
+            margin: UiRect::all(Val::Px(10.0)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        };
+        let button_text_style = TextStyle {
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 24.0,
+            color: Color::rgb(0.9, 0.9, 0.9),
+        };
+
+        for weapon_def in weapon_library.weapons.iter() {
+            parent.spawn((
+                ButtonBundle {
+                    style: button_style.clone(),
+                    background_color: Color::rgb(0.15, 0.15, 0.15).into(),
+                    ..default()
+                },
+                CharacterSelectButton(weapon_def.id),
+            )).with_children(|button_parent| {
+                button_parent.spawn(TextBundle::from_section(
+                    weapon_def.name.clone(), 
+                    button_text_style.clone(),
+                ));
+            });
+        }
+    });
+}
+
+fn character_select_button_interaction_system(
+    mut commands: Commands,
+    mut interaction_query: Query<
+        (&Interaction, &CharacterSelectButton, &mut BackgroundColor),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut next_app_state: ResMut<NextState<AppState>>,
+    mut selected_character: ResMut<SelectedCharacter>,
+    game_state: ResMut<GameState>, // Removed mut
+    horror_spawn_timer: ResMut<HorrorSpawnTimer>, // Removed mut
+    max_horrors: ResMut<MaxHorrors>, // Removed mut
+    player_entity_query: Query<Entity, With<Survivor>>,
+    mut sound_event_writer: EventWriter<PlaySoundEvent>,
+) {
+    let mut character_chosen_id: Option<AutomaticWeaponId> = None;
+
+    for (interaction, button_data, mut color) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                character_chosen_id = Some(button_data.0);
+                break; 
+            }
+            Interaction::Hovered => {
+                *color = Color::rgb(0.25, 0.25, 0.25).into();
+            }
+            Interaction::None => {
+                *color = Color::rgb(0.15, 0.15, 0.15).into();
+            }
+        }
+    }
+
+    if let Some(chosen_id) = character_chosen_id {
+        sound_event_writer.send(PlaySoundEvent(SoundEffect::OmenAccepted));
+        selected_character.0 = chosen_id;
+
+        for entity in player_entity_query.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
+        
+        // To pass ResMut to reset_for_new_game_session, we need mutable access from Commands
+        // because the system parameters game_state, horror_spawn_timer, max_horrors are not &mut ResMut<T>
+        let gs = commands.get_resource_mut::<GameState>().expect("GameState resource not found");
+        let hst = commands.get_resource_mut::<HorrorSpawnTimer>().expect("HorrorSpawnTimer resource not found");
+        let mh = commands.get_resource_mut::<MaxHorrors>().expect("MaxHorrors resource not found");
+        reset_for_new_game_session(gs, hst, mh);
+        
+        next_app_state.set(AppState::InGame);
+    }
+}
+
+
+fn setup_collected_items_ui(mut commands: Commands) {
+    commands.spawn((
+        NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                right: Val::Px(COLLECTED_ITEM_UI_PADDING),
+                top: Val::Px(COLLECTED_ITEMS_TOP_MARGIN), 
+                width: Val::Px(COLLECTED_ITEM_ICON_SIZE + COLLECTED_ITEM_UI_PADDING * 2.0),
+                height: Val::Px(SCREEN_HEIGHT - COLLECTED_ITEMS_TOP_MARGIN - COLLECTED_ITEM_UI_PADDING),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::FlexStart, 
+                align_items: AlignItems::Center,
+                row_gap: Val::Px(COLLECTED_ITEM_UI_PADDING),
+                padding: UiRect { 
+                    top: Val::Px(COLLECTED_ITEM_UI_PADDING),
+                    bottom: Val::Px(COLLECTED_ITEM_UI_PADDING),
+                    left: Val::Px(COLLECTED_ITEM_UI_PADDING),
+                    right: Val::Px(COLLECTED_ITEM_UI_PADDING),
+                },
+                ..default()
+            },
+            z_index: ZIndex::Global(1),
+            ..default()
+        },
+        CollectedItemsUI,
+        Name::new("CollectedItemsPanel"),
+    ));
+}
+
+fn update_collected_items_ui(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    player_query: Query<&Survivor>,
+    item_library: Res<ItemLibrary>,
+    ui_panel_query: Query<Entity, With<CollectedItemsUI>>,
+    existing_icons_query: Query<(Entity, &CollectedItemIcon)>, 
+) {
+    if let Ok(player) = player_query.get_single() {
+        if let Ok(panel_entity) = ui_panel_query.get_single() {
+            let mut displayed_item_ids: Vec<ItemId> = Vec::new();
+            for (_icon_entity, item_icon_data) in existing_icons_query.iter() {
+                displayed_item_ids.push(item_icon_data.0);
+            }
+
+            for (icon_entity, item_icon_data) in existing_icons_query.iter() {
+                if !player.collected_item_ids.contains(&item_icon_data.0) {
+                    commands.entity(icon_entity).despawn_recursive();
+                }
+            }
+
+            let mut children_to_add: Vec<Entity> = Vec::new();
+            for &collected_item_id in &player.collected_item_ids {
+                let mut already_displayed = false;
+                for (_icon_entity, existing_icon_data) in existing_icons_query.iter() {
+                    if existing_icon_data.0 == collected_item_id {
+                        already_displayed = true;
+                        break;
+                    }
+                }
+
+                if !already_displayed {
+                    if let Some(item_def) = item_library.get_item_definition(collected_item_id) {
+                        let icon_entity = commands.spawn((
+                            ImageBundle {
+                                style: Style {
+                                    width: Val::Px(COLLECTED_ITEM_ICON_SIZE),
+                                    height: Val::Px(COLLECTED_ITEM_ICON_SIZE),
+                                    ..default()
+                                },
+                                image: asset_server.load(item_def.icon_path).into(),
+                                ..default()
+                            },
+                            CollectedItemIcon(collected_item_id),
+                            Name::new(format!("ItemIcon_{}", item_def.name)),
+                        )).id();
+                        children_to_add.push(icon_entity);
+                    }
+                }
+            }
+            commands.entity(panel_entity).push_children(&children_to_add);
+        }
+    }
+}
+
+
 fn setup_ingame_ui(mut commands: Commands, asset_server: Res<AssetServer>) { commands.spawn(( NodeBundle { style: Style { width: Val::Percent(100.0), height: Val::Percent(100.0), flex_direction: FlexDirection::Column, justify_content: JustifyContent::SpaceBetween, padding: UiRect::all(Val::Px(10.0)), position_type: PositionType::Absolute, ..default() }, z_index: ZIndex::Global(1), ..default() }, InGameUI, )).with_children(|parent| { parent.spawn(NodeBundle { style: Style { width: Val::Percent(100.0), justify_content: JustifyContent::SpaceAround, align_items: AlignItems::Center, padding: UiRect::all(Val::Px(5.0)), ..default() }, background_color: Color::rgba(0.0, 0.0, 0.0, 0.3).into(), ..default() }).with_children(|top_bar| { top_bar.spawn((TextBundle::from_section( "Endurance: 100", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::GREEN, }, ), EnduranceText)); top_bar.spawn((TextBundle::from_section( "Insight: 1", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::CYAN, }, ), InsightText)); top_bar.spawn((TextBundle::from_section( "Echoes: 0/100", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::YELLOW, }, ), EchoesText)); top_bar.spawn((TextBundle::from_section( "Cycle: 1", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::ORANGE_RED, }, ), CycleText)); }); parent.spawn(NodeBundle { style: Style { width: Val::Percent(100.0), justify_content: JustifyContent::SpaceBetween, align_items: AlignItems::FlexEnd, padding: UiRect::all(Val::Px(5.0)), ..default() }, ..default() }).with_children(|bottom_bar| { bottom_bar.spawn((TextBundle::from_section( "Score: 0", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::WHITE, }, ), ScoreText)); bottom_bar.spawn((TextBundle::from_section( "Time: 00:00", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color::WHITE, }, ), TimerText)); }); }); }
 fn update_game_timer(mut game_state: ResMut<GameState>, time: Res<Time>) { if !game_state.game_timer.paused() { game_state.game_timer.tick(time.delta()); } }
 fn difficulty_scaling_system(time: Res<Time>, mut game_state: ResMut<GameState>, mut horror_spawn_timer: ResMut<HorrorSpawnTimer>, mut max_horrors: ResMut<MaxHorrors>,) { if game_state.difficulty_timer.paused() { return; } game_state.difficulty_timer.tick(time.delta()); if game_state.difficulty_timer.just_finished() { game_state.cycle_number += 1; max_horrors.0 = (INITIAL_MAX_HORRORS + (game_state.cycle_number -1) * MAX_HORRORS_INCREMENT).min(200); let current_duration = horror_spawn_timer.timer.duration().as_secs_f32(); let new_duration = (current_duration * SPAWN_INTERVAL_DECREMENT_FACTOR).max(MIN_SPAWN_INTERVAL_SECONDS); horror_spawn_timer.timer.set_duration(std::time::Duration::from_secs_f32(new_duration)); } }
@@ -324,6 +446,7 @@ fn apply_chosen_upgrade(
     mut events: EventReader<UpgradeChosenEvent>,
     mut player_query: Query<(&mut Survivor, &mut SanityStrain, &mut Health, &mut CircleOfWarding, &mut SwarmOfNightmares)>,
     item_library: Res<ItemLibrary>,
+    _weapon_library: Res<AutomaticWeaponLibrary>, 
     mut item_collected_writer: EventWriter<ItemCollectedEvent>,
     skill_library: Res<crate::skills::SkillLibrary>,
 ) {
@@ -342,7 +465,7 @@ fn apply_chosen_upgrade(
             UpgradeType::IncreaseAutoWeaponProjectileSpeed(percentage_increase) => { player_stats.auto_weapon_projectile_speed_multiplier *= 1.0 + (*percentage_increase as f32 / 100.0); }
             UpgradeType::IncreaseAutoWeaponPiercing(amount) => { player_stats.auto_weapon_piercing_bonus += *amount; }
             UpgradeType::IncreaseAutoWeaponProjectiles(amount) => { player_stats.auto_weapon_additional_projectiles_bonus += *amount; }
-
+            
             UpgradeType::EchoesGainMultiplier(percentage) => { player_stats.xp_gain_multiplier *= 1.0 + (*percentage as f32 / 100.0); }
             UpgradeType::SoulAttractionRadius(percentage) => { player_stats.pickup_radius_multiplier *= 1.0 + (*percentage as f32 / 100.0); }
 
@@ -358,7 +481,7 @@ fn apply_chosen_upgrade(
             UpgradeType::IncreaseNightmareRotationSpeed(speed_increase) => { if nightmare_swarm.is_active { nightmare_swarm.rotation_speed += *speed_increase; }}
             UpgradeType::IncreaseSkillDamage { slot_index, amount } => { if let Some(skill_instance) = player_stats.equipped_skills.get_mut(*slot_index) { skill_instance.flat_damage_bonus += *amount; skill_instance.current_level += 1; } }
             UpgradeType::GrantRandomRelic => { if !item_library.items.is_empty() { let mut rng = rand::thread_rng(); if let Some(random_item_def) = item_library.items.choose(&mut rng) { item_collected_writer.send(ItemCollectedEvent(random_item_def.id)); } } }
-            UpgradeType::GrantSkill(skill_id_to_grant) => { let already_has_skill = player_stats.equipped_skills.iter().any(|s| s.definition_id == *skill_id_to_grant); if !already_has_skill { if player_stats.equipped_skills.len() < 5 { if let Some(skill_def) = skill_library.get_skill_definition(*skill_id_to_grant) { player_stats.equipped_skills.push(ActiveSkillInstance::new(*skill_id_to_grant /*, skill_def.base_glyph_slots // Commented out */)); } } } }
+            UpgradeType::GrantSkill(skill_id_to_grant) => { let already_has_skill = player_stats.equipped_skills.iter().any(|s| s.definition_id == *skill_id_to_grant); if !already_has_skill { if player_stats.equipped_skills.len() < 5 { if let Some(_skill_def) = skill_library.get_skill_definition(*skill_id_to_grant) { player_stats.equipped_skills.push(ActiveSkillInstance::new(*skill_id_to_grant )); } } } }
             UpgradeType::ReduceSkillCooldown { slot_index, percent_reduction } => { if let Some(skill_instance) = player_stats.equipped_skills.get_mut(*slot_index) { skill_instance.cooldown_multiplier *= 1.0 - percent_reduction; skill_instance.cooldown_multiplier = skill_instance.cooldown_multiplier.max(0.1); skill_instance.current_level +=1; } }
             UpgradeType::IncreaseSkillAoERadius { slot_index, percent_increase } => { if let Some(skill_instance) = player_stats.equipped_skills.get_mut(*slot_index) { skill_instance.aoe_radius_multiplier *= 1.0 + percent_increase; skill_instance.current_level +=1; } }
         }
