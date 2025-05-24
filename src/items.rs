@@ -161,6 +161,286 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         projectile_color: Color::rgb(0.6, 0.9, 1.0), 
         projectile_lifetime_secs: 0.4, 
     });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(4),
+        name: "Inferno Bolt".to_string(),
+        base_damage: 25,
+        base_fire_rate_secs: 0.8,
+        base_projectile_speed: 700.0,
+        base_piercing: 1,
+        additional_projectiles: 0,
+        projectile_sprite_path: "sprites/auto_inferno_bolt.png",
+        projectile_size: Vec2::new(12.0, 20.0),
+        projectile_color: Color::rgb(1.0, 0.3, 0.0),
+        projectile_lifetime_secs: 1.5,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(5),
+        name: "Chain Lightning".to_string(),
+        base_damage: 15,
+        base_fire_rate_secs: 1.2,
+        base_projectile_speed: 800.0,
+        base_piercing: 2, // Can hit multiple targets
+        additional_projectiles: 1, // Represents the chaining idea
+        projectile_sprite_path: "sprites/auto_chain_lightning.png",
+        projectile_size: Vec2::new(10.0, 25.0),
+        projectile_color: Color::rgb(0.5, 0.8, 1.0),
+        projectile_lifetime_secs: 1.0,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(6),
+        name: "Arcane Ray".to_string(),
+        base_damage: 40,
+        base_fire_rate_secs: 1.5,
+        base_projectile_speed: 900.0,
+        base_piercing: 0, // Concentrated beam
+        additional_projectiles: 0,
+        projectile_sprite_path: "sprites/auto_arcane_ray.png",
+        projectile_size: Vec2::new(8.0, 30.0),
+        projectile_color: Color::rgb(0.7, 0.2, 0.9),
+        projectile_lifetime_secs: 0.8,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(7),
+        name: "Shadow Orb".to_string(),
+        base_damage: 18,
+        base_fire_rate_secs: 0.6,
+        base_projectile_speed: 400.0, // Slower, menacing
+        base_piercing: 1,
+        additional_projectiles: 0,
+        projectile_sprite_path: "sprites/auto_shadow_orb.png",
+        projectile_size: Vec2::new(18.0, 18.0),
+        projectile_color: Color::rgb(0.2, 0.1, 0.3),
+        projectile_lifetime_secs: 2.0,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(8),
+        name: "Holy Lance".to_string(),
+        base_damage: 30,
+        base_fire_rate_secs: 1.0,
+        base_projectile_speed: 750.0,
+        base_piercing: 3, // Piercing holy power
+        additional_projectiles: 0,
+        projectile_sprite_path: "sprites/auto_holy_lance.png",
+        projectile_size: Vec2::new(10.0, 35.0),
+        projectile_color: Color::rgb(1.0, 1.0, 0.5),
+        projectile_lifetime_secs: 1.2,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(9),
+        name: "Venom Spit".to_string(),
+        base_damage: 10, // Damage over time implied elsewhere
+        base_fire_rate_secs: 0.4,
+        base_projectile_speed: 500.0,
+        base_piercing: 0,
+        additional_projectiles: 2, // Multiple globs
+        projectile_sprite_path: "sprites/auto_venom_spit.png",
+        projectile_size: Vec2::new(10.0, 10.0),
+        projectile_color: Color::rgb(0.2, 0.8, 0.1),
+        projectile_lifetime_secs: 1.8,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(10),
+        name: "Glacial Spike".to_string(),
+        base_damage: 22,
+        base_fire_rate_secs: 0.9,
+        base_projectile_speed: 600.0,
+        base_piercing: 1, // Chilling effect implied
+        additional_projectiles: 0,
+        projectile_sprite_path: "sprites/auto_glacial_spike.png",
+        projectile_size: Vec2::new(12.0, 22.0),
+        projectile_color: Color::rgb(0.4, 0.7, 1.0),
+        projectile_lifetime_secs: 1.3,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(11),
+        name: "EarthShatter Shard".to_string(),
+        base_damage: 35,
+        base_fire_rate_secs: 1.8, // Slow, impactful
+        base_projectile_speed: 300.0, // Slow moving earth
+        base_piercing: 0, // Area effect implied
+        additional_projectiles: 0,
+        projectile_sprite_path: "sprites/auto_earthshatter_shard.png",
+        projectile_size: Vec2::new(20.0, 20.0),
+        projectile_color: Color::rgb(0.6, 0.4, 0.2),
+        projectile_lifetime_secs: 2.2,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(12),
+        name: "Sunfire Burst".to_string(),
+        base_damage: 28,
+        base_fire_rate_secs: 0.7,
+        base_projectile_speed: 850.0,
+        base_piercing: 0,
+        additional_projectiles: 3, // Burst effect
+        projectile_sprite_path: "sprites/auto_sunfire_burst.png",
+        projectile_size: Vec2::new(15.0, 15.0),
+        projectile_color: Color::rgb(1.0, 0.8, 0.2),
+        projectile_lifetime_secs: 0.5, // Short burst
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(13),
+        name: "Moonbeam Dart".to_string(),
+        base_damage: 12,
+        base_fire_rate_secs: 0.3, // Fast darts
+        base_projectile_speed: 950.0,
+        base_piercing: 1,
+        additional_projectiles: 0,
+        projectile_sprite_path: "sprites/auto_moonbeam_dart.png",
+        projectile_size: Vec2::new(6.0, 18.0),
+        projectile_color: Color::rgb(0.7, 0.7, 0.9),
+        projectile_lifetime_secs: 1.0,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(14),
+        name: "Spirit Bomb".to_string(),
+        base_damage: 50, // High damage, slow fire rate
+        base_fire_rate_secs: 2.0,
+        base_projectile_speed: 250.0, // Slow moving orb
+        base_piercing: 0, // Large AoE implied
+        additional_projectiles: 0,
+        projectile_sprite_path: "sprites/auto_spirit_bomb.png",
+        projectile_size: Vec2::new(25.0, 25.0),
+        projectile_color: Color::rgb(0.6, 1.0, 0.9),
+        projectile_lifetime_secs: 3.0,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(15),
+        name: "Void Tendril".to_string(),
+        base_damage: 18,
+        base_fire_rate_secs: 0.65,
+        base_projectile_speed: 550.0,
+        base_piercing: 2, // Lashing out
+        additional_projectiles: 1, // Could be multiple tendrils
+        projectile_sprite_path: "sprites/auto_void_tendril.png",
+        projectile_size: Vec2::new(8.0, 40.0), // Long and thin
+        projectile_color: Color::rgb(0.3, 0.0, 0.5),
+        projectile_lifetime_secs: 0.7,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(16),
+        name: "Crystal Shard".to_string(),
+        base_damage: 10,
+        base_fire_rate_secs: 0.2, // Very fast firing
+        base_projectile_speed: 700.0,
+        base_piercing: 0,
+        additional_projectiles: 4, // Shotgun-like spread
+        projectile_sprite_path: "sprites/auto_crystal_shard.png",
+        projectile_size: Vec2::new(8.0, 8.0),
+        projectile_color: Color::rgb(0.8, 0.6, 1.0),
+        projectile_lifetime_secs: 0.4,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(17),
+        name: "Magma Ball".to_string(),
+        base_damage: 32,
+        base_fire_rate_secs: 1.3,
+        base_projectile_speed: 400.0,
+        base_piercing: 0, // Splash damage implied
+        additional_projectiles: 0,
+        projectile_sprite_path: "sprites/auto_magma_ball.png",
+        projectile_size: Vec2::new(18.0, 18.0),
+        projectile_color: Color::rgb(0.9, 0.2, 0.0),
+        projectile_lifetime_secs: 2.5,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(18),
+        name: "Sand Blast".to_string(),
+        base_damage: 8,
+        base_fire_rate_secs: 0.1, // Extremely fast, low damage
+        base_projectile_speed: 600.0,
+        base_piercing: 0,
+        additional_projectiles: 2, // Wide cone
+        projectile_sprite_path: "sprites/auto_sand_blast.png",
+        projectile_size: Vec2::new(10.0, 6.0),
+        projectile_color: Color::rgb(0.9, 0.8, 0.5),
+        projectile_lifetime_secs: 0.3, // Short range
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(19),
+        name: "Metal Shrapnel".to_string(),
+        base_damage: 12,
+        base_fire_rate_secs: 0.5,
+        base_projectile_speed: 650.0,
+        base_piercing: 3, // Piercing metal
+        additional_projectiles: 3, // Multiple pieces
+        projectile_sprite_path: "sprites/auto_metal_shrapnel.png",
+        projectile_size: Vec2::new(9.0, 9.0),
+        projectile_color: Color::rgb(0.6, 0.6, 0.6),
+        projectile_lifetime_secs: 0.9,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(20),
+        name: "Nature's Wrath".to_string(),
+        base_damage: 20,
+        base_fire_rate_secs: 1.1,
+        base_projectile_speed: 500.0,
+        base_piercing: 1,
+        additional_projectiles: 1, // Thorny vine or similar
+        projectile_sprite_path: "sprites/auto_natures_wrath.png",
+        projectile_size: Vec2::new(15.0, 20.0),
+        projectile_color: Color::rgb(0.1, 0.6, 0.2),
+        projectile_lifetime_secs: 1.6,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(21),
+        name: "Chi Bolt".to_string(),
+        base_damage: 18,
+        base_fire_rate_secs: 0.45,
+        base_projectile_speed: 750.0,
+        base_piercing: 0,
+        additional_projectiles: 0,
+        projectile_sprite_path: "sprites/auto_chi_bolt.png",
+        projectile_size: Vec2::new(10.0, 10.0),
+        projectile_color: Color::rgb(0.5, 0.9, 0.8),
+        projectile_lifetime_secs: 1.1,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(22),
+        name: "Psionic Lash".to_string(),
+        base_damage: 26,
+        base_fire_rate_secs: 0.85,
+        base_projectile_speed: 600.0, // Mental force, not super fast but accurate
+        base_piercing: 2,
+        additional_projectiles: 0,
+        projectile_sprite_path: "sprites/auto_psionic_lash.png",
+        projectile_size: Vec2::new(7.0, 28.0), // Whip-like
+        projectile_color: Color::rgb(0.8, 0.4, 0.9),
+        projectile_lifetime_secs: 0.6,
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(23),
+        name: "Aether Bolt".to_string(),
+        base_damage: 14,
+        base_fire_rate_secs: 0.25,
+        base_projectile_speed: 1000.0, // Very fast
+        base_piercing: 1,
+        additional_projectiles: 1,
+        projectile_sprite_path: "sprites/auto_aether_bolt.png",
+        projectile_size: Vec2::new(9.0, 16.0),
+        projectile_color: Color::rgb(0.9, 0.9, 0.9),
+        projectile_lifetime_secs: 1.4,
+    });
 }
 
 fn populate_item_library(mut library: ResMut<ItemLibrary>) {
