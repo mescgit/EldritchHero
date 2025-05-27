@@ -13,6 +13,11 @@ use crate::{
     items::{ItemId, ItemLibrary, AutomaticWeaponId, AutomaticWeaponLibrary}, 
     skills::{ActiveSkillInstance}, 
     automatic_projectiles::AutomaticProjectile,
+    in_game_debug_ui::{
+        DebugDisplayState, InGameDebugUI, PlayerStatsDebugText, InherentWeaponDebugText,
+        EquippedSkillsDebugText, CollectedItemsDebugText, SpecialWeaponsDebugText, GlyphsDebugText,
+        setup_in_game_debug_ui, update_in_game_debug_ui,
+    },
 };
 
 pub const SCREEN_WIDTH: f32 = 1280.0;
@@ -112,7 +117,15 @@ impl Plugin for GamePlugin {
             .add_plugins((UpgradePlugin, DebugMenuPlugin)) .init_state::<AppState>()
             .init_resource::<GameConfig>() .init_resource::<GameState>()
             .init_resource::<PreviousGameState>()
-            .init_resource::<SelectedCharacter>() 
+            .init_resource::<SelectedCharacter>()
+            .init_resource::<DebugDisplayState>() // Added DebugDisplayState resource
+            .register_type::<InGameDebugUI>() // Register components
+            .register_type::<PlayerStatsDebugText>()
+            .register_type::<InherentWeaponDebugText>()
+            .register_type::<EquippedSkillsDebugText>()
+            .register_type::<CollectedItemsDebugText>()
+            .register_type::<SpecialWeaponsDebugText>()
+            .register_type::<GlyphsDebugText>()
             .insert_resource(HorrorSpawnTimer {timer: Timer::from_seconds(4.0, TimerMode::Repeating)}) // Initial value matches reset_for_new_game_session
             .insert_resource(MaxHorrors(5)) // Initial value matches reset_for_new_game_session
             .add_plugins(EchoingSoulPlugin)
@@ -124,20 +137,23 @@ impl Plugin for GamePlugin {
             .add_systems(OnEnter(AppState::InGame), (
                 on_enter_ingame_state_actions,
                 setup_ingame_ui,
-                setup_collected_items_ui, 
+                setup_collected_items_ui,
+                setup_in_game_debug_ui, // Added setup for in-game debug UI
             ))
             .add_systems(Update, (
                 update_ingame_ui,
-                update_collected_items_ui, 
+                update_collected_items_ui,
+                update_in_game_debug_ui, // Added update for in-game debug UI
                 update_game_timer,
                 difficulty_scaling_system,
                 global_key_listener,
-                debug_character_switch_system, 
+                debug_character_switch_system,
             ).chain().run_if(in_state(AppState::InGame).or_else(in_state(AppState::DebugUpgradeMenu))))
             .add_systems(OnExit(AppState::InGame), (
                 cleanup_session_entities,
                 despawn_ui_by_marker::<InGameUI>,
-                despawn_ui_by_marker::<CollectedItemsUI>, 
+                despawn_ui_by_marker::<CollectedItemsUI>,
+                despawn_ui_by_marker::<InGameDebugUI>, // Added despawn for in-game debug UI
             ))
 
             .add_systems(OnEnter(AppState::LevelUp), (setup_level_up_ui, on_enter_pause_like_state_actions))
@@ -159,7 +175,12 @@ fn global_key_listener(
     current_app_state: Res<State<AppState>>,
     mut next_app_state: ResMut<NextState<AppState>>,
     mut prev_game_state: ResMut<PreviousGameState>,
+    mut debug_display_state: ResMut<DebugDisplayState>,
 ) {
+    if keyboard_input.just_pressed(KeyCode::Backslash) {
+        debug_display_state.visible = !debug_display_state.visible;
+    }
+
     if keyboard_input.just_pressed(KeyCode::Backquote) {
         match current_app_state.get() {
             AppState::InGame => {

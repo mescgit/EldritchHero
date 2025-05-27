@@ -15,9 +15,10 @@ mod audio;
 mod camera_systems;
 mod background;
 mod debug_menu;
+mod in_game_debug_ui;
 mod skills;
 mod items;
-// mod glyphs; // Commented out
+mod glyphs; // Uncommented
 
 use survivor::SurvivorPlugin;
 use horror::HorrorPlugin;
@@ -61,7 +62,7 @@ fn main() {
             BackgroundPlugin,
             SkillsPlugin,
             ItemsPlugin,
-            // GlyphsPlugin, // Commented out
+            // crate::glyphs::GlyphsPlugin, // Removed as per instruction
         ))
         .add_systems(Startup, setup_global_camera)
         .run();
