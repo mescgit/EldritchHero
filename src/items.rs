@@ -63,20 +63,69 @@ pub struct TemporaryHealthRegenBuff { pub regen_per_second: f32, pub duration_ti
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Default)]
 pub struct AutomaticWeaponId(pub u32);
 
+// --- New Structs and Enum for Attack Types ---
+
 #[derive(Debug, Clone, Reflect)]
-pub struct AutomaticWeaponDefinition {
-    pub id: AutomaticWeaponId,
-    pub name: String,
+pub struct StandardProjectileParams {
     pub base_damage: i32,
     pub base_fire_rate_secs: f32,
     pub base_projectile_speed: f32,
     pub base_piercing: u32,
-    pub additional_projectiles: u32,
-
+    pub additional_projectiles: u32, // Number of projectiles fired at once
     pub projectile_sprite_path: &'static str,
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct ReturningProjectileParams {
+    pub base_damage: i32,
+    pub base_fire_rate_secs: f32,
+    pub projectile_sprite_path: &'static str,
+    pub projectile_size: Vec2,
+    pub projectile_color: Color,
+    pub projectile_speed: f32,
+    pub travel_distance: f32, // Max distance before returning
+    pub piercing: u32, // Piercing on outgoing and return
+    // Add other specific fields as needed, e.g., hover_duration_secs
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct ChanneledBeamParams {
+    pub base_damage_per_tick: i32,
+    pub tick_rate_secs: f32, // How often damage is applied
+    pub range: f32,
+    pub beam_width: f32, // For visual representation and collision
+    pub beam_color: Color,
+    pub movement_penalty_multiplier: f32, // e.g., 0.5 for 50% speed
+    // Add other specific fields, e.g., ramp_up_stats
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct ConeAttackParams {
+    pub base_damage: i32,
+    pub base_fire_rate_secs: f32,
+    pub cone_angle_degrees: f32,
+    pub cone_radius: f32,
+    pub color: Color, // For visual effect
+    // Add other specific fields, e.g., knockback_strength
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub enum AttackTypeData {
+    StandardProjectile(StandardProjectileParams),
+    ReturningProjectile(ReturningProjectileParams),
+    ChanneledBeam(ChanneledBeamParams),
+    ConeAttack(ConeAttackParams),
+    // We will add more variants here as we implement more attack types
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct AutomaticWeaponDefinition {
+    pub id: AutomaticWeaponId,
+    pub name: String,
+    pub attack_data: AttackTypeData,
 }
 
 #[derive(Resource, Default, Reflect)]
@@ -97,7 +146,9 @@ impl Plugin for ItemsPlugin {
     fn build(&self, app: &mut App) {
         app .register_type::<ItemId>() .register_type::<SurvivorTemporaryBuff>() .register_type::<ItemEffect>() .register_type::<ItemLibrary>()
             .register_type::<ExplosionEffect>() .register_type::<RetaliationNovaEffect>() .register_type::<TemporaryHealthRegenBuff>()
-            .register_type::<AutomaticWeaponId>() .register_type::<AutomaticWeaponDefinition>() .register_type::<AutomaticWeaponLibrary>()
+            .register_type::<AutomaticWeaponId>() 
+            .register_type::<StandardProjectileParams>() .register_type::<ReturningProjectileParams>() .register_type::<ChanneledBeamParams>() .register_type::<ConeAttackParams>() .register_type::<AttackTypeData>()
+            .register_type::<AutomaticWeaponDefinition>() .register_type::<AutomaticWeaponLibrary>()
             .init_resource::<ItemLibrary>()
             .init_resource::<AutomaticWeaponLibrary>()
             .add_systems(Startup, (populate_item_library, populate_automatic_weapon_library) )

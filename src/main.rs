@@ -19,6 +19,7 @@ mod in_game_debug_ui;
 mod skills;
 mod items;
 mod glyphs; // Uncommented
+mod weapon_systems; // Added
 
 use survivor::SurvivorPlugin;
 use horror::HorrorPlugin;
@@ -32,6 +33,7 @@ use camera_systems::{CameraSystemsPlugin, MainCamera};
 use background::BackgroundPlugin;
 use skills::SkillsPlugin;
 use items::{ItemsPlugin, AutomaticWeaponLibrary, AutomaticWeaponDefinition, AutomaticWeaponId};
+use weapon_systems::WeaponSystemsPlugin; // Added
 // use glyphs::GlyphsPlugin; // Commented out
 
 
@@ -62,6 +64,7 @@ fn main() {
             BackgroundPlugin,
             SkillsPlugin,
             ItemsPlugin,
+            WeaponSystemsPlugin, // Added
             // crate::glyphs::GlyphsPlugin, // Removed as per instruction
         ))
         .add_systems(Startup, setup_global_camera)
