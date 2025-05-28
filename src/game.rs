@@ -253,71 +253,101 @@ fn setup_main_menu_ui(
     weapon_library: Res<AutomaticWeaponLibrary>
 ) {
     commands.spawn((
-        NodeBundle {
+        NodeBundle { // Main container for the entire menu
             style: Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(20.0),
+                justify_content: JustifyContent::Center, // Center content vertically on screen
+                align_items: AlignItems::Center,     // Center content horizontally on screen
+                flex_direction: FlexDirection::Column, // Stack title and button container vertically
+                row_gap: Val::Px(30.0), // Space between title and the button container
+                padding: UiRect::all(Val::Px(20.0)), // Padding around the edges of the screen
                 ..default()
             },
+            background_color: Color::rgba(0.05, 0.05, 0.1, 0.95).into(), // Optional: Darker background for the menu
             ..default()
         },
         MainMenuUI,
+        Name::new("MainMenuContainer"),
     )).with_children(|parent| {
+        // Game Title
         parent.spawn(
             TextBundle::from_section(
-                "Echoes of the Abyss",
+                "Eldritch Hero", // Changed title
                 TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 70.0,
                     color: Color::WHITE,
                 },
-            ).with_text_justify(JustifyText::Center)
+            )
+            .with_text_justify(JustifyText::Center)
+            .with_style(Style {
+                margin: UiRect::bottom(Val::Px(25.0)), // Margin below the title
+                ..default()
+            })
         );
 
-        parent.spawn(
-            TextBundle::from_section(
-                "Choose your Vessel:",
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 40.0,
-                    color: Color::rgba(0.8, 0.8, 0.8, 1.0),
-                },
-            ).with_style(Style { margin: UiRect::bottom(Val::Px(20.0)), ..default()})
-        );
-
-        let button_style = Style {
-            width: Val::Px(300.0),
-            height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(10.0)),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..default()
-        };
-        let button_text_style = TextStyle {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            font_size: 24.0,
-            color: Color::rgb(0.9, 0.9, 0.9),
-        };
-
-        for weapon_def in weapon_library.weapons.iter() {
-            parent.spawn((
-                ButtonBundle {
-                    style: button_style.clone(),
-                    background_color: Color::rgb(0.15, 0.15, 0.15).into(),
+        // Container for weapon/ability buttons
+        parent.spawn((
+            NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Row, // Arrange buttons in a row
+                    flex_wrap: FlexWrap::Wrap,         // Allow buttons to wrap to the next line
+                    justify_content: JustifyContent::Center, // Center buttons horizontally if they don't fill the row
+                    align_items: AlignItems::Center,   // Align buttons vertically within their row
+                    align_content: AlignContent::Center, // Align wrapped lines of buttons
+                    width: Val::Percent(90.0),         // Container uses 90% of parent's width
+                    max_width: Val::Px(1000.0),        // Maximum width for the button container
+                    row_gap: Val::Px(15.0),            // Vertical gap between rows of buttons
+                    column_gap: Val::Px(15.0),         // Horizontal gap between buttons in a row
                     ..default()
                 },
-                CharacterSelectButton(weapon_def.id),
-            )).with_children(|button_parent| {
-                button_parent.spawn(TextBundle::from_section(
-                    weapon_def.name.clone(), 
-                    button_text_style.clone(),
-                ));
-            });
-        }
+                ..default()
+            },
+            Name::new("WeaponSelectionContainer"),
+        )).with_children(|button_container| {
+            // Style for each weapon/ability button
+            let button_style = Style {
+                width: Val::Px(220.0),       // Width of each button box
+                height: Val::Px(70.0),      // Height of each button box
+                margin: UiRect::all(Val::Px(5.0)), // Reduced margin as gap is handled by container
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(Val::Px(2.0)), // Border thickness
+                padding: UiRect::all(Val::Px(10.0)),
+                ..default()
+            };
+            // Text style within buttons
+            let button_text_style = TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 20.0,
+                color: Color::rgb(0.95, 0.95, 0.95),
+            };
+            
+            let normal_button_bg_color = Color::rgba(0.2, 0.2, 0.3, 0.8); // Slightly transparent dark blue/purple
+            let hovered_button_bg_color = Color::rgba(0.3, 0.3, 0.45, 0.9);
+            let pressed_button_bg_color = Color::rgba(0.1, 0.1, 0.2, 0.9);
+            let border_color = Color::rgba(0.7, 0.7, 0.8, 0.7); // Light grey border
+
+            // Iterate through available weapons/abilities and create a button for each
+            for weapon_def in weapon_library.weapons.iter() {
+                button_container.spawn((
+                    ButtonBundle {
+                        style: button_style.clone(),
+                        background_color: normal_button_bg_color.into(),
+                        border_color: BorderColor(border_color), // Apply border color
+                        ..default()
+                    },
+                    CharacterSelectButton(weapon_def.id), // Existing component for button logic
+                    Name::new(format!("WeaponButton_{}", weapon_def.name)),
+                )).with_children(|button_parent| {
+                    button_parent.spawn(TextBundle::from_section(
+                        weapon_def.name.clone(),
+                        button_text_style.clone(),
+                    ).with_text_justify(JustifyText::Center)); // Center text inside button
+                });
+            }
+        });
     });
 }
 
