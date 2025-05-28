@@ -115,7 +115,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 0,
         additional_projectiles: 0,
         projectile_sprite_path: "sprites/ichor_blast_placeholder.png",
-        projectile_size: Vec2::new(10.0, 10.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.7, 0.5, 1.0),
         projectile_lifetime_secs: 2.0,
     });
@@ -129,7 +129,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 0,
         additional_projectiles: 0,
         projectile_sprite_path: "sprites/eldritch_gatling_projectile_placeholder.png",
-        projectile_size: Vec2::new(8.0, 16.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.3, 0.9, 0.4),
         projectile_lifetime_secs: 1.5,
     });
@@ -143,7 +143,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 1,
         additional_projectiles: 0,
         projectile_sprite_path: "sprites/void_cannon_projectile_placeholder.png",
-        projectile_size: Vec2::new(18.0, 18.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.4, 0.1, 0.7),
         projectile_lifetime_secs: 2.5,
     });
@@ -157,7 +157,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 0,
         additional_projectiles: 2, 
         projectile_sprite_path: "sprites/spectral_blade_placeholder.png", 
-        projectile_size: Vec2::new(20.0, 8.0), 
+        projectile_size: Vec2::new(50.0, 50.0), 
         projectile_color: Color::rgb(0.6, 0.9, 1.0), 
         projectile_lifetime_secs: 0.4, 
     });
@@ -171,7 +171,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 1,
         additional_projectiles: 0,
         projectile_sprite_path: "sprites/auto_inferno_bolt.png",
-        projectile_size: Vec2::new(12.0, 20.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(1.0, 0.3, 0.0),
         projectile_lifetime_secs: 1.5,
     });
@@ -185,7 +185,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 2, // Can hit multiple targets
         additional_projectiles: 1, // Represents the chaining idea
         projectile_sprite_path: "sprites/auto_chain_lightning.png",
-        projectile_size: Vec2::new(10.0, 25.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.5, 0.8, 1.0),
         projectile_lifetime_secs: 1.0,
     });
@@ -199,7 +199,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 0, // Concentrated beam
         additional_projectiles: 0,
         projectile_sprite_path: "sprites/auto_arcane_ray.png",
-        projectile_size: Vec2::new(8.0, 30.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.7, 0.2, 0.9),
         projectile_lifetime_secs: 0.8,
     });
@@ -213,7 +213,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 1,
         additional_projectiles: 0,
         projectile_sprite_path: "sprites/auto_shadow_orb.png",
-        projectile_size: Vec2::new(18.0, 18.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.2, 0.1, 0.3),
         projectile_lifetime_secs: 2.0,
     });
@@ -227,7 +227,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 3, // Piercing holy power
         additional_projectiles: 0,
         projectile_sprite_path: "sprites/auto_holy_lance.png",
-        projectile_size: Vec2::new(10.0, 35.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(1.0, 1.0, 0.5),
         projectile_lifetime_secs: 1.2,
     });
@@ -241,7 +241,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 0,
         additional_projectiles: 2, // Multiple globs
         projectile_sprite_path: "sprites/auto_venom_spit.png",
-        projectile_size: Vec2::new(10.0, 10.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.2, 0.8, 0.1),
         projectile_lifetime_secs: 1.8,
     });
@@ -255,7 +255,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 1, // Chilling effect implied
         additional_projectiles: 0,
         projectile_sprite_path: "sprites/auto_glacial_spike.png",
-        projectile_size: Vec2::new(12.0, 22.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.4, 0.7, 1.0),
         projectile_lifetime_secs: 1.3,
     });
@@ -269,7 +269,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 0, // Area effect implied
         additional_projectiles: 0,
         projectile_sprite_path: "sprites/auto_earthshatter_shard.png",
-        projectile_size: Vec2::new(20.0, 20.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.6, 0.4, 0.2),
         projectile_lifetime_secs: 2.2,
     });
@@ -283,7 +283,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 0,
         additional_projectiles: 3, // Burst effect
         projectile_sprite_path: "sprites/auto_sunfire_burst.png",
-        projectile_size: Vec2::new(15.0, 15.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(1.0, 0.8, 0.2),
         projectile_lifetime_secs: 0.5, // Short burst
     });
@@ -297,7 +297,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 1,
         additional_projectiles: 0,
         projectile_sprite_path: "sprites/auto_moonbeam_dart.png",
-        projectile_size: Vec2::new(6.0, 18.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.7, 0.7, 0.9),
         projectile_lifetime_secs: 1.0,
     });
@@ -311,7 +311,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 0, // Large AoE implied
         additional_projectiles: 0,
         projectile_sprite_path: "sprites/auto_spirit_bomb.png",
-        projectile_size: Vec2::new(25.0, 25.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.6, 1.0, 0.9),
         projectile_lifetime_secs: 3.0,
     });
@@ -325,7 +325,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 2, // Lashing out
         additional_projectiles: 1, // Could be multiple tendrils
         projectile_sprite_path: "sprites/auto_void_tendril.png",
-        projectile_size: Vec2::new(8.0, 40.0), // Long and thin
+        projectile_size: Vec2::new(50.0, 50.0), // Long and thin
         projectile_color: Color::rgb(0.3, 0.0, 0.5),
         projectile_lifetime_secs: 0.7,
     });
@@ -339,7 +339,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 0,
         additional_projectiles: 4, // Shotgun-like spread
         projectile_sprite_path: "sprites/auto_crystal_shard.png",
-        projectile_size: Vec2::new(8.0, 8.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.8, 0.6, 1.0),
         projectile_lifetime_secs: 0.4,
     });
@@ -353,7 +353,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 0, // Splash damage implied
         additional_projectiles: 0,
         projectile_sprite_path: "sprites/auto_magma_ball.png",
-        projectile_size: Vec2::new(18.0, 18.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.9, 0.2, 0.0),
         projectile_lifetime_secs: 2.5,
     });
@@ -367,7 +367,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 0,
         additional_projectiles: 2, // Wide cone
         projectile_sprite_path: "sprites/auto_sand_blast.png",
-        projectile_size: Vec2::new(10.0, 6.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.9, 0.8, 0.5),
         projectile_lifetime_secs: 0.3, // Short range
     });
@@ -381,7 +381,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 3, // Piercing metal
         additional_projectiles: 3, // Multiple pieces
         projectile_sprite_path: "sprites/auto_metal_shrapnel.png",
-        projectile_size: Vec2::new(9.0, 9.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.6, 0.6, 0.6),
         projectile_lifetime_secs: 0.9,
     });
@@ -395,7 +395,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 1,
         additional_projectiles: 1, // Thorny vine or similar
         projectile_sprite_path: "sprites/auto_natures_wrath.png",
-        projectile_size: Vec2::new(15.0, 20.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.1, 0.6, 0.2),
         projectile_lifetime_secs: 1.6,
     });
@@ -409,7 +409,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 0,
         additional_projectiles: 0,
         projectile_sprite_path: "sprites/auto_chi_bolt.png",
-        projectile_size: Vec2::new(10.0, 10.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.5, 0.9, 0.8),
         projectile_lifetime_secs: 1.1,
     });
@@ -423,7 +423,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 2,
         additional_projectiles: 0,
         projectile_sprite_path: "sprites/auto_psionic_lash.png",
-        projectile_size: Vec2::new(7.0, 28.0), // Whip-like
+        projectile_size: Vec2::new(50.0, 50.0), // Whip-like
         projectile_color: Color::rgb(0.8, 0.4, 0.9),
         projectile_lifetime_secs: 0.6,
     });
@@ -437,7 +437,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_piercing: 1,
         additional_projectiles: 1,
         projectile_sprite_path: "sprites/auto_aether_bolt.png",
-        projectile_size: Vec2::new(9.0, 16.0),
+        projectile_size: Vec2::new(50.0, 50.0),
         projectile_color: Color::rgb(0.9, 0.9, 0.9),
         projectile_lifetime_secs: 1.4,
     });
