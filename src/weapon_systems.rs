@@ -1,8 +1,9 @@
 // mescgit/eldritchhero/EldritchHero-77df6cd0b3e48857123b0971c9f30b59714a1b8a/src/weapon_systems.rs
 use bevy::prelude::*;
+use bevy::prelude::Name; // Added Name import
 use crate::items::{StandardProjectileParams, ReturningProjectileParams, ChanneledBeamParams, ConeAttackParams, AutomaticWeaponId};
-use crate::components::{Velocity, Damage, Lifetime, Name}; // Added Name
-use crate::player::{Player, BASE_PLAYER_SPEED}; // Added BASE_PLAYER_SPEED
+use crate::components::{Velocity, Damage, Lifetime}; // Removed prelude::Name
+use crate::survivor::{BASE_SURVIVOR_SPEED as BASE_PLAYER_SPEED}; // Removed Survivor as Player
 
 // --- Returning Projectile Definitions ---
 
@@ -29,7 +30,7 @@ pub struct ReturningProjectileComponent {
 
 // --- Channeled Beam Definitions ---
 
-#[derive(Component, Debug, Reflect, Default)]
+#[derive(Component, Debug, Reflect)]
 #[reflect(Component)]
 pub struct ChanneledBeamComponent {
     pub damage_per_tick: i32,
@@ -112,7 +113,7 @@ pub fn channeled_beam_damage_system(
     mut beam_query: Query<(&mut ChanneledBeamComponent, &GlobalTransform)>, // Beam's global transform for accurate collision
     // Query for entities that can be damaged (e.g., enemies with Health)
     // Assuming enemies have a Health component from crate::components
-    mut enemy_query: Query<(Entity, &Transform, &mut crate::components::Health, With<crate::horror::Horror>)>, // Changed to horror
+    mut enemy_query: Query<(Entity, &Transform, &mut crate::components::Health), With<crate::horror::Horror>>, // Changed to horror
     // Optional: For spawning damage text or other effects
     // asset_server: Res<AssetServer>,
     // mut sound_event_writer: EventWriter<PlaySoundEvent>,
@@ -133,7 +134,7 @@ pub fn channeled_beam_damage_system(
         // Simplified collision: Check entities within a certain distance along the beam's line.
         // A more accurate collision would use the beam's width (shape casting or multiple raycasts).
         // For now, iterate enemies and check if they are roughly along the beam's path and within range.
-        for (_enemy_entity, enemy_transform, mut enemy_health, _with_enemy) in enemy_query.iter_mut() {
+        for (_enemy_entity, enemy_transform, mut enemy_health) in enemy_query.iter_mut() {
             let enemy_pos = enemy_transform.translation.truncate();
             
             // Vector from beam start to enemy
@@ -222,12 +223,12 @@ pub fn returning_projectile_system(
 }
 
 pub fn spawn_standard_projectile_attack(
-    commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
-    params: &StandardProjectileParams,
-    player_transform: &Transform,
-    aim_direction: Vec2,
-    _weapon_id: AutomaticWeaponId // Kept weapon_id as per comment in prompt, though unused for now
+    _commands: &mut Commands,
+    _asset_server: &Res<AssetServer>,
+    params: &StandardProjectileParams, // params is used
+    _player_transform: &Transform,
+    _aim_direction: Vec2,
+    _weapon_id: AutomaticWeaponId // _weapon_id is already correctly prefixed
 ) {
     info!("spawn_standard_projectile_attack called for sprite: {}, damage: {}, fire_rate: {}", params.projectile_sprite_path, params.base_damage, params.base_fire_rate_secs);
     // This function will eventually contain logic similar to the old `spawn_automatic_projectile`
@@ -315,7 +316,7 @@ pub fn execute_cone_attack(
     player_transform: &Transform,
     aim_direction: Vec2, // Normalized direction player is aiming
     // Query for entities that can be damaged
-    mut enemy_query: Query<(Entity, &Transform, &mut crate::components::Health, With<crate::horror::Horror>)>, // Changed to horror
+    mut enemy_query: Query<(Entity, &Transform, &mut crate::components::Health), With<crate::horror::Horror>>, // Changed to horror
     // Optional: For spawning visual effects or sounds
     // time: Res<Time>,
     // mut sound_event_writer: EventWriter<PlaySoundEvent>,
@@ -323,7 +324,7 @@ pub fn execute_cone_attack(
     // sound_event_writer.send(PlaySoundEvent(SoundEffect::ConeAttackSound)); // Placeholder for sound
 
     let player_pos = player_transform.translation.truncate();
-    let forward_vector = aim_direction.normalize_or_dead(); // Ensure it's normalized
+    let forward_vector = aim_direction.normalize_or_zero(); // Ensure it's normalized
 
     // Optional: Spawn a visual representation of the cone attack
     // This could be a sprite that quickly appears and disappears.
@@ -338,7 +339,7 @@ pub fn execute_cone_attack(
     // }).insert(Lifetime { timer: Timer::from_seconds(0.2, TimerMode::Once) });
 
 
-    for (enemy_entity, enemy_transform, mut enemy_health, _with_enemy) in enemy_query.iter_mut() {
+    for (enemy_entity, enemy_transform, mut enemy_health) in enemy_query.iter_mut() {
         let enemy_pos = enemy_transform.translation.truncate();
         let vector_to_enemy = enemy_pos - player_pos;
         
@@ -350,7 +351,7 @@ pub fn execute_cone_attack(
 
         // Check angle
         if vector_to_enemy != Vec2::ZERO { // Avoid issues with dot product if enemy is at player's exact position
-            let angle_to_enemy_rad = forward_vector.angle_between(vector_to_enemy.normalize_or_dead());
+            let angle_to_enemy_rad = forward_vector.angle_between(vector_to_enemy.normalize_or_zero());
             let half_cone_angle_rad = params.cone_angle_degrees.to_radians() / 2.0;
 
             if angle_to_enemy_rad.abs() <= half_cone_angle_rad {

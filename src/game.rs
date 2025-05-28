@@ -10,7 +10,7 @@ use crate::{
     weapons::{CircleOfWarding, SwarmOfNightmares},
     audio::{PlaySoundEvent, SoundEffect},
     debug_menu::DebugMenuPlugin,
-    items::{ItemId, ItemLibrary, AutomaticWeaponId, AutomaticWeaponLibrary}, 
+    items::{ItemId, ItemLibrary, AutomaticWeaponId, AutomaticWeaponLibrary, AttackTypeData}, 
     skills::{ActiveSkillInstance}, 
     automatic_projectiles::AutomaticProjectile,
     in_game_debug_ui::{
@@ -228,7 +228,15 @@ fn debug_character_switch_system(
             let new_inherent_weapon_id = AutomaticWeaponId(current_weapon_idx);
             if let Some(new_weapon_def) = weapon_library.get_weapon_definition(new_inherent_weapon_id) {
                 survivor.inherent_weapon_id = new_inherent_weapon_id;
-                sanity_strain.base_fire_rate_secs = new_weapon_def.base_fire_rate_secs;
+                
+                let mut new_base_fire_rate = 0.5_f32; // Default fire rate
+                if let AttackTypeData::StandardProjectile(params) = &new_weapon_def.attack_data {
+                    new_base_fire_rate = params.base_fire_rate_secs;
+                } else {
+                    // Using eprintln as bevy::log::error might not be in scope without specific import
+                    eprintln!("Warning: Weapon {} (ID: {}) does not have StandardProjectile attack data in debug_character_switch_system. Using default fire rate {}.", new_weapon_def.name, new_weapon_def.id.0, new_base_fire_rate);
+                }
+                sanity_strain.base_fire_rate_secs = new_base_fire_rate;
                 
                 survivor.auto_weapon_damage_bonus = 0; 
                 survivor.auto_weapon_piercing_bonus = 0;
@@ -237,7 +245,7 @@ fn debug_character_switch_system(
 
                 *name = Name::new(format!("Survivor ({})", new_weapon_def.name));
                 sanity_strain.fire_timer.reset();
-                sanity_strain.fire_timer.set_duration(std::time::Duration::from_secs_f32(new_weapon_def.base_fire_rate_secs.max(0.05)));
+                sanity_strain.fire_timer.set_duration(std::time::Duration::from_secs_f32(new_base_fire_rate.max(0.05)));
 
             }
         }
@@ -325,8 +333,8 @@ fn setup_main_menu_ui(
             };
             
             let normal_button_bg_color = Color::rgba(0.2, 0.2, 0.3, 0.8); // Slightly transparent dark blue/purple
-            let hovered_button_bg_color = Color::rgba(0.3, 0.3, 0.45, 0.9);
-            let pressed_button_bg_color = Color::rgba(0.1, 0.1, 0.2, 0.9);
+            let _hovered_button_bg_color = Color::rgba(0.3, 0.3, 0.45, 0.9);
+            let _pressed_button_bg_color = Color::rgba(0.1, 0.1, 0.2, 0.9);
             let border_color = Color::rgba(0.7, 0.7, 0.8, 0.7); // Light grey border
 
             // Iterate through available weapons/abilities and create a button for each

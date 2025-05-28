@@ -10,7 +10,7 @@ use crate::{
     weapons::{CircleOfWarding, SwarmOfNightmares},
     audio::{PlaySoundEvent, SoundEffect},
     skills::{ActiveSkillInstance, SkillLibrary, SkillId, SurvivorBuffEffect, ActiveShield},
-    items::{ItemId, ItemDrop, ItemLibrary, ItemEffect, RetaliationNovaEffect, AutomaticWeaponId, AutomaticWeaponLibrary},
+    items::{ItemId, ItemDrop, ItemLibrary, ItemEffect, RetaliationNovaEffect, AutomaticWeaponId, AutomaticWeaponLibrary, AttackTypeData},
 };
 
 pub const SURVIVOR_SIZE: Vec2 = Vec2::new(50.0, 50.0);
@@ -18,7 +18,7 @@ const XP_FOR_LEVEL: [u32; 10] = [100, 150, 250, 400, 600, 850, 1100, 1400, 1800,
 pub const BASE_PICKUP_RADIUS: f32 = 100.0;
 const PROJECTILE_SPREAD_ANGLE_DEGREES: f32 = 15.0; 
 pub const INITIAL_SURVIVOR_MAX_HEALTH: i32 = 100;
-const BASE_SURVIVOR_SPEED: f32 = 250.0;
+pub const BASE_SURVIVOR_SPEED: f32 = 250.0;
 const ITEM_COLLECTION_RADIUS: f32 = SURVIVOR_SIZE.x / 2.0 + crate::items::ITEM_DROP_SIZE.x / 2.0;
 const MIND_STRAIN_DEBUFF_DURATION: f32 = 5.0;
 const MIND_STRAIN_SPEED_REDUCTION_PER_STACK: f32 = 0.05; 
@@ -229,7 +229,14 @@ fn spawn_survivor(
     let mut survivor_name = "Survivor (Unknown Class)".to_string();
 
     if let Some(weapon_def) = weapon_library.get_weapon_definition(chosen_inherent_weapon_id) {
-        initial_fire_rate = weapon_def.base_fire_rate_secs;
+        if let AttackTypeData::StandardProjectile(params) = &weapon_def.attack_data {
+            initial_fire_rate = params.base_fire_rate_secs;
+        } else {
+            // Log an error or use a default if it's not StandardProjectile
+            // For now, let's use a default and log an error.
+            error!("Chosen inherent weapon {:?} for survivor does not have StandardProjectile attack data! Using default fire rate.", weapon_def.id);
+            // initial_fire_rate is already defaulted to 1.0, so no change needed here if error.
+        }
         survivor_name = format!("Survivor ({})", weapon_def.name);
     }
 
@@ -335,35 +342,46 @@ fn survivor_casting_system(
         if sanity_strain.fire_timer.just_finished() {
             if survivor_stats.aim_direction != Vec2::ZERO {
                 sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast));
-                let current_damage = weapon_def.base_damage + survivor_stats.auto_weapon_damage_bonus;
-                let effective_projectile_lifetime_secs = weapon_def.projectile_lifetime_secs;
-                let current_speed = weapon_def.base_projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier;
-                let current_piercing = weapon_def.base_piercing + survivor_stats.auto_weapon_piercing_bonus;
-                let total_projectiles = 1 + weapon_def.additional_projectiles + survivor_stats.auto_weapon_additional_projectiles_bonus;
 
-                let base_angle = survivor_stats.aim_direction.to_angle();
-                for i in 0..total_projectiles {
-                    let angle_offset_rad = if total_projectiles > 1 {
-                        let total_spread_angle_rad = (total_projectiles as f32 - 1.0) * PROJECTILE_SPREAD_ANGLE_DEGREES.to_radians();
-                        let start_angle_rad = base_angle - total_spread_angle_rad / 2.0;
-                        start_angle_rad + (i as f32 * PROJECTILE_SPREAD_ANGLE_DEGREES.to_radians())
-                    } else { base_angle };
-                    let projectile_direction = Vec2::from_angle(angle_offset_rad);
+                if let AttackTypeData::StandardProjectile(params) = &weapon_def.attack_data {
+                    let current_damage = params.base_damage + survivor_stats.auto_weapon_damage_bonus;
+                    // Applying the multiplier as it was likely intended for all auto attacks
+                    let effective_projectile_lifetime_secs = params.projectile_lifetime_secs * survivor_stats.auto_attack_projectile_duration_multiplier;
+                    let current_speed = params.base_projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier;
+                    let current_piercing = params.base_piercing + survivor_stats.auto_weapon_piercing_bonus;
+                    let total_projectiles = 1 + params.additional_projectiles + survivor_stats.auto_weapon_additional_projectiles_bonus;
 
-                    spawn_automatic_projectile(
-                        &mut commands,
-                        &asset_server,
-                        survivor_transform.translation,
-                        projectile_direction,
-                        current_damage,
-                        current_speed,
-                        current_piercing,
-                        weapon_def.id, 
-                        weapon_def.projectile_sprite_path,
-                        weapon_def.projectile_size,
-                        weapon_def.projectile_color,
-                        effective_projectile_lifetime_secs,
-                    );
+                    let base_angle = survivor_stats.aim_direction.to_angle();
+                    // Use saturating_sub to prevent underflow if total_projectiles is 0, though it should be at least 1.
+                    let spread_arc_degrees = PROJECTILE_SPREAD_ANGLE_DEGREES * (total_projectiles.saturating_sub(1)) as f32;
+                    let start_angle_offset_rad = if total_projectiles > 1 { -spread_arc_degrees.to_radians() / 2.0 } else { 0.0 };
+                    
+                    for i in 0..total_projectiles {
+                        let angle_offset_rad = if total_projectiles > 1 {
+                            let step = if total_projectiles > 1 { spread_arc_degrees.to_radians() / (total_projectiles - 1) as f32 } else { 0.0 };
+                            start_angle_offset_rad + (i as f32 * step)
+                        } else {
+                            0.0 // No offset if only one projectile
+                        };
+                        let projectile_direction = Vec2::from_angle(base_angle + angle_offset_rad);
+
+                        spawn_automatic_projectile(
+                            &mut commands,
+                            &asset_server,
+                            survivor_transform.translation,
+                            projectile_direction,
+                            current_damage,
+                            current_speed,
+                            current_piercing,
+                            weapon_def.id, // weapon_def.id is still correct
+                            params.projectile_sprite_path,
+                            params.projectile_size,
+                            params.projectile_color,
+                            effective_projectile_lifetime_secs,
+                        );
+                    }
+                } else {
+                    error!("Weapon {:?} (ID: {}) does not have StandardProjectile attack data! Cannot fire.", weapon_def.name, weapon_def.id.0);
                 }
             }
         }

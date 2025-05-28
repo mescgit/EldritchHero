@@ -9,7 +9,7 @@ use crate::components::Health as ComponentHealth;
 // Changed skills import as per request
 use crate::skills::SkillLibrary; 
 // Changed items import as per request
-use crate::items::{ItemLibrary, AutomaticWeaponLibrary}; 
+use crate::items::{ItemLibrary, AutomaticWeaponLibrary, AttackTypeData}; 
 use crate::weapons::{CircleOfWarding, SwarmOfNightmares};
 // Ensured GlyphLibrary import is active and other glyph types are removed
 use crate::glyphs::GlyphLibrary; 
@@ -162,7 +162,7 @@ pub fn update_in_game_debug_ui(
     skill_library: Res<SkillLibrary>,
     item_library: Res<ItemLibrary>,
     weapon_library: Res<AutomaticWeaponLibrary>,
-    opt_glyph_library: Option<Res<GlyphLibrary>>,
+    _opt_glyph_library: Option<Res<GlyphLibrary>>,
     mut player_stats_text_query: Query<&mut Text, (With<PlayerStatsDebugText>, Without<InherentWeaponDebugText>, Without<EquippedSkillsDebugText>, Without<CollectedItemsDebugText>, Without<SpecialWeaponsDebugText>, Without<GlyphsDebugText>)>,
     mut inherent_weapon_text_query: Query<&mut Text, (With<InherentWeaponDebugText>, Without<PlayerStatsDebugText>, Without<EquippedSkillsDebugText>, Without<CollectedItemsDebugText>, Without<SpecialWeaponsDebugText>, Without<GlyphsDebugText>)>,
     mut skills_text_query: Query<&mut Text, (With<EquippedSkillsDebugText>, Without<PlayerStatsDebugText>, Without<InherentWeaponDebugText>, Without<CollectedItemsDebugText>, Without<SpecialWeaponsDebugText>, Without<GlyphsDebugText>)>,
@@ -234,31 +234,34 @@ pub fn update_in_game_debug_ui(
     // Update Inherent Weapon Text
     if let Ok(mut text) = inherent_weapon_text_query.get_single_mut() {
         if let Some(weapon_def) = weapon_library.get_weapon_definition(player.inherent_weapon_id) {
-            let effective_damage = weapon_def.base_damage as i32 + player.auto_weapon_damage_bonus;
-            // Use mind_affliction (sanity_strain) for fire rate details
-            let current_fire_rate = sanity_strain.fire_timer.duration().as_secs_f32();
-            let base_fire_rate = sanity_strain.base_fire_rate_secs;
-            let effective_piercing = weapon_def.base_piercing + player.auto_weapon_piercing_bonus;
-            // Use additional_projectiles from weapon_def
-            let effective_projectiles = weapon_def.additional_projectiles + player.auto_weapon_additional_projectiles_bonus; 
-            text.sections[0].value = format!(
-                "Inherent Weapon: {}\n\
-                Dmg: {} (Base: {}, Bonus: {}) | Fire Rate: {:.2}s (Base: {:.2}s)\n\
-                Proj.Speed Mult: {:.2}x | Pierce: {} (Base: {}, Bonus: {})\n\
-                Proj#: {} (Base: {}, Bonus: {})\n\
-                Crit: {:.1}% (Dmg Mult: {:.2}x) | Lifesteal: {:.1}% | Exec. Threshold: {:.1}%\n\
-                Bonus Ele Dmg (F/C/L/P): {}/{}/{}/{}",
-                weapon_def.name,
-                effective_damage, weapon_def.base_damage, player.auto_weapon_damage_bonus,
-                current_fire_rate, base_fire_rate, // Removed fire_rate_mult
-                player.auto_weapon_projectile_speed_multiplier,
-                effective_piercing, weapon_def.base_piercing, player.auto_weapon_piercing_bonus,
-                effective_projectiles, weapon_def.additional_projectiles, player.auto_weapon_additional_projectiles_bonus, // Changed to additional_projectiles
-                player.auto_attack_crit_chance, player.auto_attack_crit_damage_multiplier,
-                player.auto_attack_lifesteal_percent, player.auto_attack_execute_threshold,
-                player.auto_attack_bonus_fire_damage, player.auto_attack_bonus_cold_damage,
-                player.auto_attack_bonus_lightning_damage, player.auto_attack_poison_dps
-            );
+            if let AttackTypeData::StandardProjectile(params) = &weapon_def.attack_data {
+                let effective_damage = params.base_damage as i32 + player.auto_weapon_damage_bonus;
+                let base_fire_rate = sanity_strain.base_fire_rate_secs; // This is from SanityStrain, set by game.rs
+                let current_fire_rate = sanity_strain.fire_timer.duration().as_secs_f32();
+                let effective_piercing = params.base_piercing + player.auto_weapon_piercing_bonus;
+                let effective_projectiles = 1 + params.additional_projectiles + player.auto_weapon_additional_projectiles_bonus;
+
+                text.sections[0].value = format!(
+                    "Inherent Weapon: {}\n\
+                    Dmg: {} (Base: {}, Bonus: {}) | Fire Rate: {:.2}s (Base: {:.2}s)\n\
+                    Proj.Speed Mult: {:.2}x | Pierce: {} (Base: {}, Bonus: {})\n\
+                    Proj#: {} (Base: {}, Bonus: {})\n\
+                    Crit: {:.1}% (Dmg Mult: {:.2}x) | Lifesteal: {:.1}% | Exec. Threshold: {:.1}%\n\
+                    Bonus Ele Dmg (F/C/L/P): {}/{}/{}/{}",
+                    weapon_def.name, // Name is fine
+                    effective_damage, params.base_damage, player.auto_weapon_damage_bonus,
+                    current_fire_rate, base_fire_rate,
+                    player.auto_weapon_projectile_speed_multiplier,
+                    effective_piercing, params.base_piercing, player.auto_weapon_piercing_bonus,
+                    effective_projectiles, params.additional_projectiles, player.auto_weapon_additional_projectiles_bonus,
+                    player.auto_attack_crit_chance, player.auto_attack_crit_damage_multiplier,
+                    player.auto_attack_lifesteal_percent, player.auto_attack_execute_threshold,
+                    player.auto_attack_bonus_fire_damage, player.auto_attack_bonus_cold_damage,
+                    player.auto_attack_bonus_lightning_damage, player.auto_attack_poison_dps
+                );
+            } else {
+                text.sections[0].value = format!("Inherent Weapon: {} (Non-Standard Attack Data)", weapon_def.name);
+            }
         } else {
             text.sections[0].value = "Inherent Weapon: Not Found".to_string();
         }
