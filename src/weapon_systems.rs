@@ -1,3 +1,4 @@
+// mescgit/eldritchhero/EldritchHero-77df6cd0b3e48857123b0971c9f30b59714a1b8a/src/weapon_systems.rs
 use bevy::prelude::*;
 use crate::items::{StandardProjectileParams, ReturningProjectileParams, ChanneledBeamParams, ConeAttackParams, AutomaticWeaponId};
 use crate::components::{Velocity, Damage, Lifetime, Name}; // Added Name
@@ -111,7 +112,7 @@ pub fn channeled_beam_damage_system(
     mut beam_query: Query<(&mut ChanneledBeamComponent, &GlobalTransform)>, // Beam's global transform for accurate collision
     // Query for entities that can be damaged (e.g., enemies with Health)
     // Assuming enemies have a Health component from crate::components
-    mut enemy_query: Query<(Entity, &Transform, &mut crate::components::Health, With<crate::enemy::Enemy>)>,
+    mut enemy_query: Query<(Entity, &Transform, &mut crate::components::Health, With<crate::horror::Horror>)>, // Changed to horror
     // Optional: For spawning damage text or other effects
     // asset_server: Res<AssetServer>,
     // mut sound_event_writer: EventWriter<PlaySoundEvent>,
@@ -147,7 +148,7 @@ pub fn channeled_beam_damage_system(
                 let perpendicular_distance = (to_enemy - distance_along_beam * beam_direction).length();
                 
                 // Using a default enemy radius as ENEMY_SIZE is not directly accessible here.
-                let enemy_radius = 16.0; // Default value as per instructions.
+                let enemy_radius = 16.0; // Default value as per instructions. Changed from HORROR_SIZE
                 if perpendicular_distance < (beam_comp.width / 2.0) + enemy_radius { 
                     // Enemy is hit
                     enemy_health.0 -= beam_comp.damage_per_tick;
@@ -155,7 +156,7 @@ pub fn channeled_beam_damage_system(
 
                     // Here you could spawn damage text or play hit sounds
                     // spawn_damage_text(&mut commands, &asset_server, enemy_transform.translation, beam_comp.damage_per_tick, &time);
-                    // sound_event_writer.send(PlaySoundEvent(SoundEffect::EnemyHit));
+                    // sound_event_writer.send(PlaySoundEvent(SoundEffect::EnemyHit)); // Changed to HorrorHit
 
                     if enemy_health.0 <= 0 {
                         // Potentially handle enemy death here or let another system do it
@@ -168,7 +169,7 @@ pub fn channeled_beam_damage_system(
 }
 
 pub fn channeled_beam_update_system(
-    player_query: Query<(&Transform, &crate::player::Player), (With<crate::player::Player>, Without<ChanneledBeamComponent>)>, // Player's transform and aim
+    player_query: Query<(&Transform, &crate::survivor::Survivor), (With<crate::survivor::Survivor>, Without<ChanneledBeamComponent>)>, // Player's transform and aim. Changed to survivor
     mut beam_query: Query<(&mut Transform, &ChanneledBeamComponent)>, // Beam's transform
 ) {
     for (mut beam_transform, beam_comp) in beam_query.iter_mut() {
@@ -282,12 +283,8 @@ pub fn spawn_returning_projectile_attack(
     ));
 }
 
-pub fn start_channeled_beam_attack(
-// Removed start_channeled_beam_attack function
-
-
 pub fn player_is_channeling_effect_system(
-    mut player_query: Query<(Entity, &mut crate::player::Player, Option<&IsChannelingComponent>)>,
+    mut player_query: Query<(Entity, &mut crate::survivor::Survivor, Option<&IsChannelingComponent>)>, // Changed to survivor
     // To despawn beam if IsChannelingComponent is removed for some reason by other logic
     // mut commands: Commands, 
 ) {
@@ -303,9 +300,9 @@ pub fn player_is_channeling_effect_system(
             }
         } else {
             // Player is NOT channeling (or component was just removed)
-            if player_stats.speed != BASE_PLAYER_SPEED {
-                player_stats.speed = BASE_PLAYER_SPEED;
-                info!("Player {:?} speed reset to {}.", player_entity, BASE_PLAYER_SPEED);
+            if player_stats.speed != BASE_PLAYER_SPEED { // Changed from BASE_SURVIVOR_SPEED
+                player_stats.speed = BASE_PLAYER_SPEED; // Changed from BASE_SURVIVOR_SPEED
+                info!("Player {:?} speed reset to {}.", player_entity, BASE_PLAYER_SPEED); // Changed from BASE_SURVIVOR_SPEED
             }
         }
     }
@@ -318,7 +315,7 @@ pub fn execute_cone_attack(
     player_transform: &Transform,
     aim_direction: Vec2, // Normalized direction player is aiming
     // Query for entities that can be damaged
-    mut enemy_query: Query<(Entity, &Transform, &mut crate::components::Health, With<crate::enemy::Enemy>)>,
+    mut enemy_query: Query<(Entity, &Transform, &mut crate::components::Health, With<crate::horror::Horror>)>, // Changed to horror
     // Optional: For spawning visual effects or sounds
     // time: Res<Time>,
     // mut sound_event_writer: EventWriter<PlaySoundEvent>,
