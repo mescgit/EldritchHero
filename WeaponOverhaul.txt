@@ -1,0 +1,273 @@
+Overhaul Ideas & Examples:
+
+Instead of every weapon simply launching projectiles as defined in AutomaticWeaponDefinition, we can introduce a wider variety of attack behaviors. This would likely require a more flexible data structure for defining weapons, perhaps an enum that describes the core mechanic, with specific parameters for each type.
+
+Here are some categories of mechanics and how existing or new weapons could be reimagined:
+
+1. Unique Projectile Behaviors (Beyond current stats):
+
+    Returning Projectiles:
+        Example (New or Reimagined "Spectral Blades"): Instead of a shotgun-like spread, "Spectral Blades" could fire a single, large blade that travels a certain distance and then returns to the player, hitting enemies on both passes.
+        Gameplay Style: Rewards careful positioning to hit enemies twice; creates interesting risk/reward if the player has to move to catch the returning blade for a bonus.
+    Splitting/Fragmenting Projectiles:
+        Example (Reimagined "Crystal Shard"): Fires a larger crystal that, after a set distance or on first impact, shatters into multiple smaller, faster shards that spread out.
+        Gameplay Style: Good for hitting a single target initially then peppering a group behind it, or for creating a wider cone of damage at a specific range.
+    Arcing/Lobbed Projectiles:
+        Example (Reimagined "Magma Ball" or "Venom Spit"): These projectiles could be lobbed, affected by gravity, requiring players to lead targets and aim in an arc. Upon landing, they could create a temporary hazard zone (e.g., a pool of magma or venom).
+        Gameplay Style: Adds a skill dimension to aiming; creates area denial opportunities.
+    Persistent "Pet" Projectiles:
+        Example (Reimagined "Shadow Orb"): The orb could be a slow-moving, persistent projectile that pulses with damaging energy or periodically fires smaller bolts at nearby enemies for its duration. The player might only be able to have one or two active.
+        Gameplay Style: Tactical placement of orbs; creating mobile zones of control.
+
+2. Melee & Short-Range Non-Projectile Attacks:
+
+    Cone/Arc Attacks:
+        Example (New: "Ethereal Scythe" or reimagined "Psionic Lash"): Instead of a projectile, the player performs a quick swipe in a 90-180 degree arc directly in front of them, hitting all enemies in that zone.
+        Gameplay Style: Encourages close-quarters combat, careful positioning to maximize hits in a cleave.
+    Point-Blank AoE (Nova):
+        Example (New: "Psychic Nova"): A pulse of energy erupts directly from the survivor, damaging all nearby enemies. No projectile involved.
+        Gameplay Style: High risk/reward, requires being surrounded or diving into groups. Could have a knockback effect.
+    Short-Range "Shockwave" or "Force Push":
+        Example (Reimagined "EarthShatter Shard"): Instead of a projectile, a short-range shockwave erupts from the player in a target direction, damaging and pushing enemies back.
+        Gameplay Style: Defensive/utility focused, creating space.
+
+3. Channeled Abilities:
+
+    True Channeled Beams:
+        Example (Reimagined "Arcane Ray"): The player emits a continuous beam of energy. While channeling, the player might move slower or be rooted. The beam deals rapid ticks of damage to anything it hits.
+        Gameplay Style: Focus on sustained single-target damage or sweeping across multiple targets; managing immobility.
+    Charging Attacks:
+        Example (Reimagined "Void Cannon" or "Spirit Bomb"): Hold the attack button to charge the weapon. A quick tap fires a weak version. A full charge unleashes a much more potent attack (e.g., larger AoE, more damage, more piercing).
+        Gameplay Style: Risk/reward based on charge time; timing powerful shots for maximum impact.
+
+4. Ground-Targeted / Zone Control Abilities:
+
+    Persistent Damaging Zones:
+        Example (Reimagined "Inferno Bolt"): The bolt, upon impact, creates a patch of fire on the ground that persists for a few seconds, damaging enemies that stand in it.
+        Gameplay Style: Area denial, kiting enemies through hazardous zones.
+    Eruption/Trap Style:
+        Example (New: "Abyssal Spikes"): Player targets a nearby location, and after a short delay, spikes erupt from the ground, damaging and briefly immobilizing enemies.
+        Gameplay Style: Predictive aiming, setting traps, crowd control.
+
+5. Summoning / Minion-Based Auto-Attacks:
+
+    Temporary Combat Pets:
+        Example (New: "Ephemeral Swarm"): Each "attack" summons a very short-lived, fast-moving creature (e.g., a small tendril beast, a flying imp) that seeks out a nearby enemy and attacks once before vanishing.
+        Gameplay Style: Fire-and-forget for some passive damage; less focus on precise aiming by the player, more on volume.
+
+Implementation Considerations for Such an Overhaul:
+
+    Flexible Weapon Definition: The current AutomaticWeaponDefinition struct would need to be significantly redesigned. You'd likely need an enum to represent the core AttackType (e.g., Projectile, MeleeArc, ChanneledBeam, GroundZone) and then specific data fields for each type.
+    New Components & Systems:
+        Channeled abilities would need to have a timer where the ability is active and not active
+        Ground-targeted AoEs would need aiming indicators and components for persistent ground effects.
+        Melee attacks would need different collision detection logic (e.g., arc casts).
+    Input Handling: Charging mechanics or aiming ground-targeted abilities would require changes to input processing.
+    Visual & Audio Overhaul: Each new gameplay style would demand unique visual and audio feedback to feel impactful and distinct.
+
+By diversifying the fundamental action the player performs with each auto-ability, you can create much richer and more engaging gameplay, where weapon choice truly dictates a different approach to combat encounters. This is a significant undertaking but can dramatically improve the game's depth and replayability.
+
+
+
+
+
+
+
+Reimagined Auto-Attack Ability Descriptions
+
+This list proposes new designs for your auto-attack abilities to make each one offer a unique gameplay experience.
+
+1. Primordial Ichor Blast
+
+    Original Concept: Standard projectile.
+    New Concept: Lobbed AoE Pool
+        Mechanic: Fires a projectile in an arc. Upon impact with the ground or an enemy, it creates a moderately sized pool of "ichor" that persists for a few seconds, dealing continuous damage to enemies within it.
+        Parameters: Moderate fire rate, limited number of active pools (e.g., 2-3), pool duration, pool damage per tick.
+        Gameplay Style: Area denial and kiting. Players would focus on placing pools strategically to control enemy movement, create chokepoints, or damage stationary/slow-moving foes. Rewards prediction and spatial awareness.
+
+2. Eldritch Gatling
+
+    Original Concept: Rapid single-target projectile.
+    New Concept: Focused Channeled Beam (Short-Mid Range)
+        Mechanic: The player emits a highly concentrated, short-to-medium range beam of energy. While channeling, the player must stand still or move very slowly. The beam deals rapid, low damage ticks. Damage ramps up slightly the longer it's focused on a single target.
+        Parameters: High tick rate, low damage per tick, range limit, significant movement penalty, damage ramp-up mechanic.
+        Gameplay Style: High-risk, high-reward single-target DPS. Requires players to find safe moments to plant themselves and unleash focused damage. Good against bosses or tough single enemies.
+
+3. Void Cannon
+
+    Original Concept: Slow, piercing projectile.
+    New Concept: Charge-Up Energy Shot
+        Mechanic: Holding the attack button charges the weapon.
+            Tap Fire: A quick, small, low-damage projectile with minimal piercing.
+            Partial Charge: A medium-sized projectile with moderate damage and some piercing.
+            Full Charge: A large, slow-moving projectile that deals massive damage, pierces multiple enemies, and explodes in a small AoE upon its final impact or at max range.
+        Parameters: Charge time levels, distinct effects/damage for each charge level, visual/audio cues for charge.
+        Gameplay Style: Tactical decision-making and timing. Players choose between quick harass, moderate multi-hits, or devastating but slow big hits. Rewards patience and opportunity recognition.
+
+4. Spectral Blades
+
+    Original Concept: Multi-shot spread of short-lived projectiles.
+    New Concept: Returning Chakram/Blade
+        Mechanic: Throws a single, large spectral blade that travels a set distance, then hovers briefly before returning to the player. Damages enemies on both the outgoing and return path.
+        Parameters: Moderate fire rate, blade travel distance, return speed, piercing on outgoing/return. Perhaps a bonus effect if the player "catches" the returning blade.
+        Gameplay Style: Positioning and skill shots. Players aim to hit multiple enemies or a single enemy twice. Adds a kiting element as players might maneuver to align with the returning blade.
+
+5. Inferno Bolt
+
+    Original Concept: Piercing projectile.
+    New Concept: Trail of Fire / Persistent Ground Flames
+        Mechanic: Fires a projectile that leaves a burning trail of fire on the ground for a few seconds. Enemies touching the trail take continuous damage. The initial projectile hit might also deal direct damage.
+        Parameters: Projectile speed/range, trail duration, trail width, damage per tick from trail.
+        Gameplay Style: Area control and kiting. Players "paint" the battlefield with fire, forcing enemies to move or take damage. Good for dealing with chasing hordes.
+
+6. Chain Lightning
+
+    Original Concept: Fast, piercing/chaining projectile.
+    New Concept: Auto-Targeting Instant Chain Zap
+        Mechanic: No projectile. When activated, lightning instantly zaps the nearest enemy within a certain range, then chains to a set number of additional nearby enemies. Has a short cooldown between zaps.
+        Parameters: Moderate activation rate (cooldown), range, number of chains, damage per hit (may decrease with each chain).
+        Gameplay Style: Reliable multi-target damage against groups. Less aiming skill required, more about managing range and cooldowns. Good for clearing weaker, spread-out enemies.
+
+7. Arcane Ray
+
+    Original Concept: Very fast, high-damage single projectile.
+    New Concept: Sweeping Channeled Beam
+        Mechanic: Player emits a powerful, continuous beam of arcane energy with significant range. The player can slowly rotate (sweep) the beam while channeling. Movement is heavily slowed.
+        Parameters: High damage per tick, long range, slow sweep speed, significant movement penalty. Could have a resource/overheat mechanic.
+        Gameplay Style: "Artillery" or "Turret" style. Players find a vantage point to sweep the beam across multiple enemies or focus on high-priority targets. Vulnerable while channeling.
+
+8. Shadow Orb
+
+    Original Concept: Slow, piercing orb projectile.
+    New Concept: Deployable Orbiting "Turret" Orb
+        Mechanic: Summons a shadowy orb that slowly orbits the player (or can be deployed at a target location and stays there). The orb persists for a moderate duration, periodically pulsing a small AoE damage effect or firing small, seeking shadow bolts at nearby enemies. Only one (or very few) can be active.
+        Parameters: Orb duration, pulse/shot rate, pulse AoE/bolt damage, orbit radius/deployment range.
+        Gameplay Style: Tactical summoner/controller. Provides consistent passive damage and zone control. Players focus on kiting enemies into the orb's effective area or protecting their deployed orb.
+
+9. Holy Lance
+
+    Original Concept: Fast, very piercing projectile.
+    New Concept: Line Dash Attack / Piercing Charge
+        Mechanic: The player performs a quick, short-to-medium range dash in the direction they are aiming (or moving). Damages all enemies passed through. Player might be briefly invulnerable during the dash.
+        Parameters: Moderate activation rate (cooldown), dash distance/speed, damage, width of the dash hit.
+        Gameplay Style: High mobility and aggression. Used for repositioning, engaging, escaping, and damaging lines of enemies simultaneously. Rewards bold plays.
+
+10. Venom Spit
+
+    Original Concept: Multi-shot projectile with implied DoT.
+    New Concept: AoE Cloud Lobber
+        Mechanic: Lobs a projectile that explodes on impact (or after a short fuse) into a lingering cloud of toxic gas. Enemies within the cloud take damage over time and might suffer other effects (e.g., slowed, reduced healing).
+        Parameters: Moderate fire rate, cloud radius, cloud duration, DoT damage, secondary debuff effects.
+        Gameplay Style: Area denial and sustained damage via DoTs. Good for weakening groups over time and controlling space.
+
+11. Glacial Spike
+
+    Original Concept: Piercing, chilling projectile.
+    New Concept: Point-Blank Frost Nova
+        Mechanic: A burst of intense cold erupts directly from the player, damaging all nearby enemies and applying a strong slow or temporary freeze effect.
+        Parameters: Moderate activation rate (cooldown), nova radius, damage, slow/freeze intensity and duration.
+        Gameplay Style: Defensive/utility crowd control. Used when surrounded or to create escape opportunities. High risk due to close range, high reward in control.
+
+12. EarthShatter Shard
+
+    Original Concept: Slow, large projectile, AoE implied.
+    New Concept: Ground-Targeted Eruption
+        Mechanic: Player aims a reticle on the ground within a certain range. After a short delay, jagged shards of earth erupt from the targeted area, dealing high damage and possibly knocking up enemies.
+        Parameters: Moderate activation rate, targeting range, eruption radius, damage, delay before eruption, knock-up chance/strength.
+        Gameplay Style: Predictive, skill-based AoE. Rewards leading targets and precise placement for maximum impact on groups or powerful single targets.
+
+13. Sunfire Burst
+
+    Original Concept: Multi-shot fast projectiles in a burst.
+    New Concept: Short-Range Wide Cone "Shotgun" with Burn
+        Mechanic: Unleashes a wide, short-range cone of fire (a true conical hitbox, not just multiple projectiles). Enemies hit take immediate damage and are set on fire, taking damage over time.
+        Parameters: Moderate fire rate, cone angle and range, initial hit damage, burn DoT damage and duration.
+        Gameplay Style: Close-quarters burst damage. Effective for "shotgunning" down single targets or hitting multiple enemies directly in front.
+
+14. Moonbeam Dart
+
+    Original Concept: Very fast, piercing single darts.
+    New Concept: Homing Darts with Stacking Debuff
+        Mechanic: Fires one or two darts per shot that weakly home in on nearby enemies. Each hit applies a stacking debuff that increases the damage the target takes from all sources (or just Moonbeam Darts) for a short duration.
+        Parameters: Moderate fire rate, number of darts, homing strength, base damage, debuff effect (e.g., +X% damage taken per stack, max stacks), debuff duration.
+        Gameplay Style: Focus fire and debuff management. Rewards consistently hitting a single target to ramp up damage against it. Good for bosses or high-health enemies.
+
+15. Spirit Bomb
+
+    Original Concept: Very slow, very large projectile, AoE implied.
+    New Concept: Expanding Energy Field Detonation
+        Mechanic: Activating the ability starts an energy field forming around the player. The field visibly expands over a few seconds. The player can move freely during this expansion. Reactivating the ability (or after max expansion time) detonates the field, dealing massive damage to all enemies caught inside. Damage might scale with how much it expanded.
+        Parameters: Slow activation rate (cooldown after detonation), max radius, expansion time, damage (possibly scaling with size/charge).
+        Gameplay Style: "Bomb" style gameplay. Players charge up a large AoE while maneuvering, then try to position for a devastating detonation. High risk (long setup), high reward.
+
+16. Void Tendril
+
+    Original Concept: Lashing, piercing projectiles.
+    New Concept: Melee Sweeping Arc Attack
+        Mechanic: The player performs a quick, wide (e.g., 120-180 degree) melee sweep with a spectral tendril or blade in front of them. Hits multiple targets in the arc.
+        Parameters: Fast activation rate, defined arc radius and angle, damage, number of targets it can hit effectively in one sweep (or all).
+        Gameplay Style: Aggressive close-range combat. Good for clearing multiple enemies directly in front or for players who prefer a "fighter" style.
+
+17. Crystal Shard
+
+    Original Concept: Fast shotgun spread of small projectiles.
+    New Concept: Reflective Projectiles / Bouncing Shards
+        Mechanic: Fires a burst of crystalline shards that can bounce off walls and obstacles a set number of times. Each shard deals damage on hit.
+        Parameters: Moderate fire rate, number of shards per burst, number of bounces, damage per shard. Projectiles might lose some damage or speed per bounce.
+        Gameplay Style: Tactical shooting in enclosed spaces. Players utilize the environment to maximize hits. Can create chaotic, damaging zones.
+
+18. Magma Ball
+
+    Original Concept: Slow projectile, splash damage implied.
+    New Concept: Lobbed Bouncing Magma with Fire Pools
+        Mechanic: Lobs a magma ball that bounces 2-3 times before dissipating. Each bounce deals damage in a small AoE and leaves a small, temporary pool of fire on the ground.
+        Parameters: Moderate fire rate, number of bounces, bounce AoE damage/radius, fire pool duration/damage.
+        Gameplay Style: Hybrid of direct damage and area denial. Rewards aiming to make bounces hit multiple targets or to create a trail of hazards.
+
+19. Sand Blast
+
+    Original Concept: Very fast, short-range cone of weak projectiles.
+    New Concept: Debuffing Aura/Cloud
+        Mechanic: Periodically (or on activation), the player releases a short-lived cloud of sand around themselves. Enemies within the cloud suffer a debuff (e.g., reduced accuracy, slower attack speed, or minor damage over time) but take minimal direct damage from the cloud itself.
+        Parameters: Aura/cloud radius, duration, debuff intensity/type, activation rate/cooldown.
+        Gameplay Style: Defensive/utility support. Focuses on weakening enemies rather than direct damage, making other damage sources more effective or improving survivability.
+
+20. Metal Shrapnel
+
+    Original Concept: Multi-shot piercing projectiles.
+    New Concept: Persistent Close-Range Damage Aura
+        Mechanic: Player constantly projects an aura of swirling metal shards in a very small radius around them. This aura automatically damages any enemy that enters it. No "firing" animation, it's always active.
+        Parameters: Very low damage per tick, but constant; small radius.
+        Gameplay Style: "Touch of death" for very close enemies. Encourages staying extremely close to targets. Good for finishing off weakened foes or deterring melee attackers.
+
+21. Nature's Wrath
+
+    Original Concept: Piercing, multi-shot projectiles.
+    New Concept: Targeted Rooting/Entangling AoE
+        Mechanic: Player targets a small area within a moderate range. After a brief delay, roots or vines erupt from the ground, immobilizing all enemies in that area for a short duration and dealing a small amount of initial damage.
+        Parameters: Moderate activation rate (cooldown), targeting range, AoE radius, root duration, initial damage.
+        Gameplay Style: Crowd control and setup. Used to lock down groups of enemies for other attacks or to create safe passage.
+
+22. Chi Bolt
+
+    Original Concept: Fast single projectile.
+    New Concept: Lifesteal Bolt / Healing Strike
+        Mechanic: Fires a single, moderately fast projectile. A percentage of the damage dealt by this bolt is returned to the player as health.
+        Parameters: Moderate fire rate, moderate damage, lifesteal percentage.
+        Gameplay Style: Sustainable DPS. Allows for more aggressive play by providing self-healing through attacking. Rewards consistent accuracy.
+
+23. Psionic Lash
+
+    Original Concept: Whip-like piercing projectile.
+    New Concept: Skillshot Repositioning Tether
+        Mechanic: Fires a thin, non-damaging (or very low damage) psychic tether as a skillshot. If it hits an enemy, activating the ability again within a short window will either pull the enemy a short distance towards the player or push them away (perhaps alternating with each successful tether, or chosen by a modifier key).
+        Parameters: Moderate fire rate, tether range/speed, pull/push distance. Short window to reactivate.
+        Gameplay Style: High utility and enemy manipulation. Used for peeling, setting up combos, pulling enemies out of position, or creating space. Rewards skillshot accuracy and tactical thinking.
+
+24. Aether Bolt
+
+    Original Concept: Very fast, multi-shot, piercing projectiles.
+    New Concept: Blink Strike / Teleporting Shots
+        Mechanic: Fires a bolt that, upon hitting an enemy, has a chance to cause the player to instantly teleport a very short distance (e.g., behind the hit enemy, or a fixed short blink forward). Alternatively, the projectile itself could "blink" past the first enemy hit (ignoring its collision) to then strike a second target further away.
+        Parameters: Moderate fire rate, chance to trigger blink, blink distance/behavior.
+        Gameplay Style: Highly mobile and unpredictable (for enemies). Can be used for aggressive repositioning, disorienting foes, or bypassing front-line enemies to hit softer targets.
