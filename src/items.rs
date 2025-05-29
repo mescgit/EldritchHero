@@ -117,19 +117,21 @@ pub enum RepositioningTetherMode {
     Alternate,
 }
 
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, Default)] // Added Default
+#[reflect(Default)] // Added reflect(Default)
 pub struct RepositioningTetherParams {
-    pub base_fire_rate_secs: f32,
-    pub tether_projectile_speed: f32,
+    pub cooldown: f32, // Renamed from base_fire_rate_secs
+    pub tether_speed: f32, // Renamed from tether_projectile_speed
     pub tether_range: f32,
-    pub tether_sprite_path: &'static str,
-    pub tether_color: Color,
-    pub tether_size: Vec2,
-    pub mode: RepositioningTetherMode,
-    pub pull_strength: f32,
-    pub push_strength: f32,
-    pub reactivation_window_secs: f32,
-    pub effect_duration_secs: f32,
+    pub tether_sprite_path: &'static str, // Kept as &'static str
+    // pub tether_color: Color, // Removed
+    // pub tether_size: Vec2, // Removed
+    pub mode: RepositioningTetherMode, // Kept, maps to pull_or_push_mode
+    pub pull_strength: f32, // Kept, maps to pull_distance
+    pub push_strength: f32, // Kept, maps to push_distance
+    pub activation_window_duration: f32, // Renamed from reactivation_window_secs, maps to effect_duration for window
+    // pub effect_duration_secs: f32, // Removed, assuming instant effect
+    pub damage_on_hit: Option<f32>, // Added
 }
 
 
@@ -335,26 +337,22 @@ pub struct ChainZapParams {
 #[derive(Debug, Clone, Reflect, Default)]
 #[reflect(Default)]
 pub struct LineDashAttackParams {
-    pub base_fire_rate_secs: f32,
     pub dash_speed: f32,
-    pub dash_duration_secs: f32,
-    pub damage_per_hit: i32,
+    pub dash_duration: f32, // Renamed from dash_duration_secs
+    pub damage: f32, // Changed from damage_per_hit: i32
     pub hitbox_width: f32,
-    pub piercing_cap: u32,
-    pub dash_trail_color: Option<Color>,
-    pub invulnerable_during_dash: bool,
+    pub invulnerability_duration: f32, // Changed from invulnerable_during_dash: bool
+    pub cooldown: f32, // Renamed from base_fire_rate_secs
 }
 impl Default for LineDashAttackParams {
     fn default() -> Self {
         Self {
-            base_fire_rate_secs: 1.0,
             dash_speed: 1000.0,
-            dash_duration_secs: 0.3,
-            damage_per_hit: 10,
+            dash_duration: 0.3,
+            damage: 10.0,
             hitbox_width: 50.0,
-            piercing_cap: 3,
-            dash_trail_color: Some(Color::WHITE),
-            invulnerable_during_dash: false,
+            invulnerability_duration: 0.0,
+            cooldown: 1.0,
         }
     }
 }
@@ -374,6 +372,68 @@ pub struct BlinkStrikeProjectileParams {
     pub blink_to_target_behind: bool,
     pub blink_requires_kill: bool,
     pub num_projectiles_per_shot: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, Default)]
+#[reflect(Default)]
+pub enum BlinkTarget {
+    #[default]
+    BehindEnemy,
+    ForwardFixed,
+}
+
+#[derive(Debug, Clone, Reflect, Default)]
+#[reflect(Default)]
+pub struct BlinkStrikeParams {
+    pub cooldown: f32,
+    pub projectile_damage: f32,
+    pub projectile_speed: f32,
+    pub projectile_asset_path: &'static str,
+    pub projectile_size: Vec2,
+    pub projectile_color: Color,
+    pub projectile_lifetime_secs: f32,
+    pub piercing: u32,
+    pub num_projectiles_per_shot: u32,
+    pub blink_chance: f32, // Chance from 0.0 to 1.0
+    pub blink_distance: f32,
+    pub blink_target: BlinkTarget,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, Default)]
+#[reflect(Default)]
+pub enum OrbAttackType {
+    #[default]
+    PulseAoE,
+    SeekingBolts,
+}
+
+#[derive(Debug, Clone, Reflect, Default)]
+#[reflect(Default)]
+pub struct DeployableOrbitingTurretParams {
+    pub orb_duration: f32,
+    pub max_active_orbs: u32,
+    pub orbit_radius: f32,      // Orbits player if deployment_range is 0
+    pub deployment_range: f32, // If > 0, can be deployed at a target location
+    pub attack_type: OrbAttackType,
+    pub pulse_aoe_radius: Option<f32>,
+    pub pulse_aoe_damage: Option<f32>,
+    pub bolt_damage: Option<f32>,
+    pub bolt_speed: Option<f32>,
+    pub bolt_projectile_asset_path: Option<&'static str>, // Changed from Option<String>
+    pub attack_interval: f32,
+    pub cooldown: f32, // Weapon cooldown to spawn/deploy a new orb
+    pub orbit_speed_rad_per_sec: f32, // Added field
+}
+
+#[derive(Debug, Clone, Reflect, Default)]
+#[reflect(Default)]
+pub struct MeleeArcAttackParams {
+    pub arc_angle: f32,
+    pub arc_radius: f32,
+    pub damage: f32,
+    pub cooldown: f32,
+    pub duration: f32,
+    pub max_targets: Option<u32>,
 }
 
 #[derive(Debug, Clone, Reflect)]
@@ -398,8 +458,42 @@ pub enum AttackTypeData {
     OrbitingPet(OrbitingPetParams),
     RepositioningTether(RepositioningTetherParams),
     LineDashAttack(LineDashAttackParams),
-    BlinkStrikeProjectile(BlinkStrikeProjectileParams), // Added new type for Aether Bolt
+    BlinkStrikeProjectile(BlinkStrikeProjectileParams), // Old - kept for now
+    MeleeArcAttack(MeleeArcAttackParams),
+    DeployableOrbitingTurret(DeployableOrbitingTurretParams),
+    BlinkStrike(BlinkStrikeParams), // New
+    LobbedAoECloud(LobbedAoECloudParams),
     // We will add more variants here as we implement more attack types
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, Default)]
+#[reflect(Default)]
+pub enum DebuffType {
+    #[default]
+    Slow,
+    WeakenAttack, // e.g. reduce enemy damage output
+    WeakenDefense, // e.g. increase damage taken by enemy
+}
+
+#[derive(Debug, Clone, Reflect, Default)]
+#[reflect(Default)]
+pub struct LobbedAoECloudParams {
+    pub cooldown: f32,
+    pub projectile_speed: f32,
+    pub projectile_gravity: Option<f32>, // Optional, uses global default if None
+    pub projectile_asset_path: &'static str,
+    pub impact_sfx_path: Option<&'static str>,
+    
+    pub cloud_duration: f32,
+    pub cloud_radius: f32,
+    pub cloud_visual_asset_path: &'static str,
+    
+    pub damage_per_tick: f32,
+    pub tick_interval: f32,
+    
+    pub debuff_type: Option<DebuffType>,
+    pub debuff_intensity: Option<f32>, // e.g., 0.2 for 20% slow or 0.1 for 10% damage reduction
+    pub debuff_duration: Option<f32>,   // How long the debuff lasts on an enemy after leaving the cloud / after last tick
 }
 
 // The duplicated TrailOfFireParams and the first AttackTypeData enum are now removed.
@@ -601,7 +695,14 @@ impl Plugin for ItemsPlugin {
             // .register_type::<TetherEffectType>() // Commented out old enum
             .register_type::<RepositioningTetherMode>() 
             .register_type::<RepositioningTetherParams>() 
-            .register_type::<BlinkStrikeProjectileParams>() // Register new BlinkStrikeProjectileParams
+            .register_type::<BlinkStrikeProjectileParams>() // Old - kept for now
+            .register_type::<BlinkTarget>() // Register new BlinkTarget
+            .register_type::<BlinkStrikeParams>() 
+            .register_type::<MeleeArcAttackParams>() 
+            .register_type::<OrbAttackType>() 
+            .register_type::<DeployableOrbitingTurretParams>() 
+            .register_type::<DebuffType>() // Register new DebuffType
+            .register_type::<LobbedAoECloudParams>() // Register new LobbedAoECloudParams
             .register_type::<AttackTypeData>() 
             .register_type::<AutomaticWeaponDefinition>() .register_type::<AutomaticWeaponLibrary>()
             .init_resource::<ItemLibrary>()
@@ -761,31 +862,20 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(7),
         name: "Shadow Orb".to_string(),
-        attack_data: AttackTypeData::OrbitingPet(OrbitingPetParams {
-            base_fire_rate_secs: 1.0, // Cooldown for player to spawn a new orb
+        attack_data: AttackTypeData::DeployableOrbitingTurret(DeployableOrbitingTurretParams {
+            orb_duration: 10.0,
             max_active_orbs: 2,
-            orb_duration_secs: 10.0,
-            orb_sprite_path: "sprites/auto_shadow_orb.png", // keep existing sprite for the orb itself
-            orb_size: Vec2::new(32.0, 32.0), // adjust from original projectile
-            orb_color: Color::rgb(0.2, 0.1, 0.3), // keep existing
-            orbit_radius: 100.0,
-            orbit_speed_rad_per_sec: 1.0,
-            can_be_deployed_at_location: false, // simplification: always orbits player for now
-            deployment_range: 0.0,
-            pulses_aoe: true,
-            pulse_damage: 10,
-            pulse_radius: 60.0,
-            pulse_interval_secs: 2.0,
-            pulse_color: Some(Color::rgba(0.3, 0.1, 0.5, 0.5)),
-            fires_seeking_bolts: true,
-            bolt_damage: 8,
-            bolt_speed: 400.0,
-            bolt_fire_interval_secs: 1.5,
-            bolt_sprite_path: Some("sprites/shadow_bolt_placeholder.png"),
-            bolt_size: Some(Vec2::new(10.0, 15.0)),
-            bolt_color: Some(Color::rgb(0.3, 0.1, 0.5)),
-            bolt_lifetime_secs: Some(1.0),
-            bolt_homing_strength: Some(0.5), // weak homing
+            orbit_radius: 100.0, // Orbits player
+            deployment_range: 0.0, // Not deployed at a distance for now
+            attack_type: OrbAttackType::PulseAoE, // Prioritizing PulseAoE
+            pulse_aoe_radius: Some(60.0),
+            pulse_aoe_damage: Some(10.0),
+            bolt_damage: Some(8.0), // Keeping data from old params in case we switch type
+            bolt_speed: Some(400.0),
+            bolt_projectile_asset_path: Some("sprites/shadow_bolt_placeholder.png"), // Use new field name
+            attack_interval: 2.0, // From old pulse_interval_secs
+            cooldown: 1.0, // From old base_fire_rate_secs
+            orbit_speed_rad_per_sec: 1.0, // From old OrbitingPetParams
         }),
     });
 
@@ -793,30 +883,32 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         id: AutomaticWeaponId(8),
         name: "Holy Lance".to_string(),
         attack_data: AttackTypeData::LineDashAttack(LineDashAttackParams {
-            base_fire_rate_secs: 1.2,
-            dash_speed: 900.0,
-            dash_duration_secs: 0.25,
-            damage_per_hit: 30,
-            hitbox_width: 40.0,
-            piercing_cap: 5,
-            dash_trail_color: Some(Color::rgba(1.0, 1.0, 0.7, 0.5)),
-            invulnerable_during_dash: true,
+            dash_speed: 1200.0,
+            dash_duration: 0.3, // Used new field name
+            damage: 40.0, // Used new field name and type
+            hitbox_width: 60.0,
+            invulnerability_duration: 0.3, // Used new field name
+            cooldown: 1.5, // Used new field name
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(9),
         name: "Venom Spit".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 10, // Damage over time implied elsewhere
-            base_fire_rate_secs: 0.4,
-            base_projectile_speed: 500.0,
-            base_piercing: 0,
-            additional_projectiles: 2, // Multiple globs
-            projectile_sprite_path: "sprites/auto_venom_spit.png",
-            projectile_size: Vec2::new(50.0, 50.0),
-            projectile_color: Color::rgb(0.2, 0.8, 0.1),
-            projectile_lifetime_secs: 1.8,
+        attack_data: AttackTypeData::LobbedAoECloud(LobbedAoECloudParams {
+            cooldown: 0.8, 
+            projectile_speed: 400.0,
+            projectile_gravity: None, // Use default gravity
+            projectile_asset_path: "sprites/auto_venom_spit.png", // Existing asset
+            impact_sfx_path: None, // Placeholder
+            cloud_duration: 5.0,
+            cloud_radius: 80.0,
+            damage_per_tick: 3.0,
+            tick_interval: 0.5,
+            cloud_visual_asset_path: "sprites/poison_cloud_placeholder.png", // New placeholder
+            debuff_type: Some(DebuffType::Slow),
+            debuff_intensity: Some(0.25), // 25% slow
+            debuff_duration: Some(3.0),
         }),
     });
 
@@ -907,15 +999,13 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(15),
         name: "Void Tendril".to_string(),
-        attack_data: AttackTypeData::ConeAttack(ConeAttackParams {
-            base_damage: 18, // from existing StandardProjectileParams
-            base_fire_rate_secs: 0.65, // from existing StandardProjectileParams
-            cone_angle_degrees: 150.0, // wide sweep
-            cone_radius: 100.0, // melee range
-            color: Color::rgb(0.3, 0.0, 0.5), // from existing StandardProjectileParams, changed to rgb from rgba for consistency
-            visual_sprite_path: Some("sprites/void_tendril_sweep_placeholder.png"),
-            visual_size_scale_with_radius_angle: Some((1.0, 0.8)), // Example: scales with radius, angle determines width aspect
-            visual_anchor_offset: Some(Vec2::new(0.0, 20.0)), // Example: visual slightly offset forward
+        attack_data: AttackTypeData::MeleeArcAttack(MeleeArcAttackParams {
+            arc_angle: 150.0,
+            arc_radius: 100.0,
+            damage: 18.0,
+            cooldown: 0.65,
+            duration: 0.15, // Short duration for a quick sweep
+            max_targets: Some(10), // Hit up to 10 targets
         }),
     });
 
@@ -1020,38 +1110,35 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(22),
         name: "Psionic Lash".to_string(),
-        attack_data: AttackTypeData::RepositioningTether(RepositioningTetherParams { // Uses new struct
-            base_fire_rate_secs: 1.0,
-            tether_projectile_speed: 800.0,
+        attack_data: AttackTypeData::RepositioningTether(RepositioningTetherParams {
+            cooldown: 1.0,
+            tether_speed: 800.0,
             tether_range: 500.0,
-            tether_sprite_path: "sprites/auto_psionic_lash.png", // Re-using existing sprite from old params
-            tether_color: Color::rgb(0.8, 0.4, 0.9),
-            tether_size: Vec2::new(8.0, 20.0), // Thin lash
-            mode: RepositioningTetherMode::Alternate,
-            pull_strength: 100.0,
-            push_strength: 100.0,
-            reactivation_window_secs: 1.5,
-            effect_duration_secs: 0.2, // Quick pull/push
+            tether_sprite_path: "sprites/chain_lightning_bolt_placeholder.png", // New placeholder
+            mode: RepositioningTetherMode::Pull, // Task: Start with PullOnly
+            pull_strength: 150.0, // Example pull distance
+            push_strength: 150.0, // Example push distance (not used if PullOnly)
+            activation_window_duration: 2.0, // Player has 2 seconds to reactivate
+            damage_on_hit: Some(5.0), // Small damage on hit
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(23),
         name: "Aether Bolt".to_string(),
-        attack_data: AttackTypeData::BlinkStrikeProjectile(BlinkStrikeProjectileParams {
-            base_fire_rate_secs: 0.3,
-            base_damage: 14,
+        attack_data: AttackTypeData::BlinkStrike(BlinkStrikeParams {
+            cooldown: 0.3,
+            projectile_damage: 14.0,
             projectile_speed: 1000.0,
-            projectile_sprite_path: "sprites/auto_aether_bolt.png",
-            projectile_size: Vec2::new(16.0, 16.0), // Small, fast bolts
+            projectile_asset_path: "sprites/auto_aether_bolt.png",
+            projectile_size: Vec2::new(16.0, 16.0),
             projectile_color: Color::rgb(0.9,0.9,0.9),
             projectile_lifetime_secs: 1.4,
             piercing: 1,
-            blink_chance_on_hit_percent: 0.25, // 25% chance
-            blink_distance: 100.0, // Short blink
-            blink_to_target_behind: true, // Blink behind enemy
-            blink_requires_kill: false, // Blink on any hit
-            num_projectiles_per_shot: 2, // Was 1 base + 1 additional
+            num_projectiles_per_shot: 2, 
+            blink_chance: 0.25, 
+            blink_distance: 100.0,
+            blink_target: BlinkTarget::BehindEnemy,
         }),
     });
 }
