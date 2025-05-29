@@ -353,21 +353,6 @@ I've been overhauling auto-attack abilities to give them unique mechanics. So fa
 
 This involved defining new data structures for each weapon type in src/items.rs and implementing the corresponding gameplay logic (Bevy components and systems) in src/weapon_systems.rs and src/automatic_projectiles.rs.
 
-Next Steps:
-
-I plan to continue implementing the remaining weapon archetypes:
-
-    Melee & Player-Movement Attacks:
-        "Holy Lance" (Line Dash Attack)
-        "Void Tendril" (Melee Sweeping Arc)
-    Unique Summons/Utility Projectiles:
-        "Shadow Orb" (Deployable Orbiting Turret)
-        "Psionic Lash" (Repositioning Tether)
-        "Aether Bolt" (Blink Strike / Teleporting Shots)
-    Adaptations of Existing Types:
-        "Venom Spit" (Lobbed AoE Cloud - similar to Ichor Blast but different effect)
-        "Magma Ball" (Lobbed Bouncing Magma with Fire Pools - complex combo)
-        "Arcane Ray" (Sweeping Channeled Beam - similar to Eldritch Gatling but different parameters)
 
 Crucial Integration Phase After All Types are Defined:
 

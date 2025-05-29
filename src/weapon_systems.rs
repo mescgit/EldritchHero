@@ -228,112 +228,32 @@ pub struct EruptionVisualComponent {
 #[derive(Component, Debug, Reflect)]
 #[reflect(Component)]
 pub struct PlayerDashingComponent {
-    pub params: crate::items::LineDashAttackParams,
-    pub initial_direction: Vec2,
-    pub dash_timer: Timer,
-    pub invulnerability_timer: Timer, // Added for separate invulnerability timing
-    pub already_hit_horrors: Vec<Entity>,
-    pub original_speed_if_modified: Option<f32>,
+    pub params: crate::items::LineDashAttackParams, // Changed from DashAttackParams
+    pub initial_direction: Vec2, // Renamed from direction
+    pub dash_timer: Timer, // Renamed from duration_timer
+    pub already_hit_horrors: Vec<Entity>, // Renamed from hit_enemies_this_dash
+    pub original_speed_if_modified: Option<f32>, // Renamed from original_speed
 }
 
 impl Default for PlayerDashingComponent {
     fn default() -> Self {
         let default_params = crate::items::LineDashAttackParams::default();
         Self {
-            params: default_params.clone(),
-            initial_direction: Vec2::X,
-            dash_timer: Timer::from_seconds(default_params.dash_duration, TimerMode::Once), // Use new field name
-            invulnerability_timer: Timer::from_seconds(default_params.invulnerability_duration, TimerMode::Once), // Use new field name
+            params: default_params.clone(), 
+            initial_direction: Vec2::X, 
+            dash_timer: Timer::from_seconds(default_params.dash_duration_secs, TimerMode::Once),
             already_hit_horrors: Vec::new(),
             original_speed_if_modified: None,
         }
     }
 }
 
-// System to remove PlayerInvulnerableComponent after its timer expires
-pub fn player_invulnerability_system(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut query: Query<(Entity, &mut PlayerInvulnerableComponent)>,
-) {
-    for (entity, mut invulnerable_comp) in query.iter_mut() {
-        invulnerable_comp.duration_timer.tick(time.delta());
-        if invulnerable_comp.duration_timer.finished() {
-            commands.entity(entity).remove::<PlayerInvulnerableComponent>();
-        }
-    }
-}
+// --- Blink Strike Projectile Systems ---
 
-// --- Melee Arc Attack Definitions ---
-
-#[derive(Component, Debug, Reflect, Default)]
-#[reflect(Component)]
-pub struct ActiveMeleeArcHitbox {
-    pub params: crate::items::MeleeArcAttackParams,
-    pub duration_timer: Timer,
-    pub already_hit_enemies: Vec<Entity>,
-    pub owner_forward_vector: Vec2,
-    pub owner_position: Vec3,
-    pub hit_count: u32,
-}
-
-// --- Blink Strike Systems ---
-
-// This is the new spawn function for the BlinkStrike (player blink) attack type.
-// It will be called by handle_automatic_weapon_fire_system.
-pub fn spawn_blink_strike_attack(
-    commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
-    player_entity: Entity,
-    params: &crate::items::BlinkStrikeParams, // Uses the new BlinkStrikeParams
-    player_transform: &Transform,
-    aim_direction: Vec2,
-    weapon_id: crate::items::AutomaticWeaponId,
-) {
-    let base_aim_direction_normalized = aim_direction.normalize_or_zero();
-    // num_projectiles_per_shot is now part of BlinkStrikeParams
-    let num_projectiles = params.num_projectiles_per_shot;
-    let total_spread_degrees = if num_projectiles > 1 { (num_projectiles -1) as f32 * 7.5 } else { 0.0 }; // Example spread
-
-    for i in 0..num_projectiles {
-        let mut current_projectile_aim_direction = base_aim_direction_normalized;
-        if num_projectiles > 1 {
-            let total_spread_rad = total_spread_degrees.to_radians();
-            let angle_offset_rad = if num_projectiles <= 1 { 0.0 } else { (i as f32 / (num_projectiles as f32 - 1.0)) * total_spread_rad - (total_spread_rad / 2.0) };
-            let base_angle_rad = base_aim_direction_normalized.y.atan2(base_aim_direction_normalized.x);
-            current_projectile_aim_direction = Vec2::new((base_angle_rad + angle_offset_rad).cos(), (base_angle_rad + angle_offset_rad).sin());
-        }
-
-        crate::automatic_projectiles::spawn_automatic_projectile(
-            commands,
-            asset_server,
-            player_entity, // Owner of the projectile
-            player_transform.translation,
-            current_projectile_aim_direction,
-            params.projectile_damage as i32, // Damage is f32 in params, but i32 in spawn_auto_proj
-            params.projectile_speed,
-            params.piercing,
-            weapon_id,
-            params.projectile_asset_path,
-            params.projectile_size,
-            params.projectile_color,
-            params.projectile_lifetime_secs,
-            None, // opt_max_bounces for this projectile type
-            None, // opt_dmg_loss_mult
-            None, // opt_speed_loss_mult
-            None, // opt_lifesteal_percentage
-            None, // opt_tether_params_for_comp
-            None, // opt_blink_params (this is for projectile blinking, player blink is handled by event)
-        );
-    }
-}
-
-// This is the old spawn function, keep it for now if other parts of code still use BlinkStrikeProjectileParams
 pub fn spawn_blink_strike_projectile_attack(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
-    player_entity: Entity, // Added player_entity
-    params: &crate::items::BlinkStrikeProjectileParams, // This is the OLD params struct
+    params: &crate::items::BlinkStrikeProjectileParams,
     player_transform: &Transform,
     aim_direction: Vec2,
     weapon_id: crate::items::AutomaticWeaponId,
@@ -363,7 +283,6 @@ pub fn spawn_blink_strike_projectile_attack(
         crate::automatic_projectiles::spawn_automatic_projectile(
             commands,
             asset_server,
-            player_entity, // Pass player_entity as owner
             player_transform.translation,
             current_projectile_aim_direction,
             params.base_damage,
@@ -386,274 +305,299 @@ pub fn spawn_blink_strike_projectile_attack(
 
 // --- Repositioning Tether Systems ---
 
-// Old components PlayerWaitingTetherActivationComponent and HorrorLatchedByTetherComponent
-// are replaced by PlayerTetherState and TetheredEnemy from components.rs.
-// The old TetherProjectileComponent is replaced by PsionicTetherProjectile from components.rs.
+#[derive(Component, Debug, Reflect, Default)]
+#[reflect(Component)]
+pub struct TetherProjectileComponent { // Marker component, params are on AutomaticProjectile via items.rs
+    pub params_snapshot: crate::items::RepositioningTetherParams,
+}
 
-// This function is refactored to only spawn the projectile.
-// Reactivation logic is moved to tether_activation_system.
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
+pub struct PlayerWaitingTetherActivationComponent {
+    pub hit_horror_entity: Entity,
+    pub horror_original_transform: Option<Transform>, 
+    pub params: crate::items::RepositioningTetherParams,
+    pub reactivation_window_timer: Timer,
+    pub next_effect_mode: crate::items::RepositioningTetherMode,
+}
+
+impl Default for PlayerWaitingTetherActivationComponent {
+    fn default() -> Self {
+        // Note: This default is largely a placeholder as real values must be supplied.
+        Self {
+            hit_horror_entity: Entity::PLACEHOLDER,
+            horror_original_transform: None,
+            params: crate::items::RepositioningTetherParams { // This uses default() of RepositioningTetherParams
+                base_fire_rate_secs: 1.0,
+                tether_projectile_speed: 500.0,
+                tether_range: 300.0,
+                tether_sprite_path: "sprites/tether_placeholder.png",
+                tether_color: Color::WHITE,
+                tether_size: Vec2::new(5.0, 10.0),
+                mode: crate::items::RepositioningTetherMode::default(),
+                pull_strength: 100.0,
+                push_strength: 100.0,
+                reactivation_window_secs: 2.0,
+                effect_duration_secs: 0.3,
+            },
+            reactivation_window_timer: Timer::from_seconds(2.0, TimerMode::Once),
+            next_effect_mode: crate::items::RepositioningTetherMode::default(),
+        }
+    }
+}
+
+#[derive(Component, Debug, Reflect, Default)]
+#[reflect(Component)]
+pub struct HorrorLatchedByTetherComponent {
+    pub player_who_latched: Entity,
+}
+
+fn apply_tether_reposition_effect(
+    // Removed Commands from here as it's not directly used for spawning, only for component removal by caller
+    horror_transform: &mut Transform, // Directly pass the mutable horror transform
+    player_transform: &Transform,   // Directly pass the player transform
+    params: &crate::items::RepositioningTetherParams,
+    mode: crate::items::RepositioningTetherMode,
+) {
+    let player_pos = player_transform.translation.truncate();
+    let horror_pos = horror_transform.translation.truncate();
+    
+    let actual_mode = match mode {
+        crate::items::RepositioningTetherMode::Alternate => {
+            // This logic might need to be smarter if true alternation is desired on secondary activation
+            // For now, if it's passed as Alternate, we'll pick one, e.g., Pull.
+            // The PlayerWaitingTetherActivationComponent.next_effect_mode should ideally store the resolved mode.
+            crate::items::RepositioningTetherMode::Pull 
+        },
+        _ => mode,
+    };
+
+    match actual_mode {
+        crate::items::RepositioningTetherMode::Pull => {
+            let direction_to_player = (player_pos - horror_pos).normalize_or_zero();
+            if direction_to_player != Vec2::ZERO {
+                horror_transform.translation += (direction_to_player * params.pull_strength).extend(0.0);
+            }
+        }
+        crate::items::RepositioningTetherMode::Push => {
+            let direction_from_player = (horror_pos - player_pos).normalize_or_zero();
+             if direction_from_player != Vec2::ZERO {
+                horror_transform.translation += (direction_from_player * params.push_strength).extend(0.0);
+            } else {
+                horror_transform.translation += (Vec2::X * params.push_strength).extend(0.0);
+            }
+        }
+        _ => {} 
+    }
+    // Sound/visual effects for pull/push could be triggered here via event writers if needed,
+    // or by the calling system.
+}
+
 pub fn spawn_repositioning_tether_attack(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     player_entity: Entity,
-    player_transform: &Transform,
-    aim_direction: Vec2,
-    params: &crate::items::RepositioningTetherParams,
-    // weapon_id: crate::items::AutomaticWeaponId, // No longer needed here if not used by projectile directly
-    // opt_player_tether_state: Option<&mut crate::components::PlayerTetherState>, // For reactivation
-    // horror_query: Query<&mut Transform, (With<Horror>, Without<Survivor>)>, 
+    // player_transform: &Transform, // Player transform will be queried
+    aim_direction: Vec2, // Still needed for initial projectile direction
+    weapon_params: &crate::items::RepositioningTetherParams, // Specific params for this weapon
+    weapon_id: crate::items::AutomaticWeaponId,
+    // Queries needed for reactivation logic
+    mut player_waiting_query: Query<&mut PlayerWaitingTetherActivationComponent>, // Query for the specific player
+    mut horror_query: Query<&mut Transform, With<Horror>>, // Query all horrors for their transforms
+    player_transform_query: Query<&Transform, With<Survivor>>, // Query player transform
 ) {
-    // For now, primary fire always spawns a new tether projectile.
-    // If a tether is already active (PlayerTetherState has an entity), this new projectile 
-    // might replace it or be ignored, depending on desired game feel (not handled here).
-
-    let projectile_lifetime_secs = if params.tether_speed > 0.0 {
-        params.tether_range / params.tether_speed
-    } else {
-        // Default lifetime if speed is zero to prevent infinite lifetime
-        2.0 
-    };
-
-    commands.spawn((
-        crate::components::PsionicTetherProjectile {
-            params_snapshot: params.clone(),
-            duration_timer: Timer::from_seconds(projectile_lifetime_secs, TimerMode::Once),
-            owner: player_entity,
-        },
-        SpriteBundle {
-            texture: asset_server.load(params.tether_sprite_path),
-            sprite: Sprite { 
-                custom_size: Some(Vec2::new(12.0, 24.0)), // Example size, make configurable if needed
-                color: Color::rgb(0.8, 0.4, 0.9), // Example color
-                ..default()
-            },
-            transform: Transform::from_translation(player_transform.translation)
-                .with_rotation(Quat::from_rotation_z(aim_direction.y.atan2(aim_direction.x))),
-            ..default()
-        },
-        Velocity(aim_direction.normalize_or_zero() * params.tether_speed),
-        Name::new("PsionicTetherProjectile"),
-    ));
-}
-
-// New system for tether projectile collisions
-pub fn tether_projectile_collision_system(
-    mut commands: Commands,
-    time: Res<Time>, // To access current time for timers, though Timer::from_seconds is used
-    asset_server: Res<AssetServer>, // For damage text
-    mut projectile_query: Query<(Entity, &crate::components::PsionicTetherProjectile, &GlobalTransform)>,
-    mut horror_query: Query<(Entity, &GlobalTransform, &mut Health, &Horror)>,
-    mut player_query: Query<&mut crate::components::PlayerTetherState>,
-    // sound_event_writer: EventWriter<PlaySoundEvent>, // Optional for hit sounds
-) {
-    for (proj_entity, tether_projectile, proj_gtransform) in projectile_query.iter_mut() {
-        let proj_pos = proj_gtransform.translation().truncate();
-
-        for (horror_entity, horror_gtransform, mut horror_health, horror_stats) in horror_query.iter_mut() {
-            // Simple distance-based collision
-            let horror_pos = horror_gtransform.translation().truncate();
-            let distance_sq = proj_pos.distance_squared(horror_pos);
-            let combined_radii_sq = (horror_stats.size.x / 2.0 + 6.0).powi(2); // 6.0 is projectile half-width guess
-
-            if distance_sq < combined_radii_sq {
-                // Collision!
-                if let Some(damage) = tether_projectile.params_snapshot.damage_on_hit {
-                    horror_health.0 -= damage as i32;
-                    crate::visual_effects::spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), damage as i32, &time);
-                    // sound_event_writer.send(PlaySoundEvent(SoundEffect::TetherHit));
+    if let Ok(mut waiting_comp) = player_waiting_query.get_mut(player_entity) {
+        if !waiting_comp.reactivation_window_timer.finished() {
+            // Reactivation logic
+            if let Ok(player_tform) = player_transform_query.get(player_entity) {
+                if let Ok(mut horror_tform) = horror_query.get_mut(waiting_comp.hit_horror_entity) {
+                    apply_tether_reposition_effect(
+                        &mut horror_tform,
+                        player_tform,
+                        &waiting_comp.params, // Use params stored in the component
+                        waiting_comp.next_effect_mode,
+                    );
                 }
-
-                // Add TetheredEnemy to horror
-                commands.entity(horror_entity).insert(crate::components::TetheredEnemy {
-                    tether_owner: tether_projectile.owner,
-                    activation_window_timer: Timer::from_seconds(tether_projectile.params_snapshot.activation_window_duration, TimerMode::Once),
-                });
-
-                // Update PlayerTetherState
-                if let Ok(mut player_tether_state) = player_query.get_mut(tether_projectile.owner) {
-                    // If there was a previously tethered enemy, remove its TetheredEnemy component
-                    if let Some(old_tethered_enemy_entity) = player_tether_state.tethered_enemy_entity {
-                        if old_tethered_enemy_entity != horror_entity { // Avoid removing from the newly tethered one
-                             if let Some(mut old_enemy_commands) = commands.get_entity(old_tethered_enemy_entity) {
-                                old_enemy_commands.remove::<crate::components::TetheredEnemy>();
-                            }
-                        }
-                    }
-                    
-                    player_tether_state.tethered_enemy_entity = Some(horror_entity);
-                    player_tether_state.current_weapon_params_snapshot = Some(tether_projectile.params_snapshot.clone());
-                    // Initialize last_tether_mode_used if mode is Alternate
-                    if tether_projectile.params_snapshot.mode == crate::items::RepositioningTetherMode::Alternate {
-                        if player_tether_state.last_tether_mode_used.is_none() { // Default to Pull first time
-                             player_tether_state.last_tether_mode_used = Some(crate::items::RepositioningTetherMode::Pull);
-                        }
-                    } else {
-                        player_tether_state.last_tether_mode_used = None; // Not used for non-Alternate modes
-                    }
-
-                } else { // Player might not have the state component yet
-                    commands.entity(tether_projectile.owner).insert(crate::components::PlayerTetherState {
-                        tethered_enemy_entity: Some(horror_entity),
-                        current_weapon_params_snapshot: Some(tether_projectile.params_snapshot.clone()),
-                        last_tether_mode_used: if tether_projectile.params_snapshot.mode == crate::items::RepositioningTetherMode::Alternate {
-                            Some(crate::items::RepositioningTetherMode::Pull) // Default to Pull first
-                        } else { None },
-                    });
-                }
-
-                commands.entity(proj_entity).despawn_recursive();
-                break; // Projectile is consumed
             }
+            // Clean up components after reactivation
+            if commands.get_entity(waiting_comp.hit_horror_entity).is_some() {
+                 commands.entity(waiting_comp.hit_horror_entity).remove::<HorrorLatchedByTetherComponent>();
+            }
+            commands.entity(player_entity).remove::<PlayerWaitingTetherActivationComponent>();
+            return; // Action performed, do not fire new projectile
+        } else {
+            // Timer finished, clean up old components before firing a new projectile
+             if commands.get_entity(waiting_comp.hit_horror_entity).is_some() {
+                commands.entity(waiting_comp.hit_horror_entity).remove::<HorrorLatchedByTetherComponent>();
+            }
+            commands.entity(player_entity).remove::<PlayerWaitingTetherActivationComponent>();
         }
     }
-}
 
-// New system for tether activation (pull/push)
-pub fn tether_activation_system(
-    mut commands: Commands,
-    // time: Res<Time>, // Not directly needed unless effects are timed over multiple frames
-    // input: Res<Input<KeyCode>>, // Replace with actual input check for secondary activation
-    mut player_query: Query<(Entity, &mut crate::components::PlayerTetherState, &Survivor)>, // Assuming Survivor has aim_direction
-    mut horror_query: Query<&mut Transform, With<Horror>>, 
-    // sound_event_writer: EventWriter<PlaySoundEvent>,
-) {
-    // --- THIS IS A PLACEHOLDER FOR ACTUAL SECONDARY INPUT CHECK ---
-    // In a real scenario, this would check an event or resource set by an input system.
-    // For now, let's simulate it by checking if 'R' key is pressed, just for testing.
-    // THIS SHOULD BE REPLACED with a proper event or resource for secondary action.
-    // if !input.just_pressed(KeyCode::R) { 
-    //     return;
-    // }
-    // For subtask, assume activation is triggered if conditions are met (e.g. always try to activate if possible)
-    // The actual trigger will be an input event.
-
-    for (player_entity, mut player_tether_state, _survivor_stats) in player_query.iter_mut() {
-        if let (Some(tethered_enemy_entity), Some(params)) = (player_tether_state.tethered_enemy_entity, &player_tether_state.current_weapon_params_snapshot) {
-            if let Some(mut enemy_commands) = commands.get_entity(tethered_enemy_entity) {
-                if let Some(mut tethered_comp) = enemy_commands.get_mut::<crate::components::TetheredEnemy>() {
-                    if !tethered_comp.activation_window_timer.finished() {
-                        // Activation window is open!
-                        let mode_to_execute = match params.mode {
-                            crate::items::RepositioningTetherMode::Pull => crate::items::RepositioningTetherMode::Pull,
-                            crate::items::RepositioningTetherMode::Push => crate::items::RepositioningTetherMode::Push,
-                            crate::items::RepositioningTetherMode::Alternate => {
-                                player_tether_state.last_tether_mode_used.map_or(crate::items::RepositioningTetherMode::Pull, |last_mode| {
-                                    if last_mode == crate::items::RepositioningTetherMode::Pull { crate::items::RepositioningTetherMode::Push } else { crate::items::RepositioningTetherMode::Pull }
-                                })
-                            }
-                        };
-
-                        if let Ok(mut horror_transform) = horror_query.get_mut(tethered_enemy_entity) {
-                            let player_pos = commands.get::<Transform>(player_entity).map(|t| t.translation.truncate()).unwrap_or_default(); // Should get player's current transform
-                            let horror_pos = horror_transform.translation.truncate();
-
-                            match mode_to_execute {
-                                crate::items::RepositioningTetherMode::Pull => {
-                                    let direction_to_player = (player_pos - horror_pos).normalize_or_zero();
-                                    if direction_to_player != Vec2::ZERO {
-                                        horror_transform.translation -= (direction_to_player * params.pull_strength).extend(0.0); // Move towards player
-                                    }
-                                    // sound_event_writer.send(PlaySoundEvent(SoundEffect::TetherPull));
-                                }
-                                crate::items::RepositioningTetherMode::Push => {
-                                    let direction_from_player = (horror_pos - player_pos).normalize_or_zero();
-                                    let push_dir = if direction_from_player != Vec2::ZERO { direction_from_player } else { Vec2::X }; // Default push if overlapping
-                                    horror_transform.translation += (push_dir * params.push_strength).extend(0.0);
-                                    // sound_event_writer.send(PlaySoundEvent(SoundEffect::TetherPush));
-                                }
-                                _ => {} // Alternate is resolved above
-                            }
-                            if params.mode == crate::items::RepositioningTetherMode::Alternate {
-                                player_tether_state.last_tether_mode_used = Some(mode_to_execute);
-                            }
-                        }
-                        
-                        // Clean up: remove TetheredEnemy and clear player state
-                        enemy_commands.remove::<crate::components::TetheredEnemy>();
-                        player_tether_state.tethered_enemy_entity = None;
-                        player_tether_state.current_weapon_params_snapshot = None;
-                        // player_tether_state.last_tether_mode_used is preserved for Alternate mode's next cycle.
-                    }
-                } else { // No TetheredEnemy component, something is wrong, clear state
-                    player_tether_state.tethered_enemy_entity = None;
-                    player_tether_state.current_weapon_params_snapshot = None;
-                }
-            } else { // Tethered enemy entity no longer exists, clear state
-                 player_tether_state.tethered_enemy_entity = None;
-                 player_tether_state.current_weapon_params_snapshot = None;
-            }
-        }
+    // Primary Fire Logic: Spawn a new tether projectile
+    // Need player_transform for initial projectile spawn position
+    if let Ok(player_transform) = player_transform_query.get(player_entity) {
+        let _projectile_entity = crate::automatic_projectiles::spawn_automatic_projectile(
+            commands,
+            asset_server,
+            player_transform.translation, // Current player transform for spawn
+            aim_direction,
+            0, // Tether projectile damage (0 or very low)
+            weapon_params.tether_projectile_speed,
+            0, // Piercing
+            weapon_id,
+            weapon_params.tether_sprite_path,
+            weapon_params.tether_size,
+            weapon_params.tether_color,
+            weapon_params.tether_range / weapon_params.tether_projectile_speed, // Lifetime
+            None, None, None, None, // Bouncing, Lifesteal
+            Some(weapon_params.clone()), // Pass RepositioningTetherParams for the projectile to carry
+            None, // No blink params
+        );
     }
+    // Note: The logic to add TetherProjectileComponent to the projectile is now expected
+    // to be handled within spawn_automatic_projectile or by the caller if spawn_automatic_projectile returns the entity.
+    // Based on previous setup, spawn_automatic_projectile was modified to add it internally.
 }
 
-
-// New system for cleaning up tether components
-pub fn tether_cleanup_system(
+pub fn tether_reactivation_window_system(
     mut commands: Commands,
     time: Res<Time>,
-    mut projectile_query: Query<(Entity, &mut crate::components::PsionicTetherProjectile)>,
-    mut tethered_enemy_query: Query<(Entity, &mut crate::components::TetheredEnemy)>,
-    mut player_tether_state_query: Query<&mut crate::components::PlayerTetherState>, // To clear if enemy's window expires
+    mut query: Query<(Entity, &mut PlayerWaitingTetherActivationComponent)>,
 ) {
-    // Despawn projectiles if their lifetime expires
-    for (entity, mut projectile) in projectile_query.iter_mut() {
-        projectile.duration_timer.tick(time.delta());
-        if projectile.duration_timer.finished() {
-            commands.entity(entity).despawn_recursive();
-        }
-    }
-
-    // Remove TetheredEnemy component if activation window expires
-    for (entity, mut tethered_enemy) in tethered_enemy_query.iter_mut() {
-        tethered_enemy.activation_window_timer.tick(time.delta());
-        if tethered_enemy.activation_window_timer.finished() {
-            commands.entity(entity).remove::<crate::components::TetheredEnemy>();
-            
-            // Also clear from PlayerTetherState if this was the active tethered enemy
-            if let Ok(mut player_state) = player_tether_state_query.get_mut(tethered_enemy.tether_owner) {
-                if player_state.tethered_enemy_entity == Some(entity) {
-                    player_state.tethered_enemy_entity = None;
-                    player_state.current_weapon_params_snapshot = None;
-                    // last_tether_mode_used can persist for Alternate mode logic
-                }
+    for (player_entity, mut waiting_comp) in query.iter_mut() {
+        waiting_comp.reactivation_window_timer.tick(time.delta());
+        if waiting_comp.reactivation_window_timer.finished() {
+            if commands.get_entity(waiting_comp.hit_horror_entity).is_some() {
+                 commands.entity(waiting_comp.hit_horror_entity).remove::<HorrorLatchedByTetherComponent>();
             }
+            commands.entity(player_entity).remove::<PlayerWaitingTetherActivationComponent>();
+        }
+    }
+}
+        commands,
+        asset_server,
+        player_transform.translation,
+        aim_direction,
+        0, // Tether projectile damage (0 or very low)
+        params.tether_projectile_speed,
+        0, // Piercing
+        weapon_id, // Pass the weapon_id
+        params.tether_sprite_path,
+        params.tether_size,
+        params.tether_color,
+        params.tether_range / params.tether_projectile_speed, // Lifetime based on range/speed
+        None, None, None, // Bouncing params
+        None, // Lifesteal
+    );
+    // Add TetherProjectileComponent to the spawned projectile
+    // spawn_automatic_projectile returns void, so we need to query for it if we want to add component.
+    // This is a limitation. For now, TetherProjectileComponent must be added IN spawn_automatic_projectile
+    // or spawn_automatic_projectile must return the entity.
+    // The prompt for automatic_projectiles.rs already added it to the projectile query there.
+    // So, the component with params_snapshot should be added there.
+    // Here, we just ensure the projectile is spawned.
+}
+
+pub fn tether_reactivation_window_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut PlayerWaitingTetherActivationComponent)>,
+) {
+    for (player_entity, mut waiting_comp) in query.iter_mut() {
+        waiting_comp.reactivation_window_timer.tick(time.delta());
+        if waiting_comp.reactivation_window_timer.finished() {
+            if commands.get_entity(waiting_comp.hit_horror_entity).is_some() {
+                 commands.entity(waiting_comp.hit_horror_entity).remove::<HorrorLatchedByTetherComponent>();
+            }
+            commands.entity(player_entity).remove::<PlayerWaitingTetherActivationComponent>();
         }
     }
 }
 
-
-#[derive(Component, Debug, Reflect)] // Removed Default here, will add custom Default
+#[derive(Component, Debug, Reflect, Default)]
 #[reflect(Component)]
-pub struct PlayerInvulnerableComponent {
-    pub duration_timer: Timer,
+pub struct PlayerInvulnerableComponent;
+
+// --- Lobbed Bouncing Magma Definitions ---
+
+#[derive(Component, Debug, Reflect, Default)]
+#[reflect(Component)]
+pub struct LobbedBouncingProjectileComponent {
+    pub params: crate::items::LobbedBouncingMagmaParams,
+    pub bounces_left: u32,
+    pub speed: f32, // Can change if bounces affect speed
+    pub initial_spawn_position: Vec3, // For arc calculation
+    // Potentially add:
+    // pub last_bounce_position: Option<Vec3>,
+    // pub lifetime_timer: Timer, // if lifetime is independent of bounces
 }
 
-impl Default for PlayerInvulnerableComponent {
-    fn default() -> Self {
-        Self {
-            // Default invulnerability duration, can be overridden when inserted
-            duration_timer: Timer::from_seconds(0.2, TimerMode::Once) 
-        }
-    }
+#[derive(Component, Debug, Reflect, Default)]
+#[reflect(Component)]
+pub struct MagmaPoolComponent {
+    pub damage_per_tick: i32,
+    pub radius: f32,
+    pub tick_timer: Timer,
+    pub duration_timer: Timer,
+    pub color: Color,
+    pub already_hit_this_tick: Vec<Entity>, // To ensure one damage application per tick per enemy
 }
 
 // --- Orbiting Pet Definitions (New Implementation) ---
 
 // Commenting out old OrbitingPetComponent and related structures/systems
-// The old OrbitingPetComponent and ActiveOrbitingPetsResource are effectively replaced by 
-// ShadowOrb, OrbitingMovement, and PlayerOrbControllerComponent.
-// #[derive(Component, Debug, Reflect)]
-// #[reflect(Component)]
-// pub struct OrbitingPetComponent { ... }
-// impl Default for OrbitingPetComponent { ... }
-// #[derive(Resource, Default, Reflect)]
-// #[reflect(Resource)]
-// pub struct ActiveOrbitingPetsResource { ... }
-
-// The new OrbitingPetComponent that was recently added seems to be based on the OLD OrbitingPetParams.
-// This will be replaced by the new ShadowOrb component logic.
-// For clarity, I am commenting out this version of OrbitingPetComponent as well.
 /*
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
+pub struct OrbitingPetComponent {
+    pub params: crate::items::OrbitingPetParams, // This refers to the OLD OrbitingPetParams
+    pub owner_entity: Entity,
+    pub duration_timer: Timer,
+    pub attack_timer: Timer,
+    pub current_orbit_angle_rad: f32,
+}
+
+impl Default for OrbitingPetComponent {
+    fn default() -> Self {
+        // This default implementation refers to the old PetAttackTypeParams and old OrbitingPetParams structure
+        // which are being replaced by the new monolithic OrbitingPetParams.
+        // Keeping it commented for reference during transition.
+        let default_pet_attack_params = crate::items::PetAttackTypeParams::PulseAoE { // Assuming PetAttackTypeParams might be commented out in items.rs
+            damage: 5,
+            radius: 50.0,
+            tick_interval_secs: 1.0,
+        };
+        let default_orbiting_pet_params = crate::items::OrbitingPetParams { // This is the OLD params struct
+            base_fire_rate_secs: 5.0, 
+            pet_duration_secs: 10.0,
+            orbit_radius: 100.0,
+            orbit_speed_rad_per_sec: std::f32::consts::PI / 4.0,
+            deployment_range: 0.0,
+            num_pets_allowed: 1,
+            pet_attack_params: default_pet_attack_params, 
+            pet_sprite_path: "sprites/auto_shadow_orb.png", 
+            pet_size: Vec2::new(32.0, 32.0),
+            weapon_id_placeholder: Some(AutomaticWeaponId(7)), 
+        };
+
+        Self {
+            params: default_orbiting_pet_params.clone(),
+            owner_entity: Entity::PLACEHOLDER, 
+            duration_timer: Timer::from_seconds(default_orbiting_pet_params.pet_duration_secs, TimerMode::Once),
+            attack_timer: Timer::from_seconds(1.0, TimerMode::Repeating), // Placeholder, original logic was more complex
+            current_orbit_angle_rad: 0.0,
+        }
+    }
+}
+
+#[derive(Resource, Default, Reflect)]
+#[reflect(Resource)]
+pub struct ActiveOrbitingPetsResource {
+    pub active_pets: Vec<Entity>, 
+}
+*/
+
 #[derive(Component, Debug, Reflect, Default)]
 #[reflect(Component)]
 pub struct OrbitingPetComponent {
@@ -664,15 +608,13 @@ pub struct OrbitingPetComponent {
     pub bolt_timer: Option<Timer>,
     pub owner_player_entity: Entity,
 }
-*/
 
-// PlayerOrbControllerComponent will be used for the new DeployableOrbitingTurret
 #[derive(Component, Debug, Reflect, Default)]
 #[reflect(Component)]
 pub struct PlayerOrbControllerComponent {
-    pub active_orb_entities: Vec<Entity>, // Stores entities with the ShadowOrb component
-    pub max_orbs_allowed_for_current_weapon: u32, // Updated from DeployableOrbitingTurretParams
-    pub spawn_cooldown_timer: Timer, // Uses DeployableOrbitingTurretParams.cooldown
+    pub active_orb_entities: Vec<Entity>,
+    pub max_orbs_allowed: u32,
+    pub spawn_cooldown_timer: Timer,
 }
 
 // Helper function to spawn the beam entity
@@ -740,23 +682,18 @@ impl Plugin for WeaponSystemsPlugin {
             .register_type::<EruptionVisualComponent>()
             .register_type::<PlayerDashingComponent>()    
             .register_type::<PlayerInvulnerableComponent>() 
-            // .register_type::<OrbitingPetComponent>() // Old/intermediate component, to be removed/replaced by ShadowOrb logic
-            .register_type::<PlayerOrbControllerComponent>()
-            // Old Tether Components - ensure they are removed if no longer used by any system after refactor.
-            // .register_type::<TetherProjectileComponent>() 
-            // .register_type::<PlayerWaitingTetherActivationComponent>()
-            // .register_type::<HorrorLatchedByTetherComponent>()  
-            .register_type::<ActiveMeleeArcHitbox>() 
-            // New Tether Components (PsionicTetherProjectile, TetheredEnemy, PlayerTetherState) are registered in components.rs plugin
+            .register_type::<LobbedBouncingProjectileComponent>() // New
+            .register_type::<MagmaPoolComponent>()              // New
+            .register_type::<OrbitingPetComponent>() 
+            .register_type::<PlayerOrbControllerComponent>() 
+            .register_type::<TetherProjectileComponent>()      // New
+            .register_type::<PlayerWaitingTetherActivationComponent>() // New
+            .register_type::<HorrorLatchedByTetherComponent>()   // New
             .add_systems(Update, (
-                melee_arc_attack_system, 
-                manage_deployable_orbs_system, 
-                shadow_orb_movement_system,    
-                shadow_orb_behavior_system,    
-                tether_projectile_collision_system, // New
-                tether_activation_system,           // New
-                tether_cleanup_system,              // New
-                //tether_reactivation_window_system, // Old system, replaced by tether_activation_system & tether_cleanup_system
+                manage_player_orbs_system, 
+                orbiting_pet_behavior_system, 
+                tether_reactivation_window_system, 
+                // repositioning_tether_firing_system, // Adding the new system for tether firing
                 charge_weapon_system, 
                 trail_spawning_projectile_system, 
                 fire_trail_segment_system,      
@@ -775,128 +712,153 @@ impl Plugin for WeaponSystemsPlugin {
                 ground_targeting_reticule_system,
                 pending_ground_aoe_system,
                 eruption_visual_system,
-                player_dashing_system, // Renamed from player_dash_execution_system
-                // orbiting_pet_behavior_system, // Old system, will be replaced by the new one added above
+                player_dashing_system, 
+                lobbed_bouncing_projectile_system, 
+                magma_pool_system,
+                repositioning_tether_firing_system, // Added new system
             ).in_set(OnUpdate(AppState::InGame)));
     }
 }
 
-// System to remove PlayerInvulnerableComponent after its timer expires
-pub fn player_invulnerability_system(
+// New system to handle the actual firing logic for Repositioning Tether
+pub fn repositioning_tether_firing_system(
     mut commands: Commands,
-    time: Res<Time>,
-    mut query: Query<(Entity, &mut PlayerInvulnerableComponent)>,
+    asset_server: Res<AssetServer>,
+    // Player related queries to check for firing readiness
+    player_query: Query<(Entity, &Transform, &crate::player::Player, &crate::player::MindAffliction)>,
+    weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
+    // Queries needed by spawn_repositioning_tether_attack
+    player_waiting_query: Query<&mut PlayerWaitingTetherActivationComponent>, 
+    horror_query: Query<&mut Transform, With<Horror>>, 
+    survivor_transform_query: Query<&Transform, With<Survivor>>, // Specifically for the player's transform
+    // Consider sound event writer if needed here, or if spawn_repositioning_tether_attack handles it
 ) {
-    for (entity, mut invulnerable_comp) in query.iter_mut() {
-        invulnerable_comp.duration_timer.tick(time.delta());
-        if invulnerable_comp.duration_timer.finished() {
-            commands.entity(entity).remove::<PlayerInvulnerableComponent>();
+    for (player_entity, player_transform, player_stats, mind_affliction) in player_query.iter() {
+        if let Some(weapon_id) = player_stats.equipped_weapon_id {
+            if let Some(weapon_def) = weapon_library.get_weapon_definition(weapon_id) {
+                if let crate::items::AttackTypeData::RepositioningTether(ref params) = weapon_def.attack_data {
+                    // Check if the weapon is ready to fire (based on MindAffliction timer)
+                    // Note: player_shooting_system already updates the timer's duration.
+                    // Here, we just check if it just finished.
+                    if mind_affliction.fire_timer.just_finished() {
+                        // Call the main logic function, passing all required queries
+                        spawn_repositioning_tether_attack(
+                            &mut commands,
+                            &asset_server,
+                            player_entity,
+                            player_stats.aim_direction, // Pass aim direction from player_stats
+                            params,
+                            weapon_id,
+                            player_waiting_query, // Pass the query
+                            horror_query,         // Pass the query
+                            survivor_transform_query, // Pass the query for player transform
+                        );
+                        // Potentially play sound here or ensure spawn_repositioning_tether_attack does
+                    }
+                }
+            }
         }
     }
 }
 
-// --- Deployable Orbiting Turret Systems ---
+// --- Orbiting Pet Systems (New Implementation) ---
 
-pub fn spawn_deployable_shadow_orb(
+pub fn spawn_orbiting_pet_attack(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     player_entity: Entity,
     player_transform: &Transform,
-    params: &crate::items::DeployableOrbitingTurretParams,
+    params: &crate::items::OrbitingPetParams, // This is the NEW OrbitingPetParams
     orb_controller: &mut PlayerOrbControllerComponent,
 ) {
-    // For now, orbs always orbit player. Deployment range logic can be added later.
-    // Determine initial angle to spread out multiple orbs if player has more than one.
-    let initial_angle_offset = if orb_controller.max_orbs_allowed_for_current_weapon > 1 {
-         orb_controller.active_orb_entities.len() as f32 * (std::f32::consts::TAU / orb_controller.max_orbs_allowed_for_current_weapon as f32)
-    } else {
-        0.0
-    };
+    // Initial spawn position can be right on the player; behavior system will adjust.
+    // Or, apply an initial offset if desired.
+    let initial_offset_angle = orb_controller.active_orb_entities.len() as f32 * (std::f32::consts::TAU / params.max_active_orbs as f32);
+    let initial_pos = player_transform.translation + 
+        Quat::from_rotation_z(initial_offset_angle) * Vec3::X * params.orbit_radius;
+
+    let mut pulse_timer_opt = None;
+    if params.pulses_aoe {
+        pulse_timer_opt = Some(Timer::from_seconds(params.pulse_interval_secs, TimerMode::Repeating));
+    }
+
+    let mut bolt_timer_opt = None;
+    if params.fires_seeking_bolts {
+        bolt_timer_opt = Some(Timer::from_seconds(params.bolt_fire_interval_secs, TimerMode::Repeating));
+    }
 
     let orb_entity = commands.spawn((
-        crate::components::ShadowOrb {
-            params_snapshot: params.clone(),
-            duration_timer: Timer::from_seconds(params.orb_duration, TimerMode::Once),
-            attack_timer: Timer::from_seconds(params.attack_interval, TimerMode::Repeating),
-            owner_entity: player_entity,
-        },
-        crate::components::OrbitingMovement {
-            center_entity: player_entity,
-            radius: params.orbit_radius,
-            current_angle_rad: initial_angle_offset,
-            speed_rad_per_sec: params.orbit_speed_rad_per_sec, // Use value from params
-        },
         SpriteBundle {
-            texture: asset_server.load("sprites/auto_shadow_orb.png"), // Placeholder from task
+            texture: asset_server.load(params.orb_sprite_path),
             sprite: Sprite {
-                custom_size: Some(Vec2::new(32.0, 32.0)), // Default size
-                color: Color::rgb(0.3, 0.1, 0.5), // Default color, can be part of params later
+                custom_size: Some(params.orb_size),
+                color: params.orb_color,
                 ..default()
             },
-            // Initial position will be set by the movement system based on orbit params
-            transform: Transform::from_translation(player_transform.translation), 
+            transform: Transform::from_translation(initial_pos),
             ..default()
         },
-        Name::new("DeployableShadowOrb"),
+        OrbitingPetComponent { // New component
+            params_snapshot: params.clone(),
+            orbit_angle_rad: initial_offset_angle,
+            duration_timer: Timer::from_seconds(params.orb_duration_secs, TimerMode::Once),
+            pulse_timer: pulse_timer_opt,
+            bolt_timer: bolt_timer_opt,
+            owner_player_entity: player_entity,
+        },
+        Name::new("ShadowOrbInstance"),
     )).id();
     orb_controller.active_orb_entities.push(orb_entity);
 }
 
-// Renamed from manage_player_orbs_system to be more specific
-pub fn manage_deployable_orbs_system(
+pub fn manage_player_orbs_system(
     mut commands: Commands,
     time: Res<Time>,
-    asset_server: Res<AssetServer>,
+    asset_server: Res<AssetServer>, // For spawn_orbiting_pet_attack
     weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
     mut player_query: Query<(Entity, &Transform, &mut Survivor, Option<&mut PlayerOrbControllerComponent>)>,
-    orb_query: Query<Entity, With<crate::components::ShadowOrb>>, // Query for new ShadowOrb component
+    orb_query: Query<Entity, With<OrbitingPetComponent>>, // To check if orb entities still exist
 ) {
     let Ok((player_entity, player_transform, mut player_stats, opt_orb_controller)) = player_query.get_single_mut() else { return; };
 
-    let mut current_weapon_orb_params: Option<crate::items::DeployableOrbitingTurretParams> = None;
+    let mut shadow_orb_params_opt: Option<crate::items::OrbitingPetParams> = None;
     if let Some(active_weapon_id) = player_stats.active_automatic_weapon_id {
         if let Some(weapon_def) = weapon_library.get_weapon_definition(active_weapon_id) {
-            // Check for the new DeployableOrbitingTurret params
-            if let crate::items::AttackTypeData::DeployableOrbitingTurret(params) = &weapon_def.attack_data {
-                current_weapon_orb_params = Some(params.clone());
+            if let crate::items::AttackTypeData::OrbitingPet(params) = &weapon_def.attack_data {
+                shadow_orb_params_opt = Some(params.clone());
             }
         }
     }
 
-    if let Some(params) = current_weapon_orb_params { // Weapon with deployable orbs is equipped
+    if let Some(params) = shadow_orb_params_opt { // Shadow Orb is equipped
+        let mut controller_exists_and_spawn = false;
         if let Some(mut controller) = opt_orb_controller {
-            // Update controller if params changed (e.g. player picked up an item that modifies orb count for this weapon type)
-            controller.max_orbs_allowed_for_current_weapon = params.max_active_orbs;
-            // Note: spawn_cooldown_timer's duration should ideally also be updated if params.cooldown changes.
-            // For simplicity, Timer::set_duration and Timer::reset could be used if needed, or re-insert controller.
-
             controller.spawn_cooldown_timer.tick(time.delta());
-            if controller.spawn_cooldown_timer.finished() && controller.active_orb_entities.len() < controller.max_orbs_allowed_for_current_weapon as usize {
-                spawn_deployable_shadow_orb(&mut commands, &asset_server, player_entity, player_transform, &params, &mut controller);
-                // Reset timer with current weapon's cooldown
-                controller.spawn_cooldown_timer = Timer::from_seconds(params.cooldown, TimerMode::Repeating);
-                controller.spawn_cooldown_timer.reset(); // Ensure it just started
+            if controller.spawn_cooldown_timer.finished() && controller.active_orb_entities.len() < controller.max_orbs_allowed {
+                spawn_orbiting_pet_attack(&mut commands, &asset_server, player_entity, player_transform, &params, &mut controller);
+                controller.spawn_cooldown_timer.reset();
             }
-            // Clean up dead orb entities from the controller's list
+            // Clean up dead orb entities
             controller.active_orb_entities.retain(|&orb_e| orb_query.get(orb_e).is_ok());
+            controller_exists_and_spawn = true;
         } else {
              // No controller, add one
             let mut new_controller = PlayerOrbControllerComponent {
                 active_orb_entities: Vec::new(),
-                max_orbs_allowed_for_current_weapon: params.max_active_orbs,
-                spawn_cooldown_timer: Timer::from_seconds(params.cooldown, TimerMode::Repeating),
+                max_orbs_allowed: params.max_active_orbs,
+                spawn_cooldown_timer: Timer::from_seconds(params.base_fire_rate_secs, TimerMode::Repeating), // Repeating, will be reset on spawn
             };
-            if new_controller.active_orb_entities.len() < new_controller.max_orbs_allowed_for_current_weapon as usize {
-                 spawn_deployable_shadow_orb(&mut commands, &asset_server, player_entity, player_transform, &params, &mut new_controller);
-                 new_controller.spawn_cooldown_timer.reset(); 
+            if new_controller.active_orb_entities.len() < new_controller.max_orbs_allowed {
+                 spawn_orbiting_pet_attack(&mut commands, &asset_server, player_entity, player_transform, &params, &mut new_controller);
+                 new_controller.spawn_cooldown_timer.reset(); // Start cooldown after first spawn
             }
             commands.entity(player_entity).insert(new_controller);
         }
-    } else { // Weapon with deployable orbs is NOT equipped
+
+    } else { // Shadow Orb is NOT equipped
         if let Some(mut controller) = opt_orb_controller {
             for orb_entity in controller.active_orb_entities.iter() {
-                // Despawn only orbs that are still valid entities
-                if orb_query.get(*orb_entity).is_ok() {
+                if orb_query.get(*orb_entity).is_ok() { // Check if entity still exists
                     commands.entity(*orb_entity).despawn_recursive();
                 }
             }
@@ -905,140 +867,320 @@ pub fn manage_deployable_orbs_system(
     }
 }
 
-// New system for orb movement
-pub fn shadow_orb_movement_system(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut orb_query: Query<(&mut Transform, &mut crate::components::OrbitingMovement, &crate::components::ShadowOrb)>,
-    center_query: Query<&Transform, (With<Survivor>, Without<crate::components::ShadowOrb>)>, // Center is player
-) {
-    for (mut orb_transform, mut orbit_params, shadow_orb_comp) in orb_query.iter_mut() {
-        if let Ok(center_transform) = center_query.get(orbit_params.center_entity) {
-            orbit_params.current_angle_rad += orbit_params.speed_rad_per_sec * time.delta_seconds();
-            orbit_params.current_angle_rad %= std::f32::consts::TAU; // Keep angle within 0-2PI
 
-            let offset = Vec2::from_angle(orbit_params.current_angle_rad) * orbit_params.radius;
-            orb_transform.translation = center_transform.translation + offset.extend(shadow_orb_comp.owner_entity.index() as f32 * 0.01 + 0.1); // Small Z offset for visibility, vary by owner index slightly
-        } else {
-            // Center entity (player) despawned or no longer matches query, despawn orb
-            commands.entity(shadow_orb_comp.owner_entity).remove::<PlayerOrbControllerComponent>(); // Clear controller if player gone
-            commands.entity(shadow_orb_comp.owner_entity).despawn_recursive(); // This seems wrong, should despawn the orb itself
-            // Corrected: Despawn the orb entity, not its owner.
-            // The entity for the orb is implicit in the query `orb_query` but not directly passed.
-            // We need the orb's own entity to despawn it.
-            // The query should be: Query<(Entity, &mut Transform, &mut crate::components::OrbitingMovement, &crate::components::ShadowOrb)>
-            // For now, this branch will simply not update movement. Despawning orbs whose owner is gone should be handled
-            // in manage_deployable_orbs_system or shadow_orb_behavior_system.
-        }
-    }
-}
-
-
-// Renamed and adapted from orbiting_pet_behavior_system
-pub fn shadow_orb_behavior_system(
+pub fn orbiting_pet_behavior_system(
     mut commands: Commands,
     time: Res<Time>,
     asset_server: Res<AssetServer>,
-    mut orb_query: Query<(Entity, &mut crate::components::ShadowOrb, &GlobalTransform)>,
-    // For PulseAoE:
-    horror_query: Query<(Entity, &GlobalTransform), With<Horror>>, // Used by both Pulse and Bolt target finding
-    mut horror_health_query: Query<&mut Health, With<Horror>>,
-    // For SeekingBolts, potentially projectile spawning systems if not handled by spawn_automatic_projectile directly
+    mut pet_query: Query<(Entity, &mut Transform, &mut OrbitingPetComponent)>,
+    player_query: Query<&Transform, (With<Survivor>, Without<OrbitingPetComponent>)>, // Player's transform
+    horror_query: Query<(Entity, &GlobalTransform), With<Horror>>, // For targeting bolts and AoE
+    mut horror_health_query: Query<&mut Health, With<Horror>>, // For applying damage
+    // weapon_id needed for spawn_automatic_projectile, can be sourced from params_snapshot if needed
 ) {
-    for (orb_entity, mut shadow_orb, orb_gtransform) in orb_query.iter_mut() {
-        shadow_orb.duration_timer.tick(time.delta());
-        if shadow_orb.duration_timer.finished() {
+    for (orb_entity, mut orb_transform, mut orb_comp) in pet_query.iter_mut() {
+        // Duration
+        orb_comp.duration_timer.tick(time.delta());
+        if orb_comp.duration_timer.finished() {
             commands.entity(orb_entity).despawn_recursive();
-            // Also need to notify PlayerOrbControllerComponent to remove this orb from its list.
-            // This can be done via an event, or by having PlayerOrbControllerComponent check validity of its entities.
-            // manage_deployable_orbs_system already does `orb_query.get(orb_e).is_ok()` check.
             continue;
         }
 
-        shadow_orb.attack_timer.tick(time.delta());
-        if shadow_orb.attack_timer.just_finished() {
-            match shadow_orb.params_snapshot.attack_type {
-                crate::items::OrbAttackType::PulseAoE => {
-                    if let (Some(radius), Some(damage)) = (shadow_orb.params_snapshot.pulse_aoe_radius, shadow_orb.params_snapshot.pulse_aoe_damage) {
-                        let orb_position = orb_gtransform.translation();
-                        
-                        // Optional: Spawn a visual pulse effect (reusing NovaVisualComponent as an example)
-                        commands.spawn((
+        // Movement
+        if let Ok(owner_transform) = player_query.get(orb_comp.owner_player_entity) {
+            orb_comp.orbit_angle_rad += orb_comp.params_snapshot.orbit_speed_rad_per_sec * time.delta_seconds();
+            orb_comp.orbit_angle_rad %= std::f32::consts::TAU; // Keep angle within 0-2PI
+
+            let offset = Vec2::from_angle(orb_comp.orbit_angle_rad) * orb_comp.params_snapshot.orbit_radius;
+            orb_transform.translation = owner_transform.translation + offset.extend(0.1); // Ensure Z-ordering for visibility
+        } else {
+            // Owner despawned, despawn orb too
+            commands.entity(orb_entity).despawn_recursive();
+            continue;
+        }
+
+        // AoE Pulse
+        if orb_comp.params_snapshot.pulses_aoe {
+            if let Some(ref mut pulse_timer) = orb_comp.pulse_timer {
+                pulse_timer.tick(time.delta());
+                if pulse_timer.just_finished() {
+                    let orb_position = orb_transform.translation;
+                    // Optional: Spawn a visual pulse effect
+                    if let Some(pulse_viz_color) = orb_comp.params_snapshot.pulse_color {
+                         commands.spawn((
                             SpriteBundle {
-                                texture: asset_server.load("sprites/pulse_effect_placeholder.png"), 
+                                texture: asset_server.load("sprites/pulse_effect_placeholder.png"), // Placeholder
                                 sprite: Sprite {
-                                    color: Color::rgba(0.5, 0.1, 0.7, 0.7), // Example color
-                                    custom_size: Some(Vec2::splat(radius * 0.25)), 
+                                    color: pulse_viz_color,
+                                    custom_size: Some(Vec2::splat(orb_comp.params_snapshot.pulse_radius * 0.25)), // Initial small size
                                     ..default()
                                 },
                                 transform: Transform::from_translation(orb_position),
                                 ..default()
                             },
-                            NovaVisualComponent { 
-                                initial_radius: radius * 0.25,
-                                max_radius: radius,
+                            NovaVisualComponent { // Using NovaVisual for simplicity to expand and fade
+                                initial_radius: orb_comp.params_snapshot.pulse_radius * 0.25,
+                                max_radius: orb_comp.params_snapshot.pulse_radius,
                                 duration_timer: Timer::from_seconds(0.3, TimerMode::Once),
-                                color: Color::rgba(0.5, 0.1, 0.7, 0.7),
+                                color: pulse_viz_color,
                             },
-                            Name::new("OrbPulseAoEVisual"),
+                            Name::new("OrbPulseVisual"),
                         ));
+                    }
 
-                        for (horror_entity, horror_gtransform) in horror_query.iter() {
-                            if horror_gtransform.translation().distance_squared(orb_position) < radius.powi(2) {
-                                if let Ok(mut health) = horror_health_query.get_mut(horror_entity) {
-                                    health.0 -= damage as i32;
-                                    crate::visual_effects::spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), damage as i32, &time);
-                                }
+                    for (horror_entity, horror_gtransform) in horror_query.iter() {
+                        if horror_gtransform.translation().distance_squared(orb_position) < orb_comp.params_snapshot.pulse_radius.powi(2) {
+                            if let Ok(mut health) = horror_health_query.get_mut(horror_entity) {
+                                health.0 -= orb_comp.params_snapshot.pulse_damage;
+                                crate::visual_effects::spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), orb_comp.params_snapshot.pulse_damage, &time);
                             }
                         }
                     }
                 }
-                crate::items::OrbAttackType::SeekingBolts => {
-                    if let (Some(damage), Some(speed), Some(asset_path_static_str)) = 
-                        (shadow_orb.params_snapshot.bolt_damage, shadow_orb.params_snapshot.bolt_speed, shadow_orb.params_snapshot.bolt_projectile_asset_path) {
-                        
-                        let mut closest_target: Option<Entity> = None;
-                        let mut min_dist_sq = f32::MAX;
-                        let orb_pos_2d = orb_gtransform.translation().truncate();
+            }
+        }
 
-                        for (horror_entity, horror_gtransform) in horror_query.iter() {
-                            let dist_sq = orb_pos_2d.distance_squared(horror_gtransform.translation().truncate());
-                            // Define a reasonable detection range for bolts, e.g., 400 units for seeking start
-                            if dist_sq < 400.0f32.powi(2) { 
-                                 if dist_sq < min_dist_sq {
-                                    min_dist_sq = dist_sq;
-                                    closest_target = Some(horror_entity);
-                                }
-                            }
-                        }
+        // Fire Bolts
+        if orb_comp.params_snapshot.fires_seeking_bolts {
+            if let Some(ref mut bolt_timer) = orb_comp.bolt_timer {
+                bolt_timer.tick(time.delta());
+                if bolt_timer.just_finished() {
+                    // Simplified: Find nearest horror
+                    let mut closest_target: Option<(Entity, f32)> = None;
+                    let orb_pos_2d = orb_transform.translation.truncate();
 
-                        if let Some(target_entity) = closest_target {
-                            if let Ok(target_gtransform) = horror_query.get_component::<GlobalTransform>(target_entity) {
-                                let direction = (target_gtransform.translation().truncate() - orb_pos_2d).normalize_or_zero();
-                                if direction != Vec2::ZERO {
-                                    // Using placeholder values for some projectile params not in DeployableOrbitingTurretParams
-                                    crate::automatic_projectiles::spawn_automatic_projectile(
-                                        &mut commands,
-                                        &asset_server,
-                                        shadow_orb.owner_entity, // Orb's owner (player) is owner of bolt
-                                        orb_gtransform.translation(),
-                                        direction,
-                                        damage as i32,
-                                        speed,
-                                        0, // Piercing
-                                        AutomaticWeaponId(u32::MAX), // Special ID for sub-munitions
-                                    asset_path_static_str, // Use &'static str directly
-                                        Vec2::new(10.0, 10.0), // Default bolt size
-                                        Color::PURPLE,        // Default bolt color
-                                        1.5,                  // Default bolt lifetime
-                                        None, None, None, None, // Bouncing, Lifesteal
-                                        // Homing needs to be configured here if spawn_automatic_projectile supports it
-                                        // Or, a HomingTargetComponent needs to be added to the bolt
-                                    );
-                                }
+                    for (horror_entity, horror_gtransform) in horror_query.iter() {
+                        let dist_sq = orb_pos_2d.distance_squared(horror_gtransform.translation().truncate());
+                        // Define a reasonable detection range for bolts, e.g., 300 units
+                        if dist_sq < 300.0f32.powi(2) {
+                             if closest_target.is_none() || dist_sq < closest_target.unwrap().1 {
+                                closest_target = Some((horror_entity, dist_sq));
                             }
                         }
                     }
+
+                    if let Some((target_entity, _)) = closest_target {
+                        if let Ok(target_gtransform) = horror_query.get_component::<GlobalTransform>(target_entity) {
+                            let direction = (target_gtransform.translation().truncate() - orb_pos_2d).normalize_or_zero();
+                            if direction != Vec2::ZERO {
+                                // Use params_snapshot for bolt properties
+                                let bolt_sprite = orb_comp.params_snapshot.bolt_sprite_path.unwrap_or("sprites/default_bolt.png");
+                                let bolt_sz = orb_comp.params_snapshot.bolt_size.unwrap_or_else(|| Vec2::new(10.0,10.0));
+                                let bolt_col = orb_comp.params_snapshot.bolt_color.unwrap_or(Color::WHITE);
+                                let bolt_lt = orb_comp.params_snapshot.bolt_lifetime_secs.unwrap_or(1.0);
+                                // weapon_id for spawn_automatic_projectile is tricky here. 
+                                // Maybe use a generic/default or pass one through params_snapshot if needed for specific on-hit effects.
+                                // For now, using a placeholder AutomaticWeaponId(u32::MAX) to signify it's from a pet.
+                                crate::automatic_projectiles::spawn_automatic_projectile(
+                                    &mut commands,
+                                    &asset_server,
+                                    orb_transform.translation,
+                                    direction,
+                                    orb_comp.params_snapshot.bolt_damage,
+                                    orb_comp.params_snapshot.bolt_speed,
+                                    0, // Piercing
+                                    AutomaticWeaponId(u32::MAX), // Placeholder ID for pet-fired bolts
+                                    bolt_sprite,
+                                    bolt_sz,
+                                    bolt_col,
+                                    bolt_lt,
+                                    None, None, None, None, // Bouncing params
+                                    None, // Lifesteal
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// --- Lobbed Bouncing Magma Systems ---
+
+pub fn spawn_magma_ball_attack(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    params: &crate::items::LobbedBouncingMagmaParams,
+    player_transform: &Transform,
+    aim_direction: Vec2,
+    weapon_id: AutomaticWeaponId,
+) {
+    let initial_pos = player_transform.translation;
+    let projectile_velocity = aim_direction.normalize_or_zero() * params.speed;
+
+    commands.spawn((
+        SpriteBundle {
+            texture: asset_server.load(params.sprite_path),
+            sprite: Sprite {
+                custom_size: Some(params.sprite_size),
+                color: params.sprite_color,
+                ..default()
+            },
+            transform: Transform::from_translation(initial_pos)
+                .with_rotation(Quat::from_rotation_z(aim_direction.y.atan2(aim_direction.x))),
+            ..default()
+        },
+        LobbedBouncingProjectileComponent {
+            params: params.clone(),
+            bounces_left: params.max_bounces,
+            speed: params.speed,
+            initial_spawn_position: initial_pos,
+        },
+        Velocity(projectile_velocity),
+        Damage(params.damage), // Direct hit damage
+        Lifetime { timer: Timer::from_seconds(params.lifetime_secs, TimerMode::Once) },
+        crate::automatic_projectiles::AutomaticProjectile { // For collision detection and lifetime
+            piercing_left: 0, // Not typical piercing, bounce logic handles multiple hits
+            weapon_id,
+            // Max bounces handled by LobbedBouncingProjectileComponent, but AutomaticProjectile needs some values
+            bounces_left: Some(params.max_bounces), 
+            damage_on_hit: params.damage,
+            current_speed: params.speed,
+            damage_loss_per_bounce_multiplier: Some(1.0), // No damage loss on direct hit, pool does its own damage
+            speed_loss_per_bounce_multiplier: Some(1.0), // No speed loss for now
+            has_bounced_this_frame: false,
+            lifesteal_percentage: None,
+        },
+        Name::new("MagmaBallProjectile"),
+    ));
+}
+
+pub fn lobbed_bouncing_projectile_system(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    time: Res<Time>,
+    mut projectile_query: Query<(
+        Entity,
+        &mut LobbedBouncingProjectileComponent,
+        &mut Velocity,
+        &mut Damage,
+        &Transform,
+        &mut Lifetime,
+        &mut crate::automatic_projectiles::AutomaticProjectile, // To update its bounce count
+    )>,
+    // Consider adding query for horrors if direct damage on bounce is needed,
+    // or if environment collision should also trigger bounces.
+    // For now, AutomaticProjectile's collision handles horror hits.
+) {
+    for (
+        entity,
+        mut bouncing_comp,
+        mut velocity,
+        mut damage,
+        transform,
+        mut lifetime,
+        mut auto_proj_comp,
+    ) in projectile_query.iter_mut()
+    {
+        // Lifetime check
+        lifetime.timer.tick(time.delta());
+        if lifetime.timer.finished() && bouncing_comp.bounces_left == 0 {
+            commands.entity(entity).despawn_recursive();
+            continue;
+        }
+
+        // Arc movement (simplified, similar to existing lobbed_projectile_system but without early detonation)
+        // This part might need more refinement if complex arcing is desired.
+        // For now, basic velocity handles straight line movement.
+        // Gravity could be added here: velocity.0.y -= GRAVITY_CONSTANT * time.delta_seconds();
+        // And then adjust transform.rotation accordingly if the sprite needs to rotate with trajectory.
+
+        // Collision and bounce logic is primarily handled by automatic_projectile_collision_system.
+        // When a collision occurs there, it should decrement auto_proj_comp.bounces_left.
+        // Here, we react to that change.
+
+        if auto_proj_comp.bounces_left.is_some() && auto_proj_comp.bounces_left.unwrap() < bouncing_comp.bounces_left {
+            // A bounce occurred (detected by change in AutomaticProjectile's bounce count)
+            bouncing_comp.bounces_left = auto_proj_comp.bounces_left.unwrap();
+
+            // Spawn Magma Pool at collision point (current transform.translation)
+            if rand::random::<f32>() < bouncing_comp.params.fire_pool_chance_per_bounce {
+                spawn_magma_pool(
+                    &mut commands,
+                    &asset_server,
+                    transform.translation,
+                    &bouncing_comp.params,
+                );
+            }
+
+            if bouncing_comp.bounces_left == 0 {
+                // Despawn after last bounce's effects (like pool spawning)
+                commands.entity(entity).despawn_recursive();
+                continue;
+            }
+            // Optional: Modify damage/speed after a bounce if needed
+            // damage.0 = (damage.0 as f32 * bouncing_comp.params.damage_loss_per_bounce_multiplier).round() as i32;
+            // velocity.0 *= bouncing_comp.params.speed_loss_per_bounce_multiplier;
+            // auto_proj_comp.current_speed = velocity.0.length();
+            // auto_proj_comp.damage_on_hit = damage.0;
+        }
+    }
+}
+
+pub fn spawn_magma_pool(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    position: Vec3,
+    magma_params: &crate::items::LobbedBouncingMagmaParams,
+) {
+    // Consider if there's a max number of active magma pools, similar to ichor pools.
+    // If so, implement a resource and queue like ActiveIchorPools.
+
+    commands.spawn((
+        SpriteBundle {
+            texture: asset_server.load("sprites/magma_pool_placeholder.png"), // Placeholder
+            sprite: Sprite {
+                color: magma_params.fire_pool_color,
+                custom_size: Some(Vec2::splat(magma_params.fire_pool_radius * 2.0)),
+                ..default()
+            },
+            transform: Transform::from_translation(position.truncate().extend(0.01)), // Slightly above ground
+            ..default()
+        },
+        MagmaPoolComponent {
+            damage_per_tick: magma_params.fire_pool_damage_per_tick,
+            radius: magma_params.fire_pool_radius,
+            tick_timer: Timer::from_seconds(magma_params.fire_pool_tick_interval_secs, TimerMode::Repeating),
+            duration_timer: Timer::from_seconds(magma_params.fire_pool_duration_secs, TimerMode::Once),
+            color: magma_params.fire_pool_color,
+            already_hit_this_tick: Vec::new(),
+        },
+        Name::new("MagmaPool"),
+    ));
+}
+
+pub fn magma_pool_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut pool_query: Query<(Entity, &mut MagmaPoolComponent, &GlobalTransform)>,
+    mut horror_query: Query<(Entity, &Transform, &mut Health), With<Horror>>,
+    asset_server: Res<AssetServer>, // For damage text
+    // Consider adding ResMut<ActiveMagmaPools> if limiting pool count
+) {
+    for (pool_entity, mut pool_comp, pool_gtransform) in pool_query.iter_mut() {
+        pool_comp.duration_timer.tick(time.delta());
+        if pool_comp.duration_timer.finished() {
+            commands.entity(pool_entity).despawn_recursive();
+            // If using ActiveMagmaPools, remove from resource here
+            continue;
+        }
+
+        pool_comp.tick_timer.tick(time.delta());
+        if pool_comp.tick_timer.just_finished() {
+            pool_comp.already_hit_this_tick.clear();
+            let pool_center_pos = pool_gtransform.translation().truncate();
+            let pool_radius_sq = pool_comp.radius.powi(2);
+
+            for (horror_entity, horror_transform, mut horror_health) in horror_query.iter_mut() {
+                if pool_comp.already_hit_this_tick.contains(&horror_entity) {
+                    continue;
+                }
+                let horror_pos = horror_transform.translation.truncate();
+                if horror_pos.distance_squared(pool_center_pos) < pool_radius_sq {
+                    horror_health.0 -= pool_comp.damage_per_tick;
+                    crate::visual_effects::spawn_damage_text(&mut commands, &asset_server, horror_transform.translation, pool_comp.damage_per_tick, &time);
+                    pool_comp.already_hit_this_tick.push(horror_entity);
                 }
             }
         }
@@ -1072,13 +1214,12 @@ pub fn spawn_line_dash_attack(
     commands.entity(player_entity).insert(PlayerDashingComponent {
         params: params.clone(),
         initial_direction: dash_direction,
-        dash_timer: Timer::from_seconds(params.dash_duration, TimerMode::Once), // Use new field name
-        invulnerability_timer: Timer::from_seconds(params.invulnerability_duration, TimerMode::Once), // Initialize new timer
+        dash_timer: Timer::from_seconds(params.dash_duration_secs, TimerMode::Once),
         already_hit_horrors: Vec::new(),
         original_speed_if_modified: Some(original_speed_val),
     });
 
-    if params.invulnerability_duration > 0.0 { // Check against the float value
+    if params.invulnerable_during_dash {
         commands.entity(player_entity).insert(PlayerInvulnerableComponent);
     }
     // Example: sound_event_writer.send(crate::audio::PlaySoundEvent(crate::audio::SoundEffect::PlayerDash));
@@ -1095,111 +1236,64 @@ pub fn player_dashing_system(
 ) {
     if let Ok((player_entity, mut player_transform, mut player_stats, mut dashing_comp)) = player_query.get_single_mut() {
         dashing_comp.dash_timer.tick(time.delta());
-        dashing_comp.invulnerability_timer.tick(time.delta());
 
-        if dashing_comp.invulnerability_timer.finished() {
-            commands.entity(player_entity).remove::<PlayerInvulnerableComponent>();
-        }
+        let movement_this_frame = dashing_comp.initial_direction * dashing_comp.params.dash_speed * time.delta_seconds();
+        player_transform.translation += movement_this_frame.extend(0.0);
 
-        // Only move and check collisions if the dash is ongoing
-        if !dashing_comp.dash_timer.finished() {
-            let movement_this_frame = dashing_comp.initial_direction * dashing_comp.params.dash_speed * time.delta_seconds();
-            player_transform.translation += movement_this_frame.extend(0.0);
+        let player_hitbox_center = player_transform.translation.truncate();
+        let player_half_width = dashing_comp.params.hitbox_width / 2.0;
 
-            let player_hitbox_center = player_transform.translation.truncate();
-            // let player_half_width = dashing_comp.params.hitbox_width / 2.0; // Not directly used in this AABB
-
-            // The piercing_cap and dash_trail_color fields were removed from LineDashAttackParams as per task instructions
-            // So, direct access like dashing_comp.params.piercing_cap or dashing_comp.params.dash_trail_color will fail.
-            // For now, I'll use a default piercing_cap of, say, 1000 (effectively infinite for typical scenarios)
-            // and remove the trail spawning logic as the color field is gone.
-            let effective_piercing_cap = 1000; // Placeholder as piercing_cap was removed from LineDashAttackParams
-
-            for (horror_entity, horror_gtransform, mut horror_health, horror_data) in horror_query.iter_mut() {
-                if dashing_comp.already_hit_horrors.len() >= effective_piercing_cap {
-                    break;
-                }
-                if dashing_comp.already_hit_horrors.contains(&horror_entity) {
-                    continue;
-                }
-
-                let horror_pos = horror_gtransform.translation().truncate();
-                // Using horror_data.size for AABB check
-                // let horror_half_width = horror_data.size.x / 2.0; // Not directly used in this AABB
-                // let horror_half_height = horror_data.size.y / 2.0; // Not directly used in this AABB
-
-                // AABB collision check
-                let x_collision = (player_hitbox_center.x - horror_pos.x).abs() * 2.0 < (dashing_comp.params.hitbox_width + horror_data.size.x);
-                let y_collision = (player_hitbox_center.y - horror_pos.y).abs() * 2.0 < (dashing_comp.params.hitbox_width + horror_data.size.y); // Assuming player hitbox is also somewhat square for y-axis checks.
-
-                if x_collision && y_collision {
-                    // Use the new damage field (f32)
-                    let damage_to_apply = dashing_comp.params.damage as i32; // Convert to i32 for Health component
-                    horror_health.0 -= damage_to_apply;
-                    crate::visual_effects::spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), damage_to_apply, &time);
-                    dashing_comp.already_hit_horrors.push(horror_entity);
-                    // sound_event_writer.send(crate::audio::PlaySoundEvent(crate::audio::SoundEffect::HorrorHit));
-                }
+        for (horror_entity, horror_gtransform, mut horror_health, horror_data) in horror_query.iter_mut() {
+            if dashing_comp.already_hit_horrors.len() >= dashing_comp.params.piercing_cap as usize {
+                break; 
             }
-            
-            // Removed trail spawning logic as dash_trail_color was removed from LineDashAttackParams
-            // if let Some(color) = dashing_comp.params.dash_trail_color { ... }
+            if dashing_comp.already_hit_horrors.contains(&horror_entity) {
+                continue; 
+            }
+
+            let horror_pos = horror_gtransform.translation().truncate();
+            // Using horror_data.size for AABB check
+            let horror_half_width = horror_data.size.x / 2.0;
+            let horror_half_height = horror_data.size.y / 2.0;
+
+            let x_collision = (player_hitbox_center.x - horror_pos.x).abs() * 2.0 < (dashing_comp.params.hitbox_width + horror_data.size.x);
+            let y_collision = (player_hitbox_center.y - horror_pos.y).abs() * 2.0 < (dashing_comp.params.hitbox_width + horror_data.size.y); // Assuming player hitbox is also somewhat square for y-axis checks.
+
+            if x_collision && y_collision {
+                horror_health.0 -= dashing_comp.params.damage_per_hit;
+                crate::visual_effects::spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), dashing_comp.params.damage_per_hit, &time);
+                dashing_comp.already_hit_horrors.push(horror_entity);
+                // sound_event_writer.send(crate::audio::PlaySoundEvent(crate::audio::SoundEffect::HorrorHit));
+            }
+        }
+        
+        if let Some(color) = dashing_comp.params.dash_trail_color {
+            commands.spawn((
+                SpriteBundle {
+                    texture: asset_server.load("sprites/dash_trail_placeholder.png"), 
+                    sprite: Sprite {
+                        custom_size: Some(Vec2::new(dashing_comp.params.hitbox_width * 0.7, dashing_comp.params.hitbox_width * 0.7)), 
+                        color: color, 
+                        ..default()
+                    },
+                    transform: Transform::from_translation(player_transform.translation - movement_this_frame.extend(0.0) * 0.25), 
+                    ..default()
+                },
+                Lifetime { timer: Timer::from_seconds(0.2, TimerMode::Once) }, 
+                Name::new("LineDashTrailSegment"),
+            ));
         }
 
         if dashing_comp.dash_timer.finished() {
             if let Some(original_speed) = dashing_comp.original_speed_if_modified {
                 player_stats.speed = original_speed;
             } else {
-                player_stats.speed = BASE_PLAYER_SPEED;
+                player_stats.speed = BASE_PLAYER_SPEED; 
             }
             commands.entity(player_entity).remove::<PlayerDashingComponent>();
-            // Invulnerability removal is now handled by its own timer check above
-        }
-    }
-}
-
-// --- Player Blink Event Handling System ---
-pub fn handle_player_blink_event_system(
-    mut commands: Commands,
-    mut events: EventReader<crate::components::PlayerBlinkEvent>,
-    mut player_query: Query<(&mut Transform, &Survivor), (With<Survivor>, Without<Horror>)>, // Added Without<Horror> for safety
-    enemy_query: Query<&GlobalTransform, With<Horror>>, // Query enemies for their position
-    // asset_server: Res<AssetServer>, // For visual effects if any
-    mut sound_event_writer: EventWriter<PlaySoundEvent>, // For sound effects
-) {
-    for event in events.read() {
-        if let Ok((mut player_transform, survivor_stats)) = player_query.get_mut(event.player_entity) {
-            let mut blink_destination = player_transform.translation; // Default to current if target invalid
-
-            match event.blink_params.blink_target {
-                crate::items::BlinkTarget::BehindEnemy => {
-                    if let Ok(enemy_gtransform) = enemy_query.get(event.hit_enemy_entity) {
-                        let enemy_position = enemy_gtransform.translation();
-                        // Calculate direction from player to enemy to find "behind"
-                        let dir_player_to_enemy = (enemy_position - player_transform.translation).truncate().normalize_or_else(|| survivor_stats.aim_direction.normalize_or_else(|| Vec2::X));
-                        
-                        blink_destination = enemy_position + (dir_player_to_enemy * event.blink_params.blink_distance).extend(player_transform.translation.z);
-                    } else {
-                        // Fallback: Enemy might have despawned. Blink forward.
-                        let aim_dir = survivor_stats.aim_direction.normalize_or_else(|| (player_transform.rotation * Vec3::X).truncate().normalize_or_else(|| Vec2::X));
-                        blink_destination = player_transform.translation + (aim_dir * event.blink_params.blink_distance).extend(player_transform.translation.z);
-                    }
-                }
-                crate::items::BlinkTarget::ForwardFixed => {
-                    // Use player's current aim direction or facing direction
-                    let aim_dir = survivor_stats.aim_direction.normalize_or_else(|| (player_transform.rotation * Vec3::X).truncate().normalize_or_else(|| Vec2::X));
-                    blink_destination = player_transform.translation + (aim_dir * event.blink_params.blink_distance).extend(player_transform.translation.z);
-                }
+            if dashing_comp.params.invulnerable_during_dash {
+                commands.entity(player_entity).remove::<PlayerInvulnerableComponent>();
             }
-            
-            player_transform.translation = blink_destination;
-
-            // Add short invulnerability
-            commands.entity(event.player_entity).insert(PlayerInvulnerableComponent {
-                duration_timer: Timer::from_seconds(0.2, TimerMode::Once) // Example: 0.2 seconds of invulnerability
-            });
-
-            sound_event_writer.send(PlaySoundEvent(SoundEffect::PlayerBlink));
         }
     }
 }
@@ -2504,111 +2598,6 @@ pub fn player_is_channeling_effect_system(
         }
     }
 }
-
-// --- Melee Arc Attack Systems ---
-
-pub fn spawn_melee_arc_attack(
-    commands: &mut Commands,
-    // asset_server: &Res<AssetServer>, // For visual effects, if any, later
-    params: &crate::items::MeleeArcAttackParams,
-    player_transform: &Transform,
-    player_stats: &Survivor, // To get aim_direction
-) {
-    let mut attack_forward_vector = player_stats.aim_direction.normalize_or_zero();
-    if attack_forward_vector == Vec2::ZERO { // Fallback to player's current facing if aim_direction is zero
-        attack_forward_vector = (player_transform.rotation * Vec3::X).truncate().normalize_or_zero();
-        if attack_forward_vector == Vec2::ZERO {
-            attack_forward_vector = Vec2::X; // Default to X-axis if all else fails
-        }
-    }
-
-    commands.spawn((
-        ActiveMeleeArcHitbox {
-            params: params.clone(),
-            duration_timer: Timer::from_seconds(params.duration, TimerMode::Once),
-            already_hit_enemies: Vec::new(),
-            owner_forward_vector: attack_forward_vector,
-            owner_position: player_transform.translation,
-            hit_count: 0,
-        },
-        Name::new("MeleeArcHitbox"),
-        // This entity is logical; visual effects would be spawned separately if needed
-        // e.g., by sending an event or by the calling system spawning a visual.
-    ));
-}
-
-pub fn melee_arc_attack_system(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut hitbox_query: Query<(Entity, &mut ActiveMeleeArcHitbox)>,
-    mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>,
-    asset_server: Res<AssetServer>, // For damage text
-    // sound_event_writer: EventWriter<PlaySoundEvent>, // If sound effects are desired
-) {
-    for (hitbox_entity, mut hitbox) in hitbox_query.iter_mut() {
-        hitbox.duration_timer.tick(time.delta());
-        if hitbox.duration_timer.finished() {
-            commands.entity(hitbox_entity).despawn_recursive();
-            continue;
-        }
-
-        // Check for hits only once per active duration, or continuously if desired (current: continuous for duration)
-        // For a single sweep, this loop effectively runs for the short duration, hitting targets.
-
-        let max_targets_reached = if let Some(max) = hitbox.params.max_targets {
-            hitbox.hit_count >= max
-        } else {
-            false // No limit
-        };
-
-        if max_targets_reached {
-            continue; // Don't check for more hits if limit is reached
-        }
-
-        let owner_pos_2d = hitbox.owner_position.truncate();
-        let half_arc_angle_rad = hitbox.params.arc_angle.to_radians() / 2.0;
-
-        for (horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() {
-            if hitbox.already_hit_enemies.contains(&horror_entity) {
-                continue;
-            }
-            
-            // Recalculate max_targets_reached inside the loop before attempting to hit
-            let current_max_targets_reached = if let Some(max) = hitbox.params.max_targets {
-                hitbox.hit_count >= max
-            } else {
-                false 
-            };
-            if current_max_targets_reached { break; }
-
-
-            let horror_pos_2d = horror_gtransform.translation().truncate();
-            let vector_to_horror = horror_pos_2d - owner_pos_2d;
-            let distance_sq_to_horror = vector_to_horror.length_squared();
-
-            // Check radius
-            if distance_sq_to_horror <= hitbox.params.arc_radius.powi(2) {
-                let direction_to_horror = vector_to_horror.normalize_or_zero();
-                if direction_to_horror == Vec2::ZERO { // Horror is at the same position
-                    continue;
-                }
-
-                // Check angle
-                let angle_to_horror_rad = hitbox.owner_forward_vector.angle_between(direction_to_horror);
-                if angle_to_horror_rad.abs() <= half_arc_angle_rad {
-                    // Hit!
-                    horror_health.0 -= hitbox.params.damage as i32;
-                    crate::visual_effects::spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), hitbox.params.damage as i32, &time);
-                    // sound_event_writer.send(PlaySoundEvent(SoundEffect::MeleeHit)); // Example
-
-                    hitbox.already_hit_enemies.push(horror_entity);
-                    hitbox.hit_count += 1;
-                }
-            }
-        }
-    }
-}
-
 
 pub fn execute_cone_attack(
     commands: &mut Commands,

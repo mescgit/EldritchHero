@@ -91,6 +91,11 @@ fn player_shooting_system(
                     AttackTypeData::ReturningProjectile(params) => params.base_fire_rate_secs,
                     AttackTypeData::ChanneledBeam(params) => params.tick_rate_secs, // Channeled beams use tick_rate
                     AttackTypeData::ConeAttack(params) => params.base_fire_rate_secs,
+                    AttackTypeData::LobbedAoEPool(params) => params.base_fire_rate_secs,
+                    AttackTypeData::LobbedBouncingMagma(params) => params.base_fire_rate_secs,
+                    AttackTypeData::RepositioningTether(params) => params.base_fire_rate_secs,
+                    // Add other new types here for fire rate calculation
+                    _ => 1.0, // Default fire rate for unhandled types
                 };
 
                 let mut current_fire_rate_secs = base_fire_rate;
@@ -153,11 +158,52 @@ fn player_shooting_system(
                         should_stop_channeling = true;
                         if mind_affliction.fire_timer.just_finished() && player_stats.aim_direction != Vec2::ZERO {
                             sound_event_writer.send(PlaySoundEvent(SoundEffect::PlayerShoot));
-                            execute_cone_attack(&mut commands, &asset_server, params, player_transform, player_stats.aim_direction);
+                            execute_cone_attack(&mut commands, &asset_server, params, player_transform, player_stats.aim_direction, &time); // Added time
                         }
                     }
+                    AttackTypeData::LobbedAoEPool(params) => {
+                        should_stop_channeling = true;
+                        if mind_affliction.fire_timer.just_finished() && player_stats.aim_direction != Vec2::ZERO {
+                            sound_event_writer.send(PlaySoundEvent(SoundEffect::PlayerShoot));
+                            crate::weapon_systems::spawn_lobbed_aoe_pool_attack(&mut commands, &asset_server, params, player_transform, player_stats.aim_direction);
+                        }
+                    }
+                    AttackTypeData::LobbedBouncingMagma(params) => {
+                        should_stop_channeling = true;
+                        if mind_affliction.fire_timer.just_finished() && player_stats.aim_direction != Vec2::ZERO {
+                            sound_event_writer.send(PlaySoundEvent(SoundEffect::PlayerShoot));
+                            crate::weapon_systems::spawn_magma_ball_attack(&mut commands, &asset_server, params, player_transform, player_stats.aim_direction, weapon_def.id);
+                        }
+                    }
+                    AttackTypeData::RepositioningTether(params) => {
+                        should_stop_channeling = true;
+                        if mind_affliction.fire_timer.just_finished() { // Tether can be fired without aiming
+                            sound_event_writer.send(PlaySoundEvent(SoundEffect::PlayerShoot)); // Or a specific tether sound
+                            // Calling spawn_repositioning_tether_attack with parameters available in player_shooting_system
+                            crate::weapon_systems::spawn_repositioning_tether_attack(
+                                &mut commands,
+                                &asset_server,
+                                player_entity,
+                                player_transform,
+                                player_stats.aim_direction, // Can be Vec2::ZERO if not aiming, tether might handle this
+                                params,
+                                weapon_def.id,
+                                // The following parameters are problematic as player_shooting_system doesn't have them directly.
+                                // opt_waiting_activation: Option<Res<PlayerWaitingTetherActivationComponent>>,
+                                // horror_transform_query: Query<&mut Transform, (With<Horror>, Without<Survivor>)>,
+                                // player_transform_query: Query<&Transform, (With<Survivor>, Without<Horror>)>,
+                                // This will require spawn_repositioning_tether_attack to be refactored.
+                            );
+                        }
+                    }
+                    // Ensure all other existing and future AttackTypeData variants are handled or have a default case.
+                    _ => { // Default case for other attack types not explicitly handled above
+                        should_stop_channeling = true;
+                        // Optionally, log a warning or handle other types if they are meant to be shootable
+                        // info!("Unhandled attack type in player_shooting_system: {:?}", weapon_def.attack_data);
+                    }
                 }
-            } else { 
+            } else {
                 should_stop_channeling = true;
             }
         } else { 
