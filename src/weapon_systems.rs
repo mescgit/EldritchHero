@@ -475,21 +475,21 @@ pub fn tether_reactivation_window_system(
         }
     }
 }
-        commands,
-        asset_server,
-        player_transform.translation,
-        aim_direction,
-        0, // Tether projectile damage (0 or very low)
-        params.tether_projectile_speed,
-        0, // Piercing
-        weapon_id, // Pass the weapon_id
-        params.tether_sprite_path,
-        params.tether_size,
-        params.tether_color,
-        params.tether_range / params.tether_projectile_speed, // Lifetime based on range/speed
-        None, None, None, // Bouncing params
-        None, // Lifesteal
-    );
+//        commands,
+ //       asset_server,
+ //       player_transform.translation,
+ //       aim_direction,
+ //       0, // Tether projectile damage (0 or very low)
+ //       params.tether_projectile_speed,
+ //       0, // Piercing
+ //       weapon_id, // Pass the weapon_id
+ //       params.tether_sprite_path,
+ //       params.tether_size,
+//       params.tether_color,
+//        params.tether_range / params.tether_projectile_speed, // Lifetime based on range/speed
+ //       None, None, None, // Bouncing params
+//        None, // Lifesteal
+//    );
     // Add TetherProjectileComponent to the spawned projectile
     // spawn_automatic_projectile returns void, so we need to query for it if we want to add component.
     // This is a limitation. For now, TetherProjectileComponent must be added IN spawn_automatic_projectile
@@ -497,7 +497,7 @@ pub fn tether_reactivation_window_system(
     // The prompt for automatic_projectiles.rs already added it to the projectile query there.
     // So, the component with params_snapshot should be added there.
     // Here, we just ensure the projectile is spawned.
-}
+//}
 
 pub fn tether_reactivation_window_system(
     mut commands: Commands,

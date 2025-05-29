@@ -278,21 +278,10 @@ fn automatic_projectile_collision_system(
                                     player_health.0 = (player_health.0 + lifesteal_amount).min(player_survivor_stats.max_health);
                                 }
                             }
-                            }
-                        }
-                            }
                         }
                     }
 
-                    // Blink Strike Logic (after damage and lifesteal, before piercing/despawn)
-                    if let Some(ref blink_p) = proj_stats.blink_params_on_hit {
-                        let killed_target = horror_health.0 <= 0;
-                        if blink_p.blink_requires_kill && !killed_target {
-                            // Blink requires kill, but target was not killed. Do nothing.
-                        } else {
-                            // Proceed with blink chance
-                            if rand::thread_rng().gen_bool(blink_p.blink_chance_on_hit_percent as f64) {
-                    // Player Blink Strike Logic (replaces/enhances old blink_params_on_hit logic for PLAYER blink)
+                    // Blink Strike Logic (player blink)
                     if let Some(weapon_def) = weapon_library.get_weapon_definition(proj_stats.weapon_id) {
                         if let crate::items::AttackTypeData::BlinkStrike(ref blink_strike_params) = weapon_def.attack_data {
                             if rand::thread_rng().gen_bool(blink_strike_params.blink_chance as f64) {
@@ -302,7 +291,7 @@ fn automatic_projectile_collision_system(
                                     blink_params: blink_strike_params.clone(),
                                 });
                             }
-                                    }
+                        }
                     }
                     // Old projectile blink logic (can be kept if projectile blinking is still desired for other weapons)
                     else if let Some(ref blink_p) = proj_stats.blink_params_on_hit {
@@ -312,7 +301,7 @@ fn automatic_projectile_collision_system(
                         } else {
                             // Proceed with blink chance
                             if rand::thread_rng().gen_bool(blink_p.blink_chance_on_hit_percent as f64) {
-                                if let Ok((mut player_transform, _player_health, survivor_stats)) = player_effects_query.get_single_mut() {
+                                if let Ok((mut _player_transform, _player_health, _survivor_stats)) = player_effects_query.get_single_mut() {
                                     // This part was for player blink, but BlinkStrikeParams handles that now via event.
                                     // If this old logic is for PROJECTILE blinking, it needs to modify proj_transform, not player_transform.
                                     // For now, commenting out the player transform part to avoid conflict.
@@ -329,11 +318,7 @@ fn automatic_projectile_collision_system(
                                     player_transform.translation = new_player_pos;
                                     sound_event_writer.send(PlaySoundEvent(SoundEffect::PlayerBlink));
                                     */
-                                    // Placeholder for actual projectile blink/teleport logic if needed
                                     info!("Projectile (not player) blink triggered by old params for weapon ID: {:?}", proj_stats.weapon_id);
-                                }
-                            }
-                        }
                                 }
                             }
                         }
