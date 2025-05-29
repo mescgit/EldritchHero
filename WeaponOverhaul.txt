@@ -271,3 +271,104 @@ This list proposes new designs for your auto-attack abilities to make each one o
         Mechanic: Fires a bolt that, upon hitting an enemy, has a chance to cause the player to instantly teleport a very short distance (e.g., behind the hit enemy, or a fixed short blink forward). Alternatively, the projectile itself could "blink" past the first enemy hit (ignoring its collision) to then strike a second target further away.
         Parameters: Moderate fire rate, chance to trigger blink, blink distance/behavior.
         Gameplay Style: Highly mobile and unpredictable (for enemies). Can be used for aggressive repositioning, disorienting foes, or bypassing front-line enemies to hit softer targets.
+		
+		
+		Current Status:
+		
+		
+feat: Implement several new weapon mechanics and refactor existing ones
+
+This commit introduces a significant overhaul of the weapon system,
+implementing multiple new attack types as described in WeaponOverhaul.txt
+and refactoring previously revamped weapons to use a new AttackTypeData structure.
+
+Key changes:
+
+1.  **Refactored Weapons:**
+    *   Spectral Blades: Now uses `AttackTypeData::ReturningProjectile`.
+    *   Eldritch Gatling: Now uses `AttackTypeData::ChanneledBeam`.
+    *   Sunfire Burst: Now uses `AttackTypeData::ConeAttack`.
+
+2.  **New Weapon Mechanics Implemented:**
+    *   **Primordial Ichor Blast (Lobbed AoE Pool):**
+        *   Defined `LobbedAoEPoolParams` and associated systems. Projectiles
+          spawn persistent damaging pools on landing.
+    *   **Void Cannon (Charge-Up Energy Shot):**
+        *   Defined `ChargeUpEnergyShotParams` with multiple charge levels.
+        *   Implemented systems for charging and firing variable-strength shots,
+          including projectiles that can explode on final impact.
+    *   **Inferno Bolt (Trail of Fire):**
+        *   Defined `TrailOfFireParams`. Projectiles leave a trail of
+          damaging fire segments.
+    *   **Chain Lightning (Auto-Targeting Instant Chain Zap):**
+        *   Defined `ChainZapParams`. Implemented logic for instant zaps
+          that chain to multiple targets with damage falloff. Visuals are
+          placeholder sprites at target locations.
+    *   **Glacial Spike (Point-Blank Frost Nova):**
+        *   Defined `PointBlankNovaParams`. Implemented an instant AoE
+          attack originating from you, dealing damage and applying
+          the existing `Frozen` component to enemies.
+
+3.  **Core System Changes:**
+    *   Added new variants to the `AttackTypeData` enum in `src/items.rs`
+      for each new mechanic.
+    *   Added corresponding parameter structs (e.g., `LobbedAoEPoolParams`,
+      `ChargeUpEnergyShotParams`, etc.) in `src/items.rs`.
+    *   Implemented new components and systems in `src/weapon_systems.rs`
+      to handle the logic for each new attack type (e.g., projectile
+      spawning, movement, collision, special effects like charging,
+      AoE damage, trail generation, chaining).
+    *   Updated `populate_automatic_weapon_library` in `src/items.rs` to
+      assign the new `AttackTypeData` to the respective weapons.
+    *   Modified `automatic_projectile_collision_system` in
+      `src/automatic_projectiles.rs` to support exploding projectiles.
+    *   Fixed a structural issue in `src/items.rs` involving duplicated
+      enum/struct definitions.
+
+This work is part of a larger effort to diversify weapon behaviors.
+The implementation of these weapons provides a foundation for further
+additions and balancing.
+
+
+
+Okay, here's a synopsis of the changes I've made so far and what I plan to do next:
+
+Synopsis of Changes:
+
+I've been overhauling auto-attack abilities to give them unique mechanics. So far, I have:
+
+    Refactored 3 existing weapons (Spectral Blades, Eldritch Gatling, Sunfire Burst) to use a new, more flexible data structure for their attack types.
+    Implemented 10 entirely new weapon mechanics from scratch:
+        Lobbed AoE Pool: (Primordial Ichor Blast) - Fires a projectile that creates a damage-over-time pool.
+        Charge-Up Shot: (Void Cannon) - Hold to charge for more powerful shots, including an exploding final charge.
+        Trail of Fire: (Inferno Bolt) - Projectile leaves a damaging fire trail.
+        Chain Zap: (Chain Lightning) - Instantly zaps nearest enemy, then chains to others with damage falloff.
+        Point-Blank Nova: (Glacial Spike) - Instant AoE burst from player, damages and slows.
+        Persistent Damage Aura: (Metal Shrapnel) - Constant close-range damage around the player.
+        Debuffing Cloud Aura: (Sand Blast) - Pulses a cloud that applies debuffs (e.g., accuracy reduction) to enemies.
+        Expanding Energy Bomb: (Spirit Bomb) - An energy field forms around the player, expands (following player), then detonates with damage scaling by size.
+        Homing & Stacking Debuff Projectiles: (Moonbeam Dart) - Fires darts that home in and apply a stacking damage amplification debuff.
+        Bouncing Projectiles: (Crystal Shard) - Fires shards that bounce off enemies and screen edges, losing some power with each bounce.
+        Ground-Targeted AoE (Eruption & Rooting): (EarthShatter Shard, Nature's Wrath) - Allows aiming an AoE on the ground, which then erupts after a delay to damage/knock-up or root enemies.
+
+This involved defining new data structures for each weapon type in src/items.rs and implementing the corresponding gameplay logic (Bevy components and systems) in src/weapon_systems.rs and src/automatic_projectiles.rs.
+
+Next Steps:
+
+I plan to continue implementing the remaining weapon archetypes:
+
+    Melee & Player-Movement Attacks:
+        "Holy Lance" (Line Dash Attack)
+        "Void Tendril" (Melee Sweeping Arc)
+    Unique Summons/Utility Projectiles:
+        "Shadow Orb" (Deployable Orbiting Turret)
+        "Psionic Lash" (Repositioning Tether)
+        "Aether Bolt" (Blink Strike / Teleporting Shots)
+    Adaptations of Existing Types:
+        "Venom Spit" (Lobbed AoE Cloud - similar to Ichor Blast but different effect)
+        "Magma Ball" (Lobbed Bouncing Magma with Fire Pools - complex combo)
+        "Arcane Ray" (Sweeping Channeled Beam - similar to Eldritch Gatling but different parameters)
+
+Crucial Integration Phase After All Types are Defined:
+
+    A major upcoming step will be to update the main player weapon firing system. This system needs to read the AttackTypeData for the equipped weapon and call the correct new spawn_..._attack function I've been building for each weapon type. This will also involve handling unique input needs (like the two-step process for ground-targeted AoEs or managing charge weapon inputs).
