@@ -36,6 +36,375 @@ pub enum ItemEffect {
     ActivateSwarmOfNightmares { num_larvae: u32, base_damage: i32, base_orbit_radius: f32, base_rotation_speed: f32 },
 }
 
+// This section contains duplicated definitions from a previous merge error.
+// It will be removed by this diff.
+// #[derive(Debug, Clone, Reflect)]
+// pub struct ChainZapParams {
+//    pub base_fire_rate_secs: f32,
+// ... (rest of duplicated ChainZapParams) ...
+// }
+// 
+// #[derive(Debug, Clone, Reflect)]
+// pub enum AttackTypeData {
+// ... (duplicated AttackTypeData enum) ...
+// }
+//
+// #[derive(Debug, Clone, Reflect)]
+// }
+
+// Commenting out old PetAttackTypeParams as per new requirements for OrbitingPetParams
+/*
+#[derive(Debug, Clone, Reflect)]
+pub enum PetAttackTypeParams {
+    PulseAoE { damage: i32, radius: f32, tick_interval_secs: f32 },
+    FiringBolts { 
+        bolt_damage: i32, 
+        bolt_speed: f32, 
+        bolt_sprite_path: &'static str, 
+        bolt_size: Vec2, 
+        bolt_color: Color, 
+        bolt_lifetime_secs: f32, 
+        shots_per_burst: u32, 
+        burst_interval_secs: f32 
+    },
+}
+*/
+
+// Optional: Provide a default if one variant is overwhelmingly standard or for placeholder.
+// For now, we'll assume it's always explicitly set.
+// impl Default for PetAttackTypeParams {
+//     fn default() -> Self {
+//         PetAttackTypeParams::PulseAoE {
+//             damage: 5,
+//             radius: 50.0,
+//             tick_interval_secs: 1.0,
+//         }
+//     }
+// }
+
+// Commenting out old TetherEffectType and RepositioningTetherParams
+/*
+#[derive(Debug, Clone, Copy, Reflect, PartialEq, Default)]
+#[reflect(Component)] 
+pub enum TetherEffectType {
+    #[default]
+    PullToPlayer,
+    PushFromPlayer,
+    // AlternatePullPush, // Future enhancement
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct RepositioningTetherParams {
+    pub base_fire_rate_secs: f32,
+    pub tether_projectile_speed: f32,
+    pub tether_range: f32,
+    pub tether_sprite_path: &'static str,
+    pub tether_size: Vec2,
+    pub tether_color: Color,
+    pub effect_type: TetherEffectType,
+    pub move_distance: f32,
+    pub activation_window_secs: f32,
+    pub tether_hit_damage: i32,
+}
+*/
+
+#[derive(Debug, Clone, Copy, Reflect, PartialEq, Default)]
+#[reflect(Default)]
+pub enum RepositioningTetherMode {
+    #[default]
+    Pull,
+    Push,
+    Alternate,
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct RepositioningTetherParams {
+    pub base_fire_rate_secs: f32,
+    pub tether_projectile_speed: f32,
+    pub tether_range: f32,
+    pub tether_sprite_path: &'static str,
+    pub tether_color: Color,
+    pub tether_size: Vec2,
+    pub mode: RepositioningTetherMode,
+    pub pull_strength: f32,
+    pub push_strength: f32,
+    pub reactivation_window_secs: f32,
+    pub effect_duration_secs: f32,
+}
+
+
+// Commenting out old OrbitingPetParams
+/*
+#[derive(Debug, Clone, Reflect)]
+pub struct OrbitingPetParams {
+    pub base_fire_rate_secs: f32,
+    pub pet_duration_secs: f32,
+    pub orbit_radius: f32,
+    pub orbit_speed_rad_per_sec: f32,
+    pub deployment_range: f32, // 0.0 or less for orbiting player, > 0 for deploy at range
+    pub num_pets_allowed: u32,
+    pub pet_attack_params: PetAttackTypeParams, // This used the old PetAttackTypeParams
+    pub pet_sprite_path: &'static str,
+    pub pet_size: Vec2,
+}
+*/
+
+// New Definition for OrbitingPetParams as per request
+#[derive(Debug, Clone, Reflect)]
+pub struct OrbitingPetParams {
+    pub base_fire_rate_secs: f32,
+    pub max_active_orbs: u32,
+    pub orb_duration_secs: f32,
+    pub orb_sprite_path: &'static str,
+    pub orb_size: Vec2,
+    pub orb_color: Color,
+    pub orbit_radius: f32,
+    pub orbit_speed_rad_per_sec: f32,
+    pub can_be_deployed_at_location: bool,
+    pub deployment_range: f32,
+    pub pulses_aoe: bool,
+    pub pulse_damage: i32,
+    pub pulse_radius: f32,
+    pub pulse_interval_secs: f32,
+    pub pulse_color: Option<Color>,
+    pub fires_seeking_bolts: bool,
+    pub bolt_damage: i32,
+    pub bolt_speed: f32,
+    pub bolt_fire_interval_secs: f32,
+    pub bolt_sprite_path: Option<&'static str>,
+    pub bolt_size: Option<Vec2>,
+    pub bolt_color: Option<Color>,
+    pub bolt_lifetime_secs: Option<f32>,
+    pub bolt_homing_strength: Option<f32>,
+}
+
+
+#[derive(Debug, Clone, Reflect)]
+pub struct DashAttackParams {
+    pub base_fire_rate_secs: f32,
+    pub dash_duration_secs: f32,
+    pub dash_speed_multiplier: f32,
+    pub damage_per_hit: i32,
+    pub max_hits_per_dash: u32,
+    pub dash_hitbox_width: f32,
+    pub player_invulnerability_during_dash: bool,
+    pub visual_trail_effect_sprite: Option<&'static str>,
+    pub trail_duration_secs: Option<f32>,
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct GroundTargetedAoEParams {
+    pub base_fire_rate_secs: f32,
+    pub targeting_range: f32, 
+    pub reticle_sprite_path: Option<&'static str>, 
+    pub reticle_size: Vec2,
+    pub delay_before_eruption_secs: f32,
+    pub eruption_radius: f32,
+    pub damage: i32,
+    pub aoe_color: Color,
+    pub aoe_visual_duration_secs: f32,
+    pub knock_up_strength: f32,
+    pub root_duration_secs: Option<f32>,
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct LifestealProjectileParams {
+    pub base_fire_rate_secs: f32,
+    pub base_damage: i32,
+    pub projectile_speed: f32,
+    pub projectile_sprite_path: &'static str,
+    pub projectile_size: Vec2,
+    pub projectile_color: Color,
+    pub projectile_lifetime_secs: f32,
+    pub piercing: u32,
+    pub lifesteal_percentage: f32,
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct BouncingProjectileParams {
+    pub base_fire_rate_secs: f32,
+    pub num_shards_per_shot: u32,
+    pub base_damage: i32,
+    pub projectile_speed: f32,
+    pub projectile_sprite_path: &'static str,
+    pub projectile_size: Vec2,
+    pub projectile_color: Color,
+    pub projectile_lifetime_secs: f32,
+    pub max_bounces: u32,
+    pub damage_loss_per_bounce_multiplier: f32,
+    pub speed_loss_per_bounce_multiplier: f32,
+    pub spread_angle_degrees: f32,
+}
+
+#[derive(Debug, Clone, Copy, Reflect, PartialEq, Default)]
+pub enum ProjectileDebuffType {
+    #[default]
+    DamageAmp, // Amplifies damage taken by the target
+    Slow,      // Slows target's movement speed
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct HomingDebuffProjectileParams {
+    pub base_fire_rate_secs: f32,
+    pub num_darts_per_shot: u32,
+    pub base_damage: i32,
+    pub projectile_speed: f32,
+    pub projectile_sprite_path: &'static str,
+    pub projectile_size: Vec2,
+    pub projectile_color: Color,
+    pub projectile_lifetime_secs: f32,
+    pub homing_strength: f32,
+    pub homing_initial_target_search_radius: f32,
+    pub debuff_type: ProjectileDebuffType,
+    pub debuff_magnitude_per_stack: f32,
+    pub max_debuff_stacks: u32,
+    pub debuff_duration_secs_on_target: f32,
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct ExpandingEnergyBombParams {
+    pub base_fire_rate_secs: f32,
+    pub max_radius: f32,
+    pub expansion_duration_secs: f32,
+    pub min_damage_at_min_radius: i32,
+    pub max_damage_at_max_radius: i32,
+    pub bomb_color: Color,
+    pub visual_sprite_path: Option<&'static str>,
+    pub detonation_can_be_manual: bool,
+    pub auto_detonation_delay_after_max_expansion_secs: f32,
+}
+
+#[derive(Debug, Clone, Copy, Reflect, PartialEq)]
+pub enum AuraDebuffType {
+    ReduceAccuracy,
+    SlowAttackSpeed,
+    MinorDamageOverTime,
+}
+
+impl Default for AuraDebuffType {
+    fn default() -> Self { Self::ReduceAccuracy }
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct DebuffAuraParams {
+    pub base_fire_rate_secs: f32,
+    pub cloud_radius: f32,
+    pub cloud_duration_secs: f32,
+    pub cloud_color: Color,
+    pub visual_sprite_path: Option<&'static str>,
+    pub debuff_type: AuraDebuffType,
+    pub debuff_magnitude: f32,
+    pub debuff_duration_secs: f32,
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct PersistentAuraParams {
+    pub is_active_by_default: bool,
+    pub damage_per_tick: i32,
+    pub tick_interval_secs: f32,
+    pub radius: f32,
+    pub aura_color: Color,
+    pub visual_sprite_path: Option<&'static str>,
+    pub fire_rate_secs_placeholder: f32,
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct PointBlankNovaParams {
+    pub base_fire_rate_secs: f32,
+    pub damage: i32,
+    pub radius: f32,
+    pub nova_color: Color,
+    pub visual_duration_secs: f32,
+    pub slow_effect_multiplier: f32,
+    pub slow_duration_secs: f32,
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct ChainZapParams {
+    pub base_fire_rate_secs: f32,
+    pub initial_target_range: f32,
+    pub max_chains: u32,
+    pub chain_search_radius: f32,
+    pub base_damage_per_zap: i32,
+    pub damage_falloff_per_chain: f32,
+    pub zap_color: Color,
+    pub zap_width: f32,
+    pub zap_duration_secs: f32,
+}
+
+#[derive(Debug, Clone, Reflect, Default)]
+#[reflect(Default)]
+pub struct LineDashAttackParams {
+    pub base_fire_rate_secs: f32,
+    pub dash_speed: f32,
+    pub dash_duration_secs: f32,
+    pub damage_per_hit: i32,
+    pub hitbox_width: f32,
+    pub piercing_cap: u32,
+    pub dash_trail_color: Option<Color>,
+    pub invulnerable_during_dash: bool,
+}
+impl Default for LineDashAttackParams {
+    fn default() -> Self {
+        Self {
+            base_fire_rate_secs: 1.0,
+            dash_speed: 1000.0,
+            dash_duration_secs: 0.3,
+            damage_per_hit: 10,
+            hitbox_width: 50.0,
+            piercing_cap: 3,
+            dash_trail_color: Some(Color::WHITE),
+            invulnerable_during_dash: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct BlinkStrikeProjectileParams {
+    pub base_fire_rate_secs: f32,
+    pub base_damage: i32,
+    pub projectile_speed: f32,
+    pub projectile_sprite_path: &'static str,
+    pub projectile_size: Vec2,
+    pub projectile_color: Color,
+    pub projectile_lifetime_secs: f32,
+    pub piercing: u32,
+    pub blink_chance_on_hit_percent: f32,
+    pub blink_distance: f32,
+    pub blink_to_target_behind: bool,
+    pub blink_requires_kill: bool,
+    pub num_projectiles_per_shot: u32,
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub enum AttackTypeData {
+    StandardProjectile(StandardProjectileParams),
+    ReturningProjectile(ReturningProjectileParams),
+    ChanneledBeam(ChanneledBeamParams),
+    ConeAttack(ConeAttackParams),
+    LobbedAoEPool(LobbedAoEPoolParams),
+    ChargeUpEnergyShot(ChargeUpEnergyShotParams),
+    TrailOfFire(TrailOfFireParams),
+    ChainZap(ChainZapParams),
+    PointBlankNova(PointBlankNovaParams), 
+    PersistentAura(PersistentAuraParams),
+    DebuffAura(DebuffAuraParams), 
+    ExpandingEnergyBomb(ExpandingEnergyBombParams),
+    HomingDebuffProjectile(HomingDebuffProjectileParams), 
+    BouncingProjectile(BouncingProjectileParams),
+    LifestealProjectile(LifestealProjectileParams),
+    GroundTargetedAoE(GroundTargetedAoEParams),
+    DashAttack(DashAttackParams),
+    OrbitingPet(OrbitingPetParams),
+    RepositioningTether(RepositioningTetherParams),
+    LineDashAttack(LineDashAttackParams),
+    BlinkStrikeProjectile(BlinkStrikeProjectileParams), // Added new type for Aether Bolt
+    // We will add more variants here as we implement more attack types
+}
+
+// The duplicated TrailOfFireParams and the first AttackTypeData enum are now removed.
+// Also removing the duplicated ChargeUpEnergyShotParams and its associated AttackTypeData enum.
+
 #[derive(Debug, Clone, Reflect)]
 pub struct ItemDefinition {
     pub id: ItemId,
@@ -65,6 +434,11 @@ pub struct AutomaticWeaponId(pub u32);
 
 // --- New Structs and Enum for Attack Types ---
 
+// The main AttackTypeData enum is now above.
+// The following structs (StandardProjectileParams, ReturningProjectileParams, etc.) and the second AttackTypeData enum will be removed.
+
+// REMOVING DUPLICATE STRUCT DEFINITIONS AND THE SECOND AttackTypeData ENUM:
+/*
 #[derive(Debug, Clone, Reflect)]
 pub struct StandardProjectileParams {
     pub base_damage: i32,
@@ -109,7 +483,27 @@ pub struct ConeAttackParams {
     pub cone_angle_degrees: f32,
     pub cone_radius: f32,
     pub color: Color, // For visual effect
+    pub visual_sprite_path: Option<&'static str>,
+    pub visual_size_scale_with_radius_angle: Option<(f32, f32)>, // (radius_scale, angle_to_width_scale_factor)
+    pub visual_anchor_offset: Option<Vec2>,
     // Add other specific fields, e.g., knockback_strength
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct LobbedAoEPoolParams {
+    pub base_damage_on_impact: i32,
+    pub pool_damage_per_tick: i32,
+    pub base_fire_rate_secs: f32,
+    pub projectile_speed: f32,
+    pub projectile_sprite_path: &'static str,
+    pub projectile_size: Vec2,
+    pub projectile_color: Color,
+    pub projectile_arc_height: f32,
+    pub pool_radius: f32,
+    pub pool_duration_secs: f32,
+    pub pool_tick_interval_secs: f32,
+    pub pool_color: Color,
+    pub max_active_pools: u32,
 }
 
 #[derive(Debug, Clone, Reflect)]
@@ -118,10 +512,49 @@ pub enum AttackTypeData {
     ReturningProjectile(ReturningProjectileParams),
     ChanneledBeam(ChanneledBeamParams),
     ConeAttack(ConeAttackParams),
+    LobbedAoEPool(LobbedAoEPoolParams),
+    ChargeUpEnergyShot(ChargeUpEnergyShotParams), // Ensuring this one is kept from the correct enum
+    TrailOfFire(TrailOfFireParams),     // Ensuring this one is kept
+    ChainZap(ChainZapParams),           // Ensuring this one is kept
+    PointBlankNova(PointBlankNovaParams), // Ensuring this one is kept
+    PersistentAura(PersistentAuraParams), // Ensuring this one is kept
+    DebuffAura(DebuffAuraParams),         // Ensuring this one is kept
+    ExpandingEnergyBomb(ExpandingEnergyBombParams), // Adding the new one here
     // We will add more variants here as we implement more attack types
 }
 
+#[derive(Debug, Clone, Reflect, Default)]
+pub struct ChargeLevelParams {
+    pub charge_time_secs: f32,
+    pub projectile_damage: i32,
+    pub projectile_speed: f32,
+    pub projectile_size: Vec2,
+    pub piercing: u32,
+    pub explodes_on_impact: bool,
+    pub explosion_radius: f32,
+    pub explosion_damage: i32,
+    pub projectile_sprite_path_override: Option<&'static str>,
+}
+
 #[derive(Debug, Clone, Reflect)]
+pub struct ChargeUpEnergyShotParams {
+    pub base_fire_rate_secs: f32,
+    pub base_projectile_sprite_path: &'static str,
+    pub base_projectile_color: Color,
+    pub charge_levels: Vec<ChargeLevelParams>,
+    pub projectile_lifetime_secs: f32,
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub enum AttackTypeData {
+    StandardProjectile(StandardProjectileParams),
+    ReturningProjectile(ReturningProjectileParams),
+    ChanneledBeam(ChanneledBeamParams),
+    ConeAttack(ConeAttackParams),
+    LobbedAoEPool(LobbedAoEPoolParams),
+*/
+// End of removed duplicate definitions.
+
 pub struct AutomaticWeaponDefinition {
     pub id: AutomaticWeaponId,
     pub name: String,
@@ -147,7 +580,29 @@ impl Plugin for ItemsPlugin {
         app .register_type::<ItemId>() .register_type::<SurvivorTemporaryBuff>() .register_type::<ItemEffect>() .register_type::<ItemLibrary>()
             .register_type::<ExplosionEffect>() .register_type::<RetaliationNovaEffect>() .register_type::<TemporaryHealthRegenBuff>()
             .register_type::<AutomaticWeaponId>() 
-            .register_type::<StandardProjectileParams>() .register_type::<ReturningProjectileParams>() .register_type::<ChanneledBeamParams>() .register_type::<ConeAttackParams>() .register_type::<AttackTypeData>()
+            .register_type::<StandardProjectileParams>() .register_type::<ReturningProjectileParams>() .register_type::<ChanneledBeamParams>() .register_type::<ConeAttackParams>() .register_type::<LobbedAoEPoolParams>()
+            .register_type::<ChargeLevelParams>() .register_type::<ChargeUpEnergyShotParams>()
+            .register_type::<TrailOfFireParams>() 
+            .register_type::<ChainZapParams>() 
+            .register_type::<PointBlankNovaParams>() 
+            .register_type::<PersistentAuraParams>() 
+            .register_type::<AuraDebuffType>() 
+            .register_type::<DebuffAuraParams>() 
+            .register_type::<ExpandingEnergyBombParams>() 
+            .register_type::<ProjectileDebuffType>() 
+            .register_type::<HomingDebuffProjectileParams>() 
+            .register_type::<BouncingProjectileParams>() 
+            .register_type::<LifestealProjectileParams>() 
+            .register_type::<GroundTargetedAoEParams>() 
+            .register_type::<DashAttackParams>() // Kept for now, in case other weapons use it. Holy Lance uses LineDashAttackParams.
+            .register_type::<LineDashAttackParams>() 
+            // .register_type::<PetAttackTypeParams>() // Commented out as old struct is commented out
+            .register_type::<OrbitingPetParams>()   // This will now refer to the new struct
+            // .register_type::<TetherEffectType>() // Commented out old enum
+            .register_type::<RepositioningTetherMode>() 
+            .register_type::<RepositioningTetherParams>() 
+            .register_type::<BlinkStrikeProjectileParams>() // Register new BlinkStrikeProjectileParams
+            .register_type::<AttackTypeData>() 
             .register_type::<AutomaticWeaponDefinition>() .register_type::<AutomaticWeaponLibrary>()
             .init_resource::<ItemLibrary>()
             .init_resource::<AutomaticWeaponLibrary>()
@@ -160,96 +615,130 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(0),
         name: "Primordial Ichor Blast".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 10,
-            base_fire_rate_secs: 0.5,
-            base_projectile_speed: 600.0,
-            base_piercing: 0,
-            additional_projectiles: 0,
+        attack_data: AttackTypeData::LobbedAoEPool(LobbedAoEPoolParams {
+            base_damage_on_impact: 5,
+            pool_damage_per_tick: 3,
+            base_fire_rate_secs: 0.6,
+            projectile_speed: 400.0,
             projectile_sprite_path: "sprites/ichor_blast_placeholder.png",
-            projectile_size: Vec2::new(50.0, 50.0),
+            projectile_size: Vec2::new(30.0, 30.0),
             projectile_color: Color::rgb(0.7, 0.5, 1.0),
-            projectile_lifetime_secs: 2.0,
+            projectile_arc_height: 50.0,
+            pool_radius: 100.0,
+            pool_duration_secs: 3.0,
+            pool_tick_interval_secs: 0.5,
+            pool_color: Color::rgba(0.5, 0.3, 0.8, 0.5),
+            max_active_pools: 3,
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(1),
         name: "Eldritch Gatling".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 5,
-            base_fire_rate_secs: 0.15,
-            base_projectile_speed: 550.0,
-            base_piercing: 0,
-            additional_projectiles: 0,
-            projectile_sprite_path: "sprites/eldritch_gatling_projectile_placeholder.png",
-            projectile_size: Vec2::new(50.0, 50.0),
-            projectile_color: Color::rgb(0.3, 0.9, 0.4),
-            projectile_lifetime_secs: 1.5,
+        attack_data: AttackTypeData::ChanneledBeam(ChanneledBeamParams {
+            base_damage_per_tick: 2,
+            tick_rate_secs: 0.1,
+            range: 400.0,
+            beam_width: 15.0,
+            beam_color: Color::rgb(0.3, 0.9, 0.4),
+            movement_penalty_multiplier: 0.7,
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(2),
         name: "Void Cannon".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 30,
+        attack_data: AttackTypeData::ChargeUpEnergyShot(ChargeUpEnergyShotParams {
             base_fire_rate_secs: 1.25,
-            base_projectile_speed: 450.0,
-            base_piercing: 1,
-            additional_projectiles: 0,
-            projectile_sprite_path: "sprites/void_cannon_projectile_placeholder.png",
-            projectile_size: Vec2::new(50.0, 50.0),
-            projectile_color: Color::rgb(0.4, 0.1, 0.7),
+            base_projectile_sprite_path: "sprites/void_cannon_projectile_placeholder.png",
+            base_projectile_color: Color::rgb(0.4, 0.1, 0.7),
             projectile_lifetime_secs: 2.5,
+            charge_levels: vec![
+                ChargeLevelParams { // Tap Fire
+                    charge_time_secs: 0.01, // Smallest charge time
+                    projectile_damage: 10,
+                    projectile_speed: 500.0,
+                    projectile_size: Vec2::new(25.0, 25.0),
+                    piercing: 0,
+                    explodes_on_impact: false,
+                    explosion_radius: 0.0,
+                    explosion_damage: 0,
+                    projectile_sprite_path_override: None,
+                },
+                ChargeLevelParams { // Partial Charge
+                    charge_time_secs: 0.75,
+                    projectile_damage: 25,
+                    projectile_speed: 450.0,
+                    projectile_size: Vec2::new(40.0, 40.0),
+                    piercing: 1,
+                    explodes_on_impact: false,
+                    explosion_radius: 0.0,
+                    explosion_damage: 0,
+                    projectile_sprite_path_override: None,
+                },
+                ChargeLevelParams { // Full Charge
+                    charge_time_secs: 1.5,
+                    projectile_damage: 60, // Massive damage
+                    projectile_speed: 350.0, // Slower
+                    projectile_size: Vec2::new(60.0, 60.0), // Large
+                    piercing: 2, // Pierces multiple
+                    explodes_on_impact: true,
+                    explosion_radius: 75.0, // Small AoE
+                    explosion_damage: 30,
+                    projectile_sprite_path_override: Some("sprites/void_cannon_charged_placeholder.png"),
+                },
+            ],
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
-        id: AutomaticWeaponId(3), 
+        id: AutomaticWeaponId(3),
         name: "Spectral Blades".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
+        attack_data: AttackTypeData::ReturningProjectile(ReturningProjectileParams {
             base_damage: 12,
-            base_fire_rate_secs: 0.75, 
-            base_projectile_speed: 400.0,
-            base_piercing: 0,
-            additional_projectiles: 2, 
-            projectile_sprite_path: "sprites/spectral_blade_placeholder.png", 
-            projectile_size: Vec2::new(50.0, 50.0), 
-            projectile_color: Color::rgb(0.6, 0.9, 1.0), 
-            projectile_lifetime_secs: 0.4, 
+            base_fire_rate_secs: 0.75,
+            projectile_sprite_path: "sprites/spectral_blade_placeholder.png",
+            projectile_size: Vec2::new(50.0, 50.0),
+            projectile_color: Color::rgb(0.6, 0.9, 1.0),
+            projectile_speed: 400.0,
+            travel_distance: 300.0,
+            piercing: 0,
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(4),
         name: "Inferno Bolt".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 25,
+        attack_data: AttackTypeData::TrailOfFire(TrailOfFireParams {
+            base_damage_on_impact: 10,
             base_fire_rate_secs: 0.8,
-            base_projectile_speed: 700.0,
-            base_piercing: 1,
-            additional_projectiles: 0,
+            projectile_speed: 700.0,
             projectile_sprite_path: "sprites/auto_inferno_bolt.png",
-            projectile_size: Vec2::new(50.0, 50.0),
+            projectile_size: Vec2::new(20.0, 20.0),
             projectile_color: Color::rgb(1.0, 0.3, 0.0),
             projectile_lifetime_secs: 1.5,
+            trail_segment_spawn_interval_secs: 0.1,
+            trail_segment_damage_per_tick: 5,
+            trail_segment_tick_interval_secs: 0.5,
+            trail_segment_duration_secs: 2.0,
+            trail_segment_width: 30.0,
+            trail_segment_color: Color::rgba(1.0, 0.5, 0.0, 0.7),
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(5),
         name: "Chain Lightning".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 15,
+        attack_data: AttackTypeData::ChainZap(ChainZapParams {
             base_fire_rate_secs: 1.2,
-            base_projectile_speed: 800.0,
-            base_piercing: 2, // Can hit multiple targets
-            additional_projectiles: 1, // Represents the chaining idea
-            projectile_sprite_path: "sprites/auto_chain_lightning.png",
-            projectile_size: Vec2::new(50.0, 50.0),
-            projectile_color: Color::rgb(0.5, 0.8, 1.0),
-            projectile_lifetime_secs: 1.0,
+            initial_target_range: 300.0,
+            max_chains: 3,
+            chain_search_radius: 150.0,
+            base_damage_per_zap: 15,
+            damage_falloff_per_chain: 0.8,
+            zap_color: Color::rgb(0.5, 0.8, 1.0),
+            zap_width: 5.0,
+            zap_duration_secs: 0.15,
         }),
     });
 
@@ -272,32 +761,46 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(7),
         name: "Shadow Orb".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 18,
-            base_fire_rate_secs: 0.6,
-            base_projectile_speed: 400.0, // Slower, menacing
-            base_piercing: 1,
-            additional_projectiles: 0,
-            projectile_sprite_path: "sprites/auto_shadow_orb.png",
-            projectile_size: Vec2::new(50.0, 50.0),
-            projectile_color: Color::rgb(0.2, 0.1, 0.3),
-            projectile_lifetime_secs: 2.0,
+        attack_data: AttackTypeData::OrbitingPet(OrbitingPetParams {
+            base_fire_rate_secs: 1.0, // Cooldown for player to spawn a new orb
+            max_active_orbs: 2,
+            orb_duration_secs: 10.0,
+            orb_sprite_path: "sprites/auto_shadow_orb.png", // keep existing sprite for the orb itself
+            orb_size: Vec2::new(32.0, 32.0), // adjust from original projectile
+            orb_color: Color::rgb(0.2, 0.1, 0.3), // keep existing
+            orbit_radius: 100.0,
+            orbit_speed_rad_per_sec: 1.0,
+            can_be_deployed_at_location: false, // simplification: always orbits player for now
+            deployment_range: 0.0,
+            pulses_aoe: true,
+            pulse_damage: 10,
+            pulse_radius: 60.0,
+            pulse_interval_secs: 2.0,
+            pulse_color: Some(Color::rgba(0.3, 0.1, 0.5, 0.5)),
+            fires_seeking_bolts: true,
+            bolt_damage: 8,
+            bolt_speed: 400.0,
+            bolt_fire_interval_secs: 1.5,
+            bolt_sprite_path: Some("sprites/shadow_bolt_placeholder.png"),
+            bolt_size: Some(Vec2::new(10.0, 15.0)),
+            bolt_color: Some(Color::rgb(0.3, 0.1, 0.5)),
+            bolt_lifetime_secs: Some(1.0),
+            bolt_homing_strength: Some(0.5), // weak homing
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(8),
         name: "Holy Lance".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 30,
-            base_fire_rate_secs: 1.0,
-            base_projectile_speed: 750.0,
-            base_piercing: 3, // Piercing holy power
-            additional_projectiles: 0,
-            projectile_sprite_path: "sprites/auto_holy_lance.png",
-            projectile_size: Vec2::new(50.0, 50.0),
-            projectile_color: Color::rgb(1.0, 1.0, 0.5),
-            projectile_lifetime_secs: 1.2,
+        attack_data: AttackTypeData::LineDashAttack(LineDashAttackParams {
+            base_fire_rate_secs: 1.2,
+            dash_speed: 900.0,
+            dash_duration_secs: 0.25,
+            damage_per_hit: 30,
+            hitbox_width: 40.0,
+            piercing_cap: 5,
+            dash_trail_color: Some(Color::rgba(1.0, 1.0, 0.7, 0.5)),
+            invulnerable_during_dash: true,
         }),
     });
 
@@ -320,112 +823,118 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(10),
         name: "Glacial Spike".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 22,
+        attack_data: AttackTypeData::PointBlankNova(PointBlankNovaParams {
             base_fire_rate_secs: 0.9,
-            base_projectile_speed: 600.0,
-            base_piercing: 1, // Chilling effect implied
-            additional_projectiles: 0,
-            projectile_sprite_path: "sprites/auto_glacial_spike.png",
-            projectile_size: Vec2::new(50.0, 50.0),
-            projectile_color: Color::rgb(0.4, 0.7, 1.0),
-            projectile_lifetime_secs: 1.3,
+            damage: 22,
+            radius: 150.0,
+            nova_color: Color::rgba(0.4, 0.7, 1.0, 0.7),
+            visual_duration_secs: 0.3,
+            slow_effect_multiplier: 0.5,
+            slow_duration_secs: 2.0,
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(11),
         name: "EarthShatter Shard".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 35,
-            base_fire_rate_secs: 1.8, // Slow, impactful
-            base_projectile_speed: 300.0, // Slow moving earth
-            base_piercing: 0, // Area effect implied
-            additional_projectiles: 0,
-            projectile_sprite_path: "sprites/auto_earthshatter_shard.png",
-            projectile_size: Vec2::new(50.0, 50.0),
-            projectile_color: Color::rgb(0.6, 0.4, 0.2),
-            projectile_lifetime_secs: 2.2,
+        attack_data: AttackTypeData::GroundTargetedAoE(GroundTargetedAoEParams {
+            base_fire_rate_secs: 1.8,
+            targeting_range: 400.0,
+            reticle_sprite_path: Some("sprites/ground_target_reticle_placeholder.png"),
+            reticle_size: Vec2::new(64.0, 64.0), // Assuming this represents the reticle for an 80.0 radius AoE
+            delay_before_eruption_secs: 0.5,
+            eruption_radius: 80.0,
+            damage: 45,
+            aoe_color: Color::rgb(0.6, 0.4, 0.2),
+            aoe_visual_duration_secs: 0.5,
+            knock_up_strength: 100.0,
+            root_duration_secs: None,
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(12),
         name: "Sunfire Burst".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
+        attack_data: AttackTypeData::ConeAttack(ConeAttackParams {
             base_damage: 28,
             base_fire_rate_secs: 0.7,
-            base_projectile_speed: 850.0,
-            base_piercing: 0,
-            additional_projectiles: 3, // Burst effect
-            projectile_sprite_path: "sprites/auto_sunfire_burst.png",
-            projectile_size: Vec2::new(50.0, 50.0),
-            projectile_color: Color::rgb(1.0, 0.8, 0.2),
-            projectile_lifetime_secs: 0.5, // Short burst
+            cone_angle_degrees: 60.0,
+            cone_radius: 150.0,
+            color: Color::rgb(1.0, 0.8, 0.2),
+            visual_sprite_path: Some("sprites/sunfire_burst_effect_placeholder.png"),
+            visual_size_scale_with_radius_angle: Some((1.0, 0.5)),
+            visual_anchor_offset: None,
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(13),
         name: "Moonbeam Dart".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 12,
-            base_fire_rate_secs: 0.3, // Fast darts
-            base_projectile_speed: 950.0,
-            base_piercing: 1,
-            additional_projectiles: 0,
+        attack_data: AttackTypeData::HomingDebuffProjectile(HomingDebuffProjectileParams {
+            base_fire_rate_secs: 0.4,
+            num_darts_per_shot: 2,
+            base_damage: 8,
+            projectile_speed: 700.0,
             projectile_sprite_path: "sprites/auto_moonbeam_dart.png",
-            projectile_size: Vec2::new(50.0, 50.0),
+            projectile_size: Vec2::new(15.0, 25.0),
             projectile_color: Color::rgb(0.7, 0.7, 0.9),
-            projectile_lifetime_secs: 1.0,
+            projectile_lifetime_secs: 2.0,
+            homing_strength: 1.5, 
+            homing_initial_target_search_radius: 400.0,
+            debuff_type: ProjectileDebuffType::DamageAmp,
+            debuff_magnitude_per_stack: 0.05,
+            max_debuff_stacks: 5,
+            debuff_duration_secs_on_target: 3.0,
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(14),
         name: "Spirit Bomb".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 50, // High damage, slow fire rate
-            base_fire_rate_secs: 2.0,
-            base_projectile_speed: 250.0, // Slow moving orb
-            base_piercing: 0, // Large AoE implied
-            additional_projectiles: 0,
-            projectile_sprite_path: "sprites/auto_spirit_bomb.png",
-            projectile_size: Vec2::new(50.0, 50.0),
-            projectile_color: Color::rgb(0.6, 1.0, 0.9),
-            projectile_lifetime_secs: 3.0,
+        attack_data: AttackTypeData::ExpandingEnergyBomb(ExpandingEnergyBombParams {
+            base_fire_rate_secs: 2.5,
+            max_radius: 300.0,
+            expansion_duration_secs: 3.0,
+            min_damage_at_min_radius: 20,
+            max_damage_at_max_radius: 100,
+            bomb_color: Color::rgba(0.6, 1.0, 0.9, 0.6),
+            visual_sprite_path: Some("sprites/spirit_bomb_effect_placeholder.png"),
+            detonation_can_be_manual: true,
+            auto_detonation_delay_after_max_expansion_secs: 1.0,
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(15),
         name: "Void Tendril".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 18,
-            base_fire_rate_secs: 0.65,
-            base_projectile_speed: 550.0,
-            base_piercing: 2, // Lashing out
-            additional_projectiles: 1, // Could be multiple tendrils
-            projectile_sprite_path: "sprites/auto_void_tendril.png",
-            projectile_size: Vec2::new(50.0, 50.0), // Long and thin
-            projectile_color: Color::rgb(0.3, 0.0, 0.5),
-            projectile_lifetime_secs: 0.7,
+        attack_data: AttackTypeData::ConeAttack(ConeAttackParams {
+            base_damage: 18, // from existing StandardProjectileParams
+            base_fire_rate_secs: 0.65, // from existing StandardProjectileParams
+            cone_angle_degrees: 150.0, // wide sweep
+            cone_radius: 100.0, // melee range
+            color: Color::rgb(0.3, 0.0, 0.5), // from existing StandardProjectileParams, changed to rgb from rgba for consistency
+            visual_sprite_path: Some("sprites/void_tendril_sweep_placeholder.png"),
+            visual_size_scale_with_radius_angle: Some((1.0, 0.8)), // Example: scales with radius, angle determines width aspect
+            visual_anchor_offset: Some(Vec2::new(0.0, 20.0)), // Example: visual slightly offset forward
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(16),
         name: "Crystal Shard".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
+        attack_data: AttackTypeData::BouncingProjectile(BouncingProjectileParams {
+            base_fire_rate_secs: 0.3,
+            num_shards_per_shot: 5,
             base_damage: 10,
-            base_fire_rate_secs: 0.2, // Very fast firing
-            base_projectile_speed: 700.0,
-            base_piercing: 0,
-            additional_projectiles: 4, // Shotgun-like spread
+            projectile_speed: 700.0,
             projectile_sprite_path: "sprites/auto_crystal_shard.png",
-            projectile_size: Vec2::new(50.0, 50.0),
+            projectile_size: Vec2::new(18.0, 18.0),
             projectile_color: Color::rgb(0.8, 0.6, 1.0),
-            projectile_lifetime_secs: 0.4,
+            projectile_lifetime_secs: 3.0,
+            max_bounces: 2,
+            damage_loss_per_bounce_multiplier: 0.75,
+            speed_loss_per_bounce_multiplier: 0.9,
+            spread_angle_degrees: 30.0,
         }),
     });
 
@@ -448,96 +957,101 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(18),
         name: "Sand Blast".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 8,
-            base_fire_rate_secs: 0.1, // Extremely fast, low damage
-            base_projectile_speed: 600.0,
-            base_piercing: 0,
-            additional_projectiles: 2, // Wide cone
-            projectile_sprite_path: "sprites/auto_sand_blast.png",
-            projectile_size: Vec2::new(50.0, 50.0),
-            projectile_color: Color::rgb(0.9, 0.8, 0.5),
-            projectile_lifetime_secs: 0.3, // Short range
+        attack_data: AttackTypeData::DebuffAura(DebuffAuraParams {
+            base_fire_rate_secs: 1.5,
+            cloud_radius: 120.0,
+            cloud_duration_secs: 2.0,
+            cloud_color: Color::rgba(0.9, 0.8, 0.5, 0.5),
+            visual_sprite_path: Some("sprites/sand_cloud_placeholder.png"),
+            debuff_type: AuraDebuffType::ReduceAccuracy,
+            debuff_magnitude: 0.20,
+            debuff_duration_secs: 3.0,
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(19),
         name: "Metal Shrapnel".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 12,
-            base_fire_rate_secs: 0.5,
-            base_projectile_speed: 650.0,
-            base_piercing: 3, // Piercing metal
-            additional_projectiles: 3, // Multiple pieces
-            projectile_sprite_path: "sprites/auto_metal_shrapnel.png",
-            projectile_size: Vec2::new(50.0, 50.0),
-            projectile_color: Color::rgb(0.6, 0.6, 0.6),
-            projectile_lifetime_secs: 0.9,
+        attack_data: AttackTypeData::PersistentAura(PersistentAuraParams {
+            is_active_by_default: true,
+            damage_per_tick: 2,
+            tick_interval_secs: 0.25,
+            radius: 75.0,
+            aura_color: Color::rgba(0.6, 0.6, 0.6, 0.4),
+            visual_sprite_path: Some("sprites/metal_shrapnel_aura_placeholder.png"),
+            fire_rate_secs_placeholder: 0.25,
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(20),
         name: "Nature's Wrath".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 20,
+        attack_data: AttackTypeData::GroundTargetedAoE(GroundTargetedAoEParams {
             base_fire_rate_secs: 1.1,
-            base_projectile_speed: 500.0,
-            base_piercing: 1,
-            additional_projectiles: 1, // Thorny vine or similar
-            projectile_sprite_path: "sprites/auto_natures_wrath.png",
-            projectile_size: Vec2::new(50.0, 50.0),
-            projectile_color: Color::rgb(0.1, 0.6, 0.2),
-            projectile_lifetime_secs: 1.6,
+            targeting_range: 350.0,
+            reticle_sprite_path: Some("sprites/nature_reticle_placeholder.png"),
+            reticle_size: Vec2::new(80.0, 80.0),
+            delay_before_eruption_secs: 0.4,
+            eruption_radius: 80.0,
+            damage: 5, // Small initial damage
+            aoe_color: Color::rgb(0.1, 0.6, 0.2), // Existing color
+            aoe_visual_duration_secs: 0.6,
+            knock_up_strength: 0.0, // No knock-up
+            root_duration_secs: Some(2.5), // Roots for 2.5 seconds
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(21),
         name: "Chi Bolt".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 18,
+        attack_data: AttackTypeData::LifestealProjectile(LifestealProjectileParams {
             base_fire_rate_secs: 0.45,
-            base_projectile_speed: 750.0,
-            base_piercing: 0,
-            additional_projectiles: 0,
+            base_damage: 18,
+            projectile_speed: 750.0,
             projectile_sprite_path: "sprites/auto_chi_bolt.png",
-            projectile_size: Vec2::new(50.0, 50.0),
+            projectile_size: Vec2::new(20.0, 20.0), 
             projectile_color: Color::rgb(0.5, 0.9, 0.8),
-            projectile_lifetime_secs: 1.1,
+            projectile_lifetime_secs: 1.5, 
+            piercing: 0,
+            lifesteal_percentage: 0.10,
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(22),
         name: "Psionic Lash".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 26,
-            base_fire_rate_secs: 0.85,
-            base_projectile_speed: 600.0, // Mental force, not super fast but accurate
-            base_piercing: 2,
-            additional_projectiles: 0,
-            projectile_sprite_path: "sprites/auto_psionic_lash.png",
-            projectile_size: Vec2::new(50.0, 50.0), // Whip-like
-            projectile_color: Color::rgb(0.8, 0.4, 0.9),
-            projectile_lifetime_secs: 0.6,
+        attack_data: AttackTypeData::RepositioningTether(RepositioningTetherParams { // Uses new struct
+            base_fire_rate_secs: 1.0,
+            tether_projectile_speed: 800.0,
+            tether_range: 500.0,
+            tether_sprite_path: "sprites/auto_psionic_lash.png", // Re-using existing sprite from old params
+            tether_color: Color::rgb(0.8, 0.4, 0.9),
+            tether_size: Vec2::new(8.0, 20.0), // Thin lash
+            mode: RepositioningTetherMode::Alternate,
+            pull_strength: 100.0,
+            push_strength: 100.0,
+            reactivation_window_secs: 1.5,
+            effect_duration_secs: 0.2, // Quick pull/push
         }),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(23),
         name: "Aether Bolt".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
+        attack_data: AttackTypeData::BlinkStrikeProjectile(BlinkStrikeProjectileParams {
+            base_fire_rate_secs: 0.3,
             base_damage: 14,
-            base_fire_rate_secs: 0.25,
-            base_projectile_speed: 1000.0, // Very fast
-            base_piercing: 1,
-            additional_projectiles: 1,
+            projectile_speed: 1000.0,
             projectile_sprite_path: "sprites/auto_aether_bolt.png",
-            projectile_size: Vec2::new(50.0, 50.0),
-            projectile_color: Color::rgb(0.9, 0.9, 0.9),
+            projectile_size: Vec2::new(16.0, 16.0), // Small, fast bolts
+            projectile_color: Color::rgb(0.9,0.9,0.9),
             projectile_lifetime_secs: 1.4,
+            piercing: 1,
+            blink_chance_on_hit_percent: 0.25, // 25% chance
+            blink_distance: 100.0, // Short blink
+            blink_to_target_behind: true, // Blink behind enemy
+            blink_requires_kill: false, // Blink on any hit
+            num_projectiles_per_shot: 2, // Was 1 base + 1 additional
         }),
     });
 }
