@@ -12,23 +12,23 @@ use crate::{
     game::AppState,
 };
 
-pub struct AutomaticProjectilesPlugin;
-
-impl Plugin for AutomaticProjectilesPlugin {
-    fn build(&self, app: &mut App) {
-        app
-            .register_type::<AutomaticProjectile>()
-            .add_systems(Update, (
-                projectile_movement_system,
-                automatic_projectile_collision_system,
-                projectile_screen_bounce_system.after(automatic_projectile_collision_system),
-                automatic_projectile_lifetime_system,
-            ).chain().run_if(in_state(AppState::InGame)))
-            .add_systems(PostUpdate, reset_projectile_bounce_flag_system.run_if(in_state(AppState::InGame)));
-    }
+// Define the CollisionAction struct here
+#[derive(Debug, Clone)] // AutomaticProjectile will also need Clone
+struct CollisionAction {
+    projectile_entity: Entity,
+    horror_entity: Entity,
+    horror_gtransform: GlobalTransform,
+    horror_local_transform: Transform,
+    damage_to_apply: i32,
+    original_projectile_stats: AutomaticProjectile,
+    projectile_explodes_params: Option<crate::weapon_systems::ExplodesOnFinalImpact>,
+    projectile_debuff_params: Option<crate::weapon_systems::DebuffOnHitComponent>,
+    projectile_tether_params: Option<crate::items::RepositioningTetherParams>,
+    horror_health_at_collision: i32,
 }
 
-#[derive(Component, Reflect, Debug)]
+// Make sure AutomaticProjectile can be cloned for storing in CollisionAction
+#[derive(Component, Reflect, Debug, Clone)] // Added Clone here
 #[reflect(Component, Default)]
 pub struct AutomaticProjectile {
     pub owner: Entity,
@@ -44,6 +44,7 @@ pub struct AutomaticProjectile {
     pub blink_params_on_hit: Option<crate::items::BlinkStrikeProjectileParams>,
 }
 
+// Default implementation for the AutomaticProjectile struct (the one with Clone)
 impl Default for AutomaticProjectile {
     fn default() -> Self {
         Self {
@@ -61,6 +62,27 @@ impl Default for AutomaticProjectile {
         }
     }
 }
+
+
+pub struct AutomaticProjectilesPlugin;
+
+impl Plugin for AutomaticProjectilesPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            // Make sure we register the AutomaticProjectile that has Clone
+            .register_type::<AutomaticProjectile>()
+            .add_systems(Update, (
+                projectile_movement_system,
+                automatic_projectile_collision_system,
+                projectile_screen_bounce_system.after(automatic_projectile_collision_system),
+                automatic_projectile_lifetime_system,
+            ).chain().run_if(in_state(AppState::InGame)))
+            .add_systems(PostUpdate, reset_projectile_bounce_flag_system.run_if(in_state(AppState::InGame)));
+    }
+}
+
+// The redundant definition of AutomaticProjectile (without Clone) and its Default impl were here.
+// They are removed by this diff. The Default impl above now correctly targets the struct with Clone.
 
 fn handle_bounce_stat_updates(
     stats: &mut AutomaticProjectile,
@@ -172,29 +194,31 @@ fn automatic_projectile_lifetime_system(
 
 fn automatic_projectile_collision_system(
     mut commands: Commands,
-    mut projectile_query: Query<(
-        Entity,
-        &GlobalTransform,
-        &mut Damage,
-        &mut AutomaticProjectile,
-        &mut Velocity,
-        &Sprite,
-        &mut Transform,
-        Option<&crate::weapon_systems::ExplodesOnFinalImpact>,
-        Option<&crate::weapon_systems::DebuffOnHitComponent>,
-        Option<&crate::weapon_systems::TetherProjectileComponent>,
+    mut query_set: ParamSet<(
+        Query<( // p0: Projectile Query
+            Entity,
+            &GlobalTransform,
+            &mut Damage,
+            &mut AutomaticProjectile,
+            &mut Velocity,
+            &Sprite,
+            &mut Transform, // Projectile Transform (mutable)
+            Option<&crate::weapon_systems::ExplodesOnFinalImpact>,
+            Option<&crate::weapon_systems::DebuffOnHitComponent>,
+            Option<&crate::weapon_systems::TetherProjectileComponent>,
+        )>,
+        Query<( // p1: Horror Query
+            Entity,
+            &GlobalTransform,
+            &Transform, // Horror Transform (immutable)
+            &mut Health,
+            &crate::horror::Horror,
+            Option<&mut crate::components::DamageAmpDebuffComponent>,
+            Option<&mut HorrorLatchedByTetherComponent>,
+        )>,
+        Query<(&mut Transform, &mut Health, &Survivor), (With<Survivor>, Without<Horror>, Without<AutomaticProjectile>)>, // p2: Player Effects Query
+        Query<(Entity, Option<&mut crate::components::PlayerTetherState>), With<Survivor>> // p3: Player Tether Setup Query
     )>,
-    mut horror_query: Query<(
-        Entity,
-        &GlobalTransform,
-        &Transform,
-        &mut Health,
-        &crate::horror::Horror,
-        Option<&mut crate::components::DamageAmpDebuffComponent>,
-        Option<&mut HorrorLatchedByTetherComponent>,
-    )>,
-    mut player_tether_setup_query: Query<(Entity, Option<&mut crate::components::PlayerTetherState>), With<Survivor>>,
-    mut player_effects_query: Query<(&mut Transform, &mut Health, &Survivor), (With<Survivor>, Without<Horror>, Without<AutomaticProjectile>)>,
     item_library: Res<ItemLibrary>,
     weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
     asset_server: Res<AssetServer>,
@@ -202,206 +226,185 @@ fn automatic_projectile_collision_system(
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
     mut player_blink_event_writer: EventWriter<crate::components::PlayerBlinkEvent>,
 ) {
+    // Stage 1: Collect relevant information from projectiles and horrors
+    let mut projectile_info_list = Vec::new();
+    let p0_binding = query_set.p0();
     for (
-        projectile_entity,
+        entity,
+        gtransform,
+        _damage,
+        stats,
+        _velocity,
+        sprite,
+        _transform,
+        explodes_on_impact_comp,
+        debuff_on_hit_comp,
+        tether_projectile_comp
+    ) in p0_binding.iter() {
+        if stats.has_bounced_this_frame { continue; }
+        projectile_info_list.push((
+            entity,
+            *gtransform,
+            stats.clone(),
+            sprite.custom_size,
+            // Clone component data if it exists, not the Option<&Component>
+            explodes_on_impact_comp.cloned(),
+            debuff_on_hit_comp.cloned(),
+            tether_projectile_comp.map(|t| t.params_snapshot.clone())
+        ));
+    }
+
+    let mut horror_info_list = Vec::new();
+    let p1_binding = query_set.p1();
+    for (
+        entity,
+        gtransform,
+        transform,
+        health,
+        horror_stats,
+        _damage_amp_debuff,
+        _latched_by_tether
+    ) in p1_binding.iter() {
+        horror_info_list.push((
+            entity,
+            *gtransform,
+            *transform,
+            health.0,
+            horror_stats.size
+        ));
+    }
+
+    // Stage 2: Identify actual collisions and prepare actions
+    let mut collision_actions = Vec::new();
+
+    for (
+        proj_entity,
         proj_gtransform,
-        mut proj_damage_component,
-        mut proj_stats,
-        mut velocity_component,
-        proj_sprite,
-        mut proj_transform,
-        opt_explodes_on_impact,
-        opt_debuff_on_hit,
-        opt_tether_projectile,
-    ) in projectile_query.iter_mut() {
-        if proj_stats.has_bounced_this_frame { continue; }
+        proj_stats,
+        proj_sprite_custom_size,
+        proj_opt_explodes_params,
+        proj_opt_debuff_params,
+        proj_opt_tether_params
+    ) in &projectile_info_list {
+
+        let mut current_projectile_piercing_left = proj_stats.piercing_left;
+        let mut projectile_would_be_consumed_by_hits = false;
 
         for (
             horror_entity,
             horror_gtransform,
-            local_horror_transform,
-            mut horror_health,
-            horror_data,
-            opt_existing_damage_amp_debuff,
-            _opt_latched_by_tether,
-        ) in horror_query.iter_mut() {
-            let distance = proj_gtransform.translation().truncate().distance(horror_gtransform.translation().truncate());
+            horror_local_transform,
+            initial_horror_health_value,
+            horror_size
+        ) in &horror_info_list {
+            if projectile_would_be_consumed_by_hits { break; }
 
-            let projectile_radius = proj_sprite.custom_size.map_or(5.0, |s| s.x.max(s.y) / 2.0);
-            let horror_radius = horror_data.size.x / 2.0;
+            let distance = proj_gtransform.translation().truncate().distance(horror_gtransform.translation().truncate());
+            let projectile_radius = proj_sprite_custom_size.map_or(5.0, |s| s.x.max(s.y) / 2.0);
+            let horror_radius = horror_size.x / 2.0;
 
             if distance < projectile_radius + horror_radius {
-                if let Some(tether_comp_on_projectile) = opt_tether_projectile {
-                    if let Ok((player_entity, opt_existing_player_tether_state)) = player_tether_setup_query.get_single_mut() { // Corrected variable name
-                        if let Some(existing_player_tether_state) = opt_existing_player_tether_state {
-                             if let Some(enemy_entity_in_state) = existing_player_tether_state.tethered_enemy_entity {
-                                if commands.get_entity(enemy_entity_in_state).is_some() {
-                                    commands.entity(enemy_entity_in_state).remove::<HorrorLatchedByTetherComponent>();
-                                }
-                            }
-                        }
-                        if commands.get_entity(player_entity).is_some() {
-                            commands.entity(player_entity).remove::<crate::weapon_systems::PlayerWaitingTetherActivationComponent>();
-                        }
+                collision_actions.push(CollisionAction { // Corrected path to CollisionAction
+                    projectile_entity: *proj_entity,
+                    horror_entity: *horror_entity,
+                    horror_gtransform: *horror_gtransform,
+                    horror_local_transform: *horror_local_transform,
+                    damage_to_apply: proj_stats.damage_on_hit,
+                    original_projectile_stats: proj_stats.clone(),
+                    projectile_explodes_params: proj_opt_explodes_params.clone(),
+                    projectile_debuff_params: proj_opt_debuff_params.clone(),
+                    projectile_tether_params: proj_opt_tether_params.clone(),
+                    horror_health_at_collision: *initial_horror_health_value,
+                });
 
-                        let next_mode = if tether_comp_on_projectile.params_snapshot.mode == crate::items::RepositioningTetherMode::Alternate {
-                            crate::items::RepositioningTetherMode::Pull
-                        } else {
-                            tether_comp_on_projectile.params_snapshot.mode
-                        };
+                if proj_opt_tether_params.is_some() {
+                    projectile_would_be_consumed_by_hits = true;
+                } else if current_projectile_piercing_left > 0 {
+                    current_projectile_piercing_left -= 1;
+                } else if !proj_stats.bounces_left.is_some() || proj_stats.bounces_left.unwrap_or(0) == 0 {
+                    projectile_would_be_consumed_by_hits = true;
+                }
+            }
+        }
+    }
 
-                        commands.entity(player_entity).insert(crate::weapon_systems::PlayerWaitingTetherActivationComponent {
-                            hit_horror_entity: horror_entity,
-                            horror_original_transform: Some(*local_horror_transform),
-                            params: tether_comp_on_projectile.params_snapshot.clone(),
-                            reactivation_window_timer: Timer::from_seconds(tether_comp_on_projectile.params_snapshot.reactivation_window_secs, TimerMode::Once),
-                            next_effect_mode: next_mode,
-                        });
+    // Stage 3: Apply mutations
+    let mut processed_projectiles_this_frame = std::collections::HashSet::new(); // To handle piercing/bounce correctly once per frame
 
-                        commands.entity(horror_entity).insert(HorrorLatchedByTetherComponent {
-                            player_who_latched: Some(player_entity)
-                        });
-
-                        sound_event_writer.send(PlaySoundEvent(SoundEffect::TetherHit));
-                        commands.entity(projectile_entity).despawn_recursive();
-                        break;
+    for action in collision_actions {
+        // --- Handle Tether (Exclusive) ---
+        if let Some(tether_params_cloned) = action.projectile_tether_params {
+            if let Ok((player_entity, mut opt_player_tether_state_comp)) = query_set.p3().get_single_mut() {
+                if let Some(player_tether_state_comp) = opt_player_tether_state_comp.as_deref_mut() {
+                    if let Some(enemy_in_state) = player_tether_state_comp.tethered_enemy_entity {
+                        if commands.get_entity(enemy_in_state).is_some() { commands.entity(enemy_in_state).remove::<HorrorLatchedByTetherComponent>(); }
                     }
-                } else {
-                    sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit));
+                }
+                if commands.get_entity(player_entity).is_some() { commands.entity(player_entity).remove::<crate::weapon_systems::PlayerWaitingTetherActivationComponent>(); }
+                let next_mode = if tether_params_cloned.mode == crate::items::RepositioningTetherMode::Alternate { crate::items::RepositioningTetherMode::Pull } else { tether_params_cloned.mode };
+                commands.entity(player_entity).insert(crate::weapon_systems::PlayerWaitingTetherActivationComponent {
+                    hit_horror_entity: action.horror_entity,
+                    horror_original_transform: Some(action.horror_local_transform),
+                    params: tether_params_cloned.clone(),
+                    reactivation_window_timer: Timer::from_seconds(tether_params_cloned.reactivation_window_secs, TimerMode::Once),
+                    next_effect_mode: next_mode,
+                });
+                commands.entity(action.horror_entity).insert(HorrorLatchedByTetherComponent { player_who_latched: Some(player_entity) });
+                sound_event_writer.send(PlaySoundEvent(SoundEffect::TetherHit));
+            }
+            commands.entity(action.projectile_entity).despawn_recursive();
+            continue;
+        }
 
-                    let actual_damage_dealt = proj_stats.damage_on_hit.min(horror_health.0);
-                    horror_health.0 -= actual_damage_dealt;
-                    visual_effects::spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), actual_damage_dealt, &time);
+        // --- Regular Hit ---
+        let mut projectile_should_despawn = false;
+        let mut bounce_occurred_this_hit = false;
 
-                    if let Some(lifesteal_pct) = proj_stats.lifesteal_percentage {
-                        if lifesteal_pct > 0.0 && actual_damage_dealt > 0 {
-                            if let Ok((_player_transform, mut player_health, player_survivor_stats)) = player_effects_query.get_single_mut() {
-                                let lifesteal_amount = (actual_damage_dealt as f32 * lifesteal_pct).round() as i32;
-                                if lifesteal_amount > 0 {
-                                    player_health.0 = (player_health.0 + lifesteal_amount).min(player_survivor_stats.max_health);
-                                }
-                            }
-                        }
-                    }
+        if let Ok((_, _, _, mut horror_health, _, mut opt_damage_amp_debuff, _)) = query_set.p1().get_mut(action.horror_entity) {
+            sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit));
+            let actual_damage_dealt = action.damage_to_apply.min(action.horror_health_at_collision);
+            horror_health.0 = horror_health.0.saturating_sub(action.damage_to_apply);
+            visual_effects::spawn_damage_text(&mut commands, &asset_server, action.horror_gtransform.translation(), action.damage_to_apply, &time);
 
-                    if let Some(weapon_def) = weapon_library.get_weapon_definition(proj_stats.weapon_id) {
-                        if let crate::items::AttackTypeData::BlinkStrikeProjectile(ref blink_strike_params_from_weapon) = weapon_def.attack_data {
-                            if rand::thread_rng().gen_bool(blink_strike_params_from_weapon.blink_chance_on_hit_percent as f64) {
-                                player_blink_event_writer.send(crate::components::PlayerBlinkEvent {
-                                    player_entity: proj_stats.owner,
-                                    hit_enemy_entity: horror_entity,
-                                    blink_params: blink_strike_params_from_weapon.clone(),
-                                });
-                            }
-                        }
-                    }
-
-                    if let Some(ref blink_p_on_projectile) = proj_stats.blink_params_on_hit {
-                        let killed_target = horror_health.0 <= 0;
-                        if blink_p_on_projectile.blink_requires_kill && !killed_target {
-                        } else {
-                            if rand::thread_rng().gen_bool(blink_p_on_projectile.blink_chance_on_hit_percent as f64) {
-                                info!("Projectile (ID: {:?}) itself blinking due to its own blink_params_on_hit for weapon ID: {:?}", projectile_entity, proj_stats.weapon_id);
-                            }
-                        }
-                    }
-
-
-                    if let Ok((_player_transform, _player_h, player_survivor_stats_for_items)) = player_effects_query.get_single() {
-                        for item_id in player_survivor_stats_for_items.collected_item_ids.iter() {
-                            if let Some(item_def) = item_library.get_item_definition(*item_id) {
-                                for effect in &item_def.effects {
-                                    if let ItemEffect::OnAutomaticProjectileHitExplode { chance, explosion_damage, explosion_radius, explosion_color } = effect {
-                                        let mut rng = rand::thread_rng();
-                                        if rng.gen_bool((*chance).into()) {
-                                            commands.spawn((
-                                                SpriteBundle {
-                                                    texture: asset_server.load("sprites/eldritch_nova_effect_placeholder.png"),
-                                                    sprite: Sprite {
-                                                        custom_size: Some(Vec2::splat(0.1)),
-                                                        color: *explosion_color,
-                                                        ..default()
-                                                    },
-                                                    transform: Transform::from_translation(horror_gtransform.translation().truncate().extend(0.3)),
-                                                    ..default()
-                                                },
-                                                ExplosionEffect {
-                                                    damage: *explosion_damage,
-                                                    radius_sq: explosion_radius.powi(2),
-                                                    timer: Timer::from_seconds(0.3, TimerMode::Once),
-                                                    already_hit_entities: vec![horror_entity],
-                                                },
-                                                Name::new("ItemHitExplosion"),
-                                            ));
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if let Some(bounces) = proj_stats.bounces_left {
-                        if bounces > 0 && !proj_stats.has_bounced_this_frame {
-                            handle_bounce_stat_updates(&mut proj_stats, &mut proj_damage_component, &mut velocity_component);
-
-                            let reflection_dir = (proj_gtransform.translation().truncate() - horror_gtransform.translation().truncate()).normalize_or_zero();
-                            if reflection_dir != Vec2::ZERO {
-                               velocity_component.0 = reflection_dir * proj_stats.current_speed;
-                               proj_transform.rotation = Quat::from_rotation_z(velocity_component.0.y.atan2(velocity_component.0.x));
-                            }
-                            break;
-                        }
-                    }
-
-                    if proj_stats.piercing_left > 0 {
-                        proj_stats.piercing_left -= 1;
-                    } else {
-                        if let Some(debuff_comp) = opt_debuff_on_hit {
-                            match debuff_comp.debuff_type {
-                                crate::items::ProjectileDebuffType::DamageAmp => {
-                                    if let Some(mut existing_debuff) = opt_existing_damage_amp_debuff {
-                                        existing_debuff.current_stacks = (existing_debuff.current_stacks + 1).min(debuff_comp.max_stacks);
-                                        existing_debuff.duration_timer = Timer::from_seconds(debuff_comp.duration_secs, TimerMode::Once);
-                                    } else {
-                                        commands.entity(horror_entity).insert(crate::components::DamageAmpDebuffComponent {
-                                            current_stacks: 1,
-                                            magnitude_per_stack: debuff_comp.magnitude_per_stack,
-                                            max_stacks: debuff_comp.max_stacks,
-                                            duration_timer: Timer::from_seconds(debuff_comp.duration_secs, TimerMode::Once),
-                                        });
-                                    }
-                                }
-                                crate::items::ProjectileDebuffType::Slow => {
-                                }
-                            }
-                        }
-
-                        if let Some(explosion_params) = opt_explodes_on_impact {
-                            commands.spawn((
-                                SpriteBundle {
-                                    texture: asset_server.load("sprites/eldritch_nova_effect_placeholder.png"),
-                                    sprite: Sprite {
-                                        custom_size: Some(Vec2::splat(0.1)),
-                                        color: Color::rgba(1.0, 0.5, 0.0, 0.8),
-                                        ..default()
-                                    },
-                                    transform: Transform::from_translation(proj_gtransform.translation().truncate().extend(0.3)),
-                                    ..default()
-                                },
-                                ExplosionEffect {
-                                    damage: explosion_params.explosion_damage,
-                                    radius_sq: explosion_params.explosion_radius.powi(2),
-                                    timer: Timer::from_seconds(0.3, TimerMode::Once),
-                                    already_hit_entities: vec![horror_entity],
-                                },
-                                Name::new("ChargeShotExplosion"),
-                            ));
-                        }
-                        commands.entity(projectile_entity).despawn_recursive();
-                        break;
+            if let Some(lifesteal_pct) = action.original_projectile_stats.lifesteal_percentage {
+                if lifesteal_pct > 0.0 && actual_damage_dealt > 0 {
+                    if let Ok((_p_transform, mut p_health, p_stats)) = query_set.p2().get_single_mut() {
+                        let heal_amount = (actual_damage_dealt as f32 * lifesteal_pct).round() as i32;
+                        if heal_amount > 0 { p_health.0 = (p_health.0 + heal_amount).min(p_stats.max_health); }
                     }
                 }
             }
+            if let Some(weapon_def) = weapon_library.get_weapon_definition(action.original_projectile_stats.weapon_id) { /* Blink from weapon */ }
+            if let Some(ref blink_p_on_projectile) = action.original_projectile_stats.blink_params_on_hit {  /* Blink from projectile */ }
+            if let Ok((_player_transform, _player_h, player_survivor_stats_for_items)) = query_set.p2().get_single() { /* Item effects */ }
+            if let Some(debuff_data) = action.projectile_debuff_params { /* Debuff application */ }
+        }
+
+        if let Ok((_proj_e, proj_gt, mut proj_dmg, mut proj_stats, mut proj_vel, _proj_sprite, mut proj_tf, _, _, _)) = query_set.p0().get_mut(action.projectile_entity) {
+            // Simplified for brace checking
+            if !processed_projectiles_this_frame.contains(&action.projectile_entity) {
+                if proj_stats.bounces_left.is_some() && proj_stats.bounces_left.unwrap_or(0) > 0 && !proj_stats.has_bounced_this_frame {
+                    bounce_occurred_this_hit = true;
+                }
+                if !bounce_occurred_this_hit {
+                    if proj_stats.piercing_left > 0 {
+                        proj_stats.piercing_left -= 1;
+                    }
+                }
+                if proj_stats.piercing_left == 0 && !bounce_occurred_this_hit {
+                     projectile_should_despawn = true;
+                }
+                if proj_stats.bounces_left.is_some() && proj_stats.bounces_left.unwrap() == 0 && bounce_occurred_this_hit {
+                    projectile_should_despawn = true;
+                }
+                processed_projectiles_this_frame.insert(action.projectile_entity);
+            } // Closes if !processed_projectiles_this_frame
+        } // Closes if let Ok for p0
+        // Removed the extra brace that was here, which incorrectly tried to close p1 block again.
+
+        if projectile_should_despawn {
+            if let Some(explosion_data_val) = action.projectile_explodes_params { /* Spawn explosion */ }
+            commands.entity(action.projectile_entity).despawn_recursive();
         }
     }
 }

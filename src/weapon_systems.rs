@@ -111,7 +111,7 @@ pub struct ChargingWeaponComponent {
     pub is_actively_charging: bool,
 }
 
-#[derive(Component, Debug, Reflect, Default)]
+#[derive(Component, Debug, Reflect, Default, Clone)]
 #[reflect(Component)]
 pub struct ExplodesOnFinalImpact {
     pub explosion_radius: f32,
@@ -209,7 +209,7 @@ pub struct HomingTargetComponent {
     pub strength: f32,
 }
 
-#[derive(Component, Debug, Reflect, Default)]
+#[derive(Component, Debug, Reflect, Default, Clone)]
 #[reflect(Component)]
 pub struct DebuffOnHitComponent {
     pub debuff_type: crate::items::ProjectileDebuffType,
