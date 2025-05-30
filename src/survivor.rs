@@ -314,11 +314,11 @@ fn survivor_casting_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
-    mut query: Query<(&Transform, &Survivor, &mut SanityStrain, Option<&SurvivorBuffEffect>)>,
+    mut query: Query<(Entity, &Transform, &Survivor, &mut SanityStrain, Option<&SurvivorBuffEffect>)>,
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
     weapon_library: Res<AutomaticWeaponLibrary>,
 ) {
-    for (survivor_transform, survivor_stats, mut sanity_strain, buff_effect_opt) in query.iter_mut() {
+    for (survivor_entity, survivor_transform, survivor_stats, mut sanity_strain, buff_effect_opt) in query.iter_mut() {
         let weapon_def = match weapon_library.get_weapon_definition(survivor_stats.inherent_weapon_id) {
             Some(def) => def,
             None => { 
@@ -368,6 +368,7 @@ fn survivor_casting_system(
                         spawn_automatic_projectile(
                             &mut commands,
                             &asset_server,
+                            survivor_entity, // Added owner entity
                             survivor_transform.translation,
                             projectile_direction,
                             current_damage,
@@ -378,6 +379,12 @@ fn survivor_casting_system(
                             params.projectile_size,
                             params.projectile_color,
                             effective_projectile_lifetime_secs,
+                            None, // opt_max_bounces
+                            None, // opt_dmg_loss_mult
+                            None, // opt_speed_loss_mult
+                            None, // opt_lifesteal_percentage
+                            None, // opt_tether_params_for_comp
+                            None, // opt_blink_params
                         );
                     }
                 } else {

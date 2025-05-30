@@ -1,10 +1,10 @@
 // src/visual_effects.rs
 use bevy::prelude::*;
-use crate::components::Lifetime; // Added Lifetime import
+use crate::components::{Lifetime, Velocity}; // Added Velocity
 
 const DAMAGE_TEXT_LIFETIME: f32 = 0.75;
-const DAMAGE_TEXT_VELOCITY: f32 = 50.0;
-const DAMAGE_TEXT_FONT_SIZE: f32 = 20.0;
+const DAMAGE_TEXT_VELOCITY_Y: f32 = 50.0;
+const DAMAGE_TEXT_FONT_SIZE: f32 = 20.0; // Adjusted for visibility
 
 pub struct VisualEffectsPlugin;
 
@@ -12,7 +12,7 @@ impl Plugin for VisualEffectsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, (
             damage_text_movement_system,
-            damage_text_fade_system,
+            damage_text_fade_despawn_system, // Combined fade and despawn
         ));
     }
 }
@@ -25,10 +25,10 @@ pub fn spawn_damage_text(
     asset_server: &Res<AssetServer>,
     position: Vec3,
     amount: i32,
-    _time: &Res<Time>, // Time might be used for staggering or animation later
+    _time: &Res<Time>, // Keep for potential future use (e.g., staggering animations)
 ) {
-    let text_color = if amount > 0 { Color::RED } else if amount < 0 { Color::GREEN } else { Color::WHITE };
-    let prefix = if amount > 0 { "" } else if amount < 0 { "+" } else { "" }; // For healing
+    let text_color = if amount > 0 { Color::TOMATO } else if amount < 0 { Color::GREEN } else { Color::WHITE };
+    let prefix = if amount > 0 { "" } else if amount < 0 { "+" } else { "" };
 
     commands.spawn((
         Text2dBundle {
@@ -41,39 +41,40 @@ pub fn spawn_damage_text(
                 },
             )
             .with_justify(JustifyText::Center),
-            transform: Transform::from_xyz(position.x, position.y, position.z + 1.0), // Ensure it's above other sprites
+            // Ensure Z-value is high enough to be visible over other elements
+            transform: Transform::from_xyz(position.x, position.y, position.z + 5.0), 
             ..default()
         },
         DamageText,
         Lifetime { timer: Timer::from_seconds(DAMAGE_TEXT_LIFETIME, TimerMode::Once) },
-        crate::components::Velocity(Vec2::new(0.0, DAMAGE_TEXT_VELOCITY)), // Use Velocity from components
+        Velocity(Vec2::new(rand::thread_rng().gen_range(-10.0..10.0), DAMAGE_TEXT_VELOCITY_Y)), // Slight horizontal jitter
         Name::new(format!("DamageText_{}", amount)),
     ));
 }
 
 fn damage_text_movement_system(
-    mut query: Query<(&mut Transform, &crate::components::Velocity), With<DamageText>>,
+    mut query: Query<(&mut Transform, &Velocity), With<DamageText>>,
     time: Res<Time>,
 ) {
     for (mut transform, velocity) in query.iter_mut() {
-        transform.translation.y += velocity.0.y * time.delta_seconds();
-        // Optional: add some horizontal drift or use Velocity component more fully
+        transform.translation += velocity.0.extend(0.0) * time.delta_seconds();
     }
 }
 
-fn damage_text_fade_system(
+fn damage_text_fade_despawn_system(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Text, &Lifetime), With<DamageText>>,
-    time: Res<Time>, // Not strictly needed if using Lifetime component only for despawn
 ) {
     for (entity, mut text, lifetime) in query.iter_mut() {
         let remaining_fraction = lifetime.timer.fraction_remaining();
-        for section in text.sections.iter_mut() {
-            let initial_alpha = section.style.color.a();
+        // Ensure sections exist before trying to modify
+        if let Some(section) = text.sections.get_mut(0) {
+            let initial_alpha = section.style.color.a(); // Assuming initial alpha is 1.0
             section.style.color.set_a((initial_alpha * remaining_fraction).clamp(0.0, 1.0));
         }
-        // Lifetime component will be handled by a generic lifetime system to despawn
-        // If no generic system, add despawn logic here:
-        // if lifetime.timer.finished() { commands.entity(entity).despawn(); }
+
+        if lifetime.timer.just_finished() { // Despawn when lifetime is over
+            commands.entity(entity).despawn();
+        }
     }
 }

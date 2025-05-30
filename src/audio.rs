@@ -15,7 +15,12 @@ pub enum SoundEffect {
     SoulCollect,
     MadnessConsumes,
     OmenAccepted,
-    HorrorProjectile, 
+    HorrorProjectile,
+    TetherHit,        // Added
+    PlayerBlink,      // Added
+    GlacialNovaHit,   // Added
+    ChainLightningZap, // Added
+    // Add other specific sounds as needed
 }
 
 #[derive(Resource)]
@@ -30,6 +35,10 @@ pub struct GameAudioHandles {
     pub omen_accepted: Handle<AudioSource>,
     pub horror_projectile: Handle<AudioSource>,
     pub background_music: Handle<AudioSource>,
+    pub tether_hit: Handle<AudioSource>,        // Added
+    pub player_blink: Handle<AudioSource>,      // Added
+    pub glacial_nova_hit: Handle<AudioSource>,  // Added
+    pub chain_lightning_zap: Handle<AudioSource>,// Added
 }
 
 #[derive(Component)]
@@ -58,8 +67,13 @@ fn setup_audio_handles(mut commands: Commands, asset_server: Res<AssetServer>) {
         soul_collect: asset_server.load("audio/soul_collect_placeholder.ogg"),
         madness_consumes: asset_server.load("audio/madness_consumes_placeholder.ogg"),
         omen_accepted: asset_server.load("audio/omen_accepted_placeholder.ogg"),
-        horror_projectile: asset_server.load("audio/horror_projectile_placeholder.ogg"), 
+        horror_projectile: asset_server.load("audio/horror_projectile_placeholder.ogg"),
         background_music: asset_server.load("audio/cyclopean_ruins_ambience_placeholder.ogg"),
+        // Assuming placeholder sounds for new effects
+        tether_hit: asset_server.load("audio/tether_hit_placeholder.ogg"),
+        player_blink: asset_server.load("audio/player_blink_placeholder.ogg"),
+        glacial_nova_hit: asset_server.load("audio/glacial_nova_hit_placeholder.ogg"),
+        chain_lightning_zap: asset_server.load("audio/chain_lightning_zap_placeholder.ogg"),
     });
 }
 
@@ -79,10 +93,14 @@ fn play_sound_system(
             SoundEffect::MadnessConsumes => audio_handles.madness_consumes.clone(),
             SoundEffect::OmenAccepted => audio_handles.omen_accepted.clone(),
             SoundEffect::HorrorProjectile => audio_handles.horror_projectile.clone(),
+            SoundEffect::TetherHit => audio_handles.tether_hit.clone(),
+            SoundEffect::PlayerBlink => audio_handles.player_blink.clone(),
+            SoundEffect::GlacialNovaHit => audio_handles.glacial_nova_hit.clone(),
+            SoundEffect::ChainLightningZap => audio_handles.chain_lightning_zap.clone(),
         };
         commands.spawn(AudioBundle {
             source,
-            settings: PlaybackSettings::DESPAWN, 
+            settings: PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::new(0.5)), // Example: set default volume
         });
     }
 }
@@ -90,7 +108,7 @@ fn play_sound_system(
 fn start_background_music(
     mut commands: Commands,
     audio_handles: Res<GameAudioHandles>,
-    music_controller_query: Query<Entity, With<BackgroundMusicController>>, 
+    music_controller_query: Query<Entity, With<BackgroundMusicController>>,
 ) {
     if !music_controller_query.is_empty() {
         return;
@@ -100,7 +118,7 @@ fn start_background_music(
             source: audio_handles.background_music.clone(),
             settings: PlaybackSettings {
                 mode: bevy::audio::PlaybackMode::Loop,
-                volume: bevy::audio::Volume::new(0.3), 
+                volume: bevy::audio::Volume::new(0.3),
                 ..default()
             },
         },

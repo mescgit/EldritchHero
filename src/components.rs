@@ -1,5 +1,8 @@
 use bevy::prelude::*;
-use crate::items::{DebuffAuraParams, ProjectileDebuffType, OrbitingPetParams, BlinkStrikeProjectileParams, RepositioningTetherParams, LobbedAoEPoolParams}; // Adjusted imports
+use crate::items::{
+    OrbitingPetParams, BlinkStrikeProjectileParams, RepositioningTetherParams,
+    DebuffAuraParams, LobbedAoEPoolParams, ProjectileDebuffType // Corrected and added necessary item param structs
+};
 
 #[derive(Component, Deref, DerefMut, Debug, Default, Reflect)]
 #[reflect(Component)]
@@ -64,7 +67,7 @@ impl Default for PlayerStats {
 #[derive(Component, Debug, Reflect)]
 #[reflect(Component)]
 pub struct OrbitingPetController {
-    pub params_snapshot: OrbitingPetParams, // Cloned params for this instance
+    pub params_snapshot: OrbitingPetParams,
     pub active_pet_entities: Vec<Entity>,
     pub spawn_cooldown_timer: Timer,
 }
@@ -72,7 +75,7 @@ pub struct OrbitingPetController {
 impl Default for OrbitingPetController {
     fn default() -> Self {
         Self {
-            params_snapshot: OrbitingPetParams::default(), // Assuming OrbitingPetParams derives Default
+            params_snapshot: OrbitingPetParams::default(),
             active_pet_entities: Vec::new(),
             spawn_cooldown_timer: Timer::from_seconds(1.0, TimerMode::Once),
         }
@@ -83,8 +86,8 @@ impl Default for OrbitingPetController {
 #[derive(Component, Debug, Reflect)]
 #[reflect(Component)]
 pub struct PlayerBlinkState {
-    pub blink_params: BlinkStrikeProjectileParams, // Contains all details like distance, target type
-    pub charge_timer: Timer, // For charge-up before blink, or cooldown
+    pub blink_params: BlinkStrikeProjectileParams,
+    pub charge_timer: Timer,
     pub state: BlinkState,
 }
 
@@ -100,7 +103,7 @@ pub enum BlinkState {
 impl Default for PlayerBlinkState {
     fn default() -> Self {
         Self {
-            blink_params: BlinkStrikeProjectileParams::default(), // Assuming it derives default
+            blink_params: BlinkStrikeProjectileParams::default(),
             charge_timer: Timer::from_seconds(1.0, TimerMode::Once),
             state: BlinkState::Ready,
         }
@@ -110,11 +113,11 @@ impl Default for PlayerBlinkState {
 // Tether related component for player state
 #[derive(Component, Debug, Reflect)]
 #[reflect(Component)]
-pub struct PlayerTetherState {
+pub struct PlayerTetherState { // This component seems to be intended for use in automatic_projectiles.rs
     pub last_tether_mode_used: crate::items::RepositioningTetherMode,
-    pub tethered_enemy_entity: Option<Entity>,
-    pub current_weapon_params_snapshot: Option<RepositioningTetherParams>, // If params change with weapon
-                                                                 // Add other fields like reactivation timers if needed
+    pub tethered_enemy_entity: Option<Entity>, // Field for the enemy hit by tether
+    pub current_weapon_params_snapshot: Option<RepositioningTetherParams>,
+    // Add other fields like reactivation timers if needed, or use PlayerWaitingTetherActivationComponent from weapon_systems
 }
 
 impl Default for PlayerTetherState {
@@ -127,90 +130,57 @@ impl Default for PlayerTetherState {
     }
 }
 
-#[derive(Component, Debug, Reflect)]
+// Original LobbedCloudProjectile, PersistentAoECloud, ActiveDebuff were duplicated.
+// Keeping one version and correcting param types.
+
+#[derive(Component, Debug, Reflect, Default)] // Added Default derive
 #[reflect(Component)]
-pub struct LobbedVenomCloudComponent { // Renamed from LobbedCloudProjectile
-    pub params: DebuffAuraParams, // Assuming venom cloud uses DebuffAuraParams for its effect
+pub struct LobbedCloudProjectile { // Assuming this is for a general debuff cloud
+    pub params: DebuffAuraParams,
     pub duration_timer: Timer,
     pub initial_spawn_position: Vec3,
-    pub target_position: Vec3, // For arcing logic
-    pub current_arc_time: f32, // For arcing logic
-}
-impl Default for LobbedVenomCloudComponent {
-    fn default() -> Self {
-        Self {
-            params: DebuffAuraParams::default(), // Assuming DebuffAuraParams derives Default
-            duration_timer: Timer::from_seconds(5.0, TimerMode::Once),
-            initial_spawn_position: Vec3::ZERO,
-            target_position: Vec3::ZERO,
-            current_arc_time: 0.0,
-        }
-    }
+    pub target_position: Vec3,
+    pub current_arc_time: f32,
 }
 
-#[derive(Component, Debug, Reflect)]
+#[derive(Component, Debug, Reflect, Default)] // Added Default derive
 #[reflect(Component)]
-pub struct PersistentHolyDamageCloud { // Renamed from PersistentAoECloud
-    pub params: LobbedAoEPoolParams, // Example: Using pool params if it's a damaging area
+pub struct PersistentAoECloud { // Assuming this is for a persistent damaging area
+    pub params: LobbedAoEPoolParams, // Using LobbedAoEPoolParams if it's a damaging pool
     pub duration_timer: Timer,
     pub tick_timer: Timer,
     pub already_hit_entities: Vec<Entity>,
 }
-impl Default for PersistentHolyDamageCloud {
-    fn default() -> Self {
-        Self {
-            params: LobbedAoEPoolParams::default(), // Assuming it derives Default
-            duration_timer: Timer::from_seconds(10.0, TimerMode::Once),
-            tick_timer: Timer::from_seconds(1.0, TimerMode::Repeating),
-            already_hit_entities: Vec::new(),
-        }
-    }
-}
 
-#[derive(Component, Debug, Reflect)]
+#[derive(Component, Debug, Reflect, Default)] // Added Default derive
 #[reflect(Component)]
-pub struct ActiveDamageDebuff { // Renamed from ActiveDebuff
-    pub debuff_type: ProjectileDebuffType, // Example: Using ProjectileDebuffType
+pub struct ActiveDebuff { // General debuff on an entity
+    pub debuff_type: ProjectileDebuffType, // Using ProjectileDebuffType as an example, adjust if another type is needed
     pub magnitude: f32,
     pub duration_timer: Timer,
     pub stacks: u32,
 }
-impl Default for ActiveDamageDebuff {
-    fn default() -> Self {
-        Self {
-            debuff_type: ProjectileDebuffType::default(),
-            magnitude: 0.0,
-            duration_timer: Timer::from_seconds(5.0, TimerMode::Once),
-            stacks: 1,
-        }
-    }
-}
 
 
 // Component for entities rooted in place
-#[derive(Component, Debug, Reflect)]
+#[derive(Component, Debug, Reflect, Default)] // Added Default derive
 #[reflect(Component)]
 pub struct RootedComponent {
     pub duration_timer: Timer,
 }
 
-impl Default for RootedComponent {
-    fn default() -> Self {
-        Self { duration_timer: Timer::from_seconds(1.0, TimerMode::Once) }
-    }
-}
 
 // Event for player blink
 #[derive(Event, Debug)]
 pub struct PlayerBlinkEvent {
     pub player_entity: Entity,
-    pub hit_enemy_entity: Entity, // The enemy that triggered the blink (if applicable)
+    pub hit_enemy_entity: Entity, 
     pub blink_params: crate::items::BlinkStrikeProjectileParams,
 }
 
 
 // General purpose debuffs, can be added to enemies
-#[derive(Component, Debug, Reflect)]
+#[derive(Component, Debug, Reflect, Default)] // Added Default derive
 #[reflect(Component)]
 pub struct DamageAmpDebuffComponent {
     pub current_stacks: u32,
@@ -219,52 +189,31 @@ pub struct DamageAmpDebuffComponent {
     pub duration_timer: Timer,
 }
 
-impl Default for DamageAmpDebuffComponent {
-    fn default() -> Self {
-        Self {
-            current_stacks: 0,
-            magnitude_per_stack: 0.05, // Default 5%
-            max_stacks: 5,             // Default max 5 stacks
-            duration_timer: Timer::from_seconds(3.0, TimerMode::Once),
-        }
-    }
-}
-
-
-#[derive(Component, Debug, Reflect)]
+#[derive(Component, Debug, Reflect, Default)] // Added Default derive
 #[reflect(Component)]
 pub struct AccuracyDebuffComponent {
-    pub reduction_factor: f32, // e.g., 0.8 for 20% reduction
+    pub reduction_factor: f32, 
     pub duration_timer: Timer,
 }
-impl Default for AccuracyDebuffComponent {
-    fn default() -> Self { Self { reduction_factor: 1.0, duration_timer: Timer::from_seconds(1.0, TimerMode::Once) } }
-}
 
-#[derive(Component, Debug, Reflect)]
+#[derive(Component, Debug, Reflect, Default)] // Added Default derive
 #[reflect(Component)]
 pub struct AttackSpeedDebuffComponent {
-    pub multiplier: f32, // e.g., 1.2 for 20% slower attack speed (increased interval)
+    pub multiplier: f32, 
     pub duration_timer: Timer,
-}
-impl Default for AttackSpeedDebuffComponent {
-    fn default() -> Self { Self { multiplier: 1.0, duration_timer: Timer::from_seconds(1.0, TimerMode::Once) } }
 }
 
-#[derive(Component, Debug, Reflect)]
+#[derive(Component, Debug, Reflect, Default)] // Added Default derive
 #[reflect(Component)]
 pub struct ContinuousDamageComponent {
-    pub damage_per_tick: f32, // Changed to f32 to allow fractional damage if needed from magnitude
-    pub tick_interval: f32,   // Seconds
-    // pub tick_timer: Timer, // Implicitly handled by duration_timer and tick_interval in system
+    pub damage_per_tick: f32, 
+    pub tick_interval: f32,   
     pub duration_timer: Timer,
 }
-impl Default for ContinuousDamageComponent {
-    fn default() -> Self {
-        Self {
-            damage_per_tick: 1.0,
-            tick_interval: 1.0,
-            duration_timer: Timer::from_seconds(3.0, TimerMode::Once),
-        }
-    }
+
+// Component for Horrors latched by a tether (used in weapon_systems.rs, better defined here)
+#[derive(Component, Debug, Reflect, Default)]
+#[reflect(Component)]
+pub struct HorrorLatchedByTetherComponent {
+    pub player_who_latched: Entity,
 }

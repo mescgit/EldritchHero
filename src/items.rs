@@ -2,10 +2,10 @@
 use bevy::prelude::*;
 use crate::{
     survivor::Survivor,
-    components::{Health as ComponentHealth, Health}, // Assuming Health is the correct one, remove ComponentHealth if redundant
+    components::{Health as ComponentHealth, Health},
     game::{AppState, ItemCollectedEvent},
     horror::Horror,
-    visual_effects::spawn_damage_text, // Corrected path
+    visual_effects::spawn_damage_text,
     audio::{PlaySoundEvent, SoundEffect},
     skills::{SkillId, SkillLibrary, ActiveSkillInstance},
     weapons::{CircleOfWarding, SwarmOfNightmares},
@@ -13,7 +13,7 @@ use crate::{
 
 // --- Standard Items (Relics) ---
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Default)]
-#[reflect(Default)] // Added Default derive
+#[reflect(Default)]
 pub struct ItemId(pub u32);
 
 #[derive(Debug, Clone, PartialEq, Reflect)]
@@ -24,24 +24,24 @@ pub enum ItemEffect {
     PassiveStatBoost {
         max_health_increase: Option<i32>,
         speed_multiplier: Option<f32>,
-        damage_increase: Option<i32>, // Typically for auto-attacks/inherent weapon
+        damage_increase: Option<i32>,
         xp_gain_multiplier: Option<f32>,
-        pickup_radius_increase: Option<f32>, // As a multiplier, e.g., 0.25 for +25%
+        pickup_radius_increase: Option<f32>,
         auto_weapon_projectile_speed_multiplier_increase: Option<f32>,
     },
-    OnAutomaticProjectileHitExplode { // Renamed from OnIchorBlastHitExplode for generality
+    OnAutomaticProjectileHitExplode { // Renamed for generality
         chance: f32,
         explosion_damage: i32,
         explosion_radius: f32,
         explosion_color: Color,
     },
-    OnSurvivorHitRetaliate { // Effect when the survivor is hit
+    OnSurvivorHitRetaliate {
         chance: f32,
         retaliation_damage: i32,
         retaliation_radius: f32,
         retaliation_color: Color,
     },
-    OnHorrorKillTrigger { // Effect when a horror is killed by the survivor
+    OnHorrorKillTrigger {
         chance: f32,
         effect: SurvivorTemporaryBuff,
     },
@@ -50,321 +50,15 @@ pub enum ItemEffect {
     ActivateSwarmOfNightmares { num_larvae: u32, base_damage: i32, base_orbit_radius: f32, base_rotation_speed: f32 },
 }
 
-
-#[derive(Debug, Clone, Copy, Reflect, PartialEq, Default)]
+// --- Automatic Weapon ID ---
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Default)]
 #[reflect(Default)]
-pub enum RepositioningTetherMode {
-    #[default]
-    Pull,
-    Push,
-    Alternate,
-}
-
-#[derive(Debug, Clone, Reflect)]
-pub struct RepositioningTetherParams {
-    pub base_fire_rate_secs: f32,
-    pub tether_projectile_speed: f32,
-    pub tether_range: f32,
-    pub tether_sprite_path: &'static str,
-    pub tether_color: Color,
-    pub tether_size: Vec2,
-    pub mode: RepositioningTetherMode,
-    pub pull_strength: f32,
-    pub push_strength: f32,
-    pub reactivation_window_secs: f32,
-    pub effect_duration_secs: f32,
-}
-impl Default for RepositioningTetherParams { // Added default
-    fn default() -> Self {
-        Self {
-            base_fire_rate_secs: 1.0,
-            tether_projectile_speed: 600.0,
-            tether_range: 400.0,
-            tether_sprite_path: "sprites/tether_placeholder.png",
-            tether_color: Color::WHITE,
-            tether_size: Vec2::new(10.0, 10.0),
-            mode: RepositioningTetherMode::Pull,
-            pull_strength: 50.0,
-            push_strength: 50.0,
-            reactivation_window_secs: 2.0,
-            effect_duration_secs: 0.3,
-        }
-    }
-}
+pub struct AutomaticWeaponId(pub u32);
 
 
-#[derive(Debug, Clone, Reflect)]
-pub struct OrbitingPetParams {
-    pub base_fire_rate_secs: f32, // Cooldown for player to spawn a new orb
-    pub max_active_orbs: u32,
-    pub orb_duration_secs: f32,
-    pub orb_sprite_path: &'static str,
-    pub orb_size: Vec2,
-    pub orb_color: Color,
-    pub orbit_radius: f32,
-    pub orbit_speed_rad_per_sec: f32,
-    pub can_be_deployed_at_location: bool, // Not currently used, orbs follow player
-    pub deployment_range: f32, // Not currently used
-    // Pulse AoE properties
-    pub pulses_aoe: bool,
-    pub pulse_damage: i32,
-    pub pulse_radius: f32,
-    pub pulse_interval_secs: f32,
-    pub pulse_color: Option<Color>, // Optional color for the pulse visual
-    // Seeking Bolt properties
-    pub fires_seeking_bolts: bool,
-    pub bolt_damage: i32,
-    pub bolt_speed: f32,
-    pub bolt_fire_interval_secs: f32,
-    pub bolt_sprite_path: Option<&'static str>,
-    pub bolt_size: Option<Vec2>,
-    pub bolt_color: Option<Color>,
-    pub bolt_lifetime_secs: Option<f32>,
-    pub bolt_homing_strength: Option<f32>, // How strongly bolts seek targets
-}
-impl Default for OrbitingPetParams { // Added default
-    fn default() -> Self {
-        Self {
-            base_fire_rate_secs: 1.0, max_active_orbs: 1, orb_duration_secs: 10.0,
-            orb_sprite_path: "sprites/auto_shadow_orb.png", orb_size: Vec2::new(32.0, 32.0),
-            orb_color: Color::PURPLE, orbit_radius: 75.0, orbit_speed_rad_per_sec: 1.0,
-            can_be_deployed_at_location: false, deployment_range: 0.0,
-            pulses_aoe: true, pulse_damage: 5, pulse_radius: 50.0, pulse_interval_secs: 1.5, pulse_color: Some(Color::rgba(0.5, 0.2, 0.8, 0.4)),
-            fires_seeking_bolts: false, bolt_damage: 0, bolt_speed: 0.0, bolt_fire_interval_secs: 0.0,
-            bolt_sprite_path: None, bolt_size: None, bolt_color: None, bolt_lifetime_secs: None, bolt_homing_strength: None,
-        }
-    }
-}
+// --- Parameter Struct Definitions for AttackTypeData ---
 
-// This struct was removed in a previous step, but it seems `DashAttackParams` name is still used
-// for `AttackTypeData::DashAttack` variant and `register_type`.
-// Renaming `LineDashAttackParams` to `DashAttackParams` if they are meant to be the same,
-// or creating a new `DashAttackParams` if they are different.
-// The error E0412 for ConeAttackParams (src\items.rs:403:16) suggests DashAttackParams exists.
-// Let's assume LineDashAttackParams IS the intended DashAttackParams.
-#[derive(Debug, Clone, Reflect)] // Removed Default from derive, will keep the impl Default below
-pub struct LineDashAttackParams {
-    pub base_fire_rate_secs: f32,
-    pub dash_speed: f32, // Renamed from dash_speed_multiplier, assumed to be flat speed
-    pub dash_duration_secs: f32,
-    pub damage_per_hit: i32,
-    pub hitbox_width: f32, // Renamed from dash_hitbox_width
-    pub piercing_cap: u32, // Renamed from max_hits_per_dash
-    pub dash_trail_color: Option<Color>, // Added, was visual_trail_effect_sprite
-    pub invulnerable_during_dash: bool, // Renamed from player_invulnerability_during_dash
-}
-
-// Keep this impl Default, remove Default from derive for LineDashAttackParams
-impl Default for LineDashAttackParams {
-    fn default() -> Self {
-        Self {
-            base_fire_rate_secs: 1.0,
-            dash_speed: 1000.0,
-            dash_duration_secs: 0.3,
-            damage_per_hit: 10,
-            hitbox_width: 50.0,
-            piercing_cap: 3,
-            dash_trail_color: Some(Color::WHITE),
-            invulnerable_during_dash: false,
-        }
-    }
-}
-
-
-#[derive(Debug, Clone, Reflect)]
-pub struct GroundTargetedAoEParams {
-    pub base_fire_rate_secs: f32,
-    pub targeting_range: f32,
-    pub reticle_sprite_path: Option<&'static str>,
-    pub reticle_size: Vec2,
-    pub delay_before_eruption_secs: f32,
-    pub eruption_radius: f32,
-    pub damage: i32,
-    pub aoe_color: Color,
-    pub aoe_visual_duration_secs: f32, // How long the visual effect (like sprite growing) lasts
-    pub knock_up_strength: f32, // Potency of knock-up effect (0 for none)
-    pub root_duration_secs: Option<f32>, // Duration of root effect (None for no root)
-}
-impl Default for GroundTargetedAoEParams { // Added Default
-    fn default() -> Self {
-        Self {
-            base_fire_rate_secs: 1.5, targeting_range: 500.0,
-            reticle_sprite_path: Some("sprites/ground_target_reticle_placeholder.png"),
-            reticle_size: Vec2::new(64.0, 64.0), delay_before_eruption_secs: 0.75,
-            eruption_radius: 100.0, damage: 50, aoe_color: Color::ORANGE_RED,
-            aoe_visual_duration_secs: 0.5, knock_up_strength: 0.0, root_duration_secs: None,
-        }
-    }
-}
-
-
-#[derive(Debug, Clone, Reflect, Default)] // Added Default
-pub struct LifestealProjectileParams {
-    pub base_fire_rate_secs: f32,
-    pub base_damage: i32,
-    pub projectile_speed: f32,
-    pub projectile_sprite_path: &'static str,
-    pub projectile_size: Vec2,
-    pub projectile_color: Color,
-    pub projectile_lifetime_secs: f32,
-    pub piercing: u32,
-    pub lifesteal_percentage: f32,
-}
-
-#[derive(Debug, Clone, Reflect, Default)] // Added Default
-pub struct BouncingProjectileParams {
-    pub base_fire_rate_secs: f32,
-    pub num_shards_per_shot: u32,
-    pub base_damage: i32,
-    pub projectile_speed: f32,
-    pub projectile_sprite_path: &'static str,
-    pub projectile_size: Vec2,
-    pub projectile_color: Color,
-    pub projectile_lifetime_secs: f32,
-    pub max_bounces: u32,
-    pub damage_loss_per_bounce_multiplier: f32,
-    pub speed_loss_per_bounce_multiplier: f32,
-    pub spread_angle_degrees: f32, // For multi-shard shots
-}
-
-
-#[derive(Debug, Clone, Copy, Reflect, PartialEq, Default)]
-#[reflect(Default)]
-pub enum ProjectileDebuffType {
-    #[default]
-    DamageAmp, // Amplifies damage taken by the target
-    Slow,      // Slows target's movement speed
-}
-
-#[derive(Debug, Clone, Reflect, Default)] // Added Default
-pub struct HomingDebuffProjectileParams {
-    pub base_fire_rate_secs: f32,
-    pub num_darts_per_shot: u32,
-    pub base_damage: i32,
-    pub projectile_speed: f32,
-    pub projectile_sprite_path: &'static str,
-    pub projectile_size: Vec2,
-    pub projectile_color: Color,
-    pub projectile_lifetime_secs: f32,
-    pub homing_strength: f32, // How strongly it turns towards target
-    pub homing_initial_target_search_radius: f32, // Range to find initial target
-    pub debuff_type: ProjectileDebuffType,
-    pub debuff_magnitude_per_stack: f32, // e.g., 0.05 for 5% damage amp or slow
-    pub max_debuff_stacks: u32,
-    pub debuff_duration_secs_on_target: f32,
-}
-
-#[derive(Debug, Clone, Reflect)]
-pub struct ExpandingEnergyBombParams {
-    pub base_fire_rate_secs: f32,
-    pub max_radius: f32,
-    pub expansion_duration_secs: f32,
-    pub min_damage_at_min_radius: i32,
-    pub max_damage_at_max_radius: i32,
-    pub bomb_color: Color,
-    pub visual_sprite_path: Option<&'static str>,
-    pub detonation_can_be_manual: bool, // If player can trigger detonation early
-    pub auto_detonation_delay_after_max_expansion_secs: f32, // If manual, how long it waits at max size
-}
-impl Default for ExpandingEnergyBombParams { // Added Default
-    fn default() -> Self {
-        Self {
-            base_fire_rate_secs: 2.0, max_radius: 250.0, expansion_duration_secs: 2.5,
-            min_damage_at_min_radius: 10, max_damage_at_max_radius: 80, bomb_color: Color::CYAN,
-            visual_sprite_path: Some("sprites/spirit_bomb_effect_placeholder.png"),
-            detonation_can_be_manual: true, auto_detonation_delay_after_max_expansion_secs: 1.0,
-        }
-    }
-}
-
-
-#[derive(Debug, Clone, Copy, Reflect, PartialEq, Default)] // Added Default derive
-pub enum AuraDebuffType {
-    #[default]
-    ReduceAccuracy,
-    SlowAttackSpeed,
-    MinorDamageOverTime,
-}
-
-
-#[derive(Debug, Clone, Reflect)]
-pub struct DebuffAuraParams {
-    pub base_fire_rate_secs: f32, // How often the cloud can be deployed
-    pub cloud_radius: f32,
-    pub cloud_duration_secs: f32, // How long the cloud persists
-    pub cloud_color: Color,
-    pub visual_sprite_path: Option<&'static str>,
-    pub debuff_type: AuraDebuffType,
-    pub debuff_magnitude: f32, // e.g., 0.2 for 20% reduction, or 5 for 5 DPS
-    pub debuff_duration_secs: f32, // How long the debuff lasts on an enemy after leaving cloud / initial hit
-}
-impl Default for DebuffAuraParams { // Added Default
-    fn default() -> Self {
-        Self {
-            base_fire_rate_secs: 1.0, cloud_radius: 100.0, cloud_duration_secs: 3.0,
-            cloud_color: Color::GRAY, visual_sprite_path: Some("sprites/debuff_cloud_placeholder.png"),
-            debuff_type: AuraDebuffType::ReduceAccuracy, debuff_magnitude: 0.2, debuff_duration_secs: 2.0,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Reflect, Default)] // Added Default
-pub struct PersistentAuraParams {
-    pub is_active_by_default: bool, // Or if it needs to be "fired" once to activate
-    pub damage_per_tick: i32,
-    pub tick_interval_secs: f32,
-    pub radius: f32,
-    pub aura_color: Color,
-    pub visual_sprite_path: Option<&'static str>, // Sprite for the aura visual
-    pub fire_rate_secs_placeholder: f32, // If it needs a "fire rate" in the library, though it might be always on
-}
-
-#[derive(Debug, Clone, Reflect, Default)] // Added Default
-pub struct PointBlankNovaParams {
-    pub base_fire_rate_secs: f32,
-    pub damage: i32,
-    pub radius: f32,
-    pub nova_color: Color,
-    pub visual_duration_secs: f32, // How long the expanding visual lasts
-    pub slow_effect_multiplier: f32, // e.g., 0.5 for 50% slow
-    pub slow_duration_secs: f32,
-}
-
-#[derive(Debug, Clone, Reflect, Default)] // Added Default
-pub struct ChainZapParams {
-    pub base_fire_rate_secs: f32,
-    pub initial_target_range: f32, // Range to find the first target
-    pub max_chains: u32,          // Max number of enemies hit after the first
-    pub chain_search_radius: f32, // Radius to find subsequent targets from the last hit enemy
-    pub base_damage_per_zap: i32,
-    pub damage_falloff_per_chain: f32, // Multiplier, e.g., 0.8 for 20% less damage each chain
-    pub zap_color: Color,
-    pub zap_width: f32,           // For visual representation if drawing lines
-    pub zap_duration_secs: f32,   // How long the visual effect for each zap lasts
-}
-
-
-#[derive(Debug, Clone, Reflect, Default)] // Added Default
-pub struct BlinkStrikeProjectileParams {
-    pub base_fire_rate_secs: f32,
-    pub base_damage: i32,
-    pub projectile_speed: f32,
-    pub projectile_sprite_path: &'static str,
-    pub projectile_size: Vec2,
-    pub projectile_color: Color,
-    pub projectile_lifetime_secs: f32,
-    pub piercing: u32,
-    // Player Blink part
-    pub blink_chance_on_hit_percent: f32, // Chance for PLAYER to blink
-    pub blink_distance: f32,
-    pub blink_to_target_behind: bool, // If true, player blinks behind hit target, else in aim_direction
-    pub blink_requires_kill: bool,    // Does player blink only on kill or any hit?
-    // Projectile part (multi-shot)
-    pub num_projectiles_per_shot: u32, // How many projectiles are fired at once
-}
-
-// Definition for StandardProjectileParams (was missing)
-#[derive(Debug, Clone, Reflect, Default)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq)] // Added Default, PartialEq for ChanneledBeamParams comparison
 pub struct StandardProjectileParams {
     pub base_damage: i32,
     pub base_fire_rate_secs: f32,
@@ -377,8 +71,7 @@ pub struct StandardProjectileParams {
     pub projectile_lifetime_secs: f32,
 }
 
-// Definition for ReturningProjectileParams (ensure it exists)
-#[derive(Debug, Clone, Reflect, Default)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
 pub struct ReturningProjectileParams {
     pub base_damage: i32,
     pub base_fire_rate_secs: f32,
@@ -390,8 +83,7 @@ pub struct ReturningProjectileParams {
     pub piercing: u32,
 }
 
-// Definition for ChanneledBeamParams (ensure it exists)
-#[derive(Debug, Clone, Reflect, PartialEq)] // Added PartialEq for comparison in weapon_systems
+#[derive(Debug, Clone, Reflect, PartialEq)] // Removed Default from derive as there's an impl Default
 pub struct ChanneledBeamParams {
     pub base_damage_per_tick: i32,
     pub tick_rate_secs: f32,
@@ -410,8 +102,7 @@ impl Default for ChanneledBeamParams {
 }
 
 
-// Definition for ConeAttackParams (ensure it exists)
-#[derive(Debug, Clone, Reflect, Default)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
 pub struct ConeAttackParams {
     pub base_damage: i32,
     pub base_fire_rate_secs: f32,
@@ -423,8 +114,7 @@ pub struct ConeAttackParams {
     pub visual_anchor_offset: Option<Vec2>,
 }
 
-// Definition for LobbedAoEPoolParams (ensure it exists)
-#[derive(Debug, Clone, Reflect, Default)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
 pub struct LobbedAoEPoolParams {
     pub base_damage_on_impact: i32,
     pub pool_damage_per_tick: i32,
@@ -441,8 +131,7 @@ pub struct LobbedAoEPoolParams {
     pub max_active_pools: u32,
 }
 
-// Definition for ChargeLevelParams (ensure it exists)
-#[derive(Debug, Clone, Reflect, Default)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
 pub struct ChargeLevelParams {
     pub charge_time_secs: f32,
     pub projectile_damage: i32,
@@ -455,8 +144,7 @@ pub struct ChargeLevelParams {
     pub projectile_sprite_path_override: Option<&'static str>,
 }
 
-// Definition for ChargeUpEnergyShotParams (ensure it exists)
-#[derive(Debug, Clone, Reflect, Default)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
 pub struct ChargeUpEnergyShotParams {
     pub base_fire_rate_secs: f32,
     pub base_projectile_sprite_path: &'static str,
@@ -465,8 +153,7 @@ pub struct ChargeUpEnergyShotParams {
     pub projectile_lifetime_secs: f32,
 }
 
-// Definition for TrailOfFireParams (ensure it exists)
-#[derive(Debug, Clone, Reflect, Default)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
 pub struct TrailOfFireParams {
     pub base_damage_on_impact: i32,
     pub base_fire_rate_secs: f32,
@@ -483,8 +170,299 @@ pub struct TrailOfFireParams {
     pub trail_segment_color: Color,
 }
 
-// Definition for LobbedBouncingMagmaParams (ensure it exists if used by AttackTypeData)
-#[derive(Debug, Clone, Reflect, Default)]
+
+#[derive(Debug, Clone, Copy, Reflect, PartialEq, Default)]
+#[reflect(Default)]
+pub enum RepositioningTetherMode {
+    #[default]
+    Pull,
+    Push,
+    Alternate,
+}
+
+#[derive(Debug, Clone, Reflect, PartialEq)] // Removed Default from derive as there's an impl Default
+pub struct RepositioningTetherParams {
+    pub base_fire_rate_secs: f32,
+    pub tether_projectile_speed: f32,
+    pub tether_range: f32,
+    pub tether_sprite_path: &'static str,
+    pub tether_color: Color,
+    pub tether_size: Vec2,
+    pub mode: RepositioningTetherMode,
+    pub pull_strength: f32,
+    pub push_strength: f32,
+    pub reactivation_window_secs: f32,
+    pub effect_duration_secs: f32,
+}
+impl Default for RepositioningTetherParams {
+    fn default() -> Self {
+        Self {
+            base_fire_rate_secs: 1.0,
+            tether_projectile_speed: 600.0,
+            tether_range: 400.0,
+            tether_sprite_path: "sprites/tether_placeholder.png",
+            tether_color: Color::WHITE,
+            tether_size: Vec2::new(10.0, 10.0),
+            mode: RepositioningTetherMode::Pull,
+            pull_strength: 50.0,
+            push_strength: 50.0,
+            reactivation_window_secs: 2.0,
+            effect_duration_secs: 0.3,
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Reflect, PartialEq)] // Removed Default from derive as there's an impl Default
+pub struct OrbitingPetParams {
+    pub base_fire_rate_secs: f32,
+    pub max_active_orbs: u32,
+    pub orb_duration_secs: f32,
+    pub orb_sprite_path: &'static str,
+    pub orb_size: Vec2,
+    pub orb_color: Color,
+    pub orbit_radius: f32,
+    pub orbit_speed_rad_per_sec: f32,
+    pub can_be_deployed_at_location: bool,
+    pub deployment_range: f32,
+    pub pulses_aoe: bool,
+    pub pulse_damage: i32,
+    pub pulse_radius: f32,
+    pub pulse_interval_secs: f32,
+    pub pulse_color: Option<Color>,
+    pub fires_seeking_bolts: bool,
+    pub bolt_damage: i32,
+    pub bolt_speed: f32,
+    pub bolt_fire_interval_secs: f32,
+    pub bolt_sprite_path: Option<&'static str>,
+    pub bolt_size: Option<Vec2>,
+    pub bolt_color: Option<Color>,
+    pub bolt_lifetime_secs: Option<f32>,
+    pub bolt_homing_strength: Option<f32>,
+}
+impl Default for OrbitingPetParams {
+    fn default() -> Self {
+        Self {
+            base_fire_rate_secs: 1.0, max_active_orbs: 1, orb_duration_secs: 10.0,
+            orb_sprite_path: "sprites/auto_shadow_orb.png", orb_size: Vec2::new(32.0, 32.0),
+            orb_color: Color::PURPLE, orbit_radius: 75.0, orbit_speed_rad_per_sec: 1.0,
+            can_be_deployed_at_location: false, deployment_range: 0.0,
+            pulses_aoe: true, pulse_damage: 5, pulse_radius: 50.0, pulse_interval_secs: 1.5, pulse_color: Some(Color::rgba(0.5, 0.2, 0.8, 0.4)),
+            fires_seeking_bolts: false, bolt_damage: 0, bolt_speed: 0.0, bolt_fire_interval_secs: 0.0,
+            bolt_sprite_path: None, bolt_size: None, bolt_color: None, bolt_lifetime_secs: None, bolt_homing_strength: None,
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Reflect, Default, PartialEq)] // Added Default, PartialEq
+pub struct GroundTargetedAoEParams {
+    pub base_fire_rate_secs: f32,
+    pub targeting_range: f32,
+    pub reticle_sprite_path: Option<&'static str>,
+    pub reticle_size: Vec2,
+    pub delay_before_eruption_secs: f32,
+    pub eruption_radius: f32,
+    pub damage: i32,
+    pub aoe_color: Color,
+    pub aoe_visual_duration_secs: f32,
+    pub knock_up_strength: f32,
+    pub root_duration_secs: Option<f32>,
+}
+
+
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+pub struct LifestealProjectileParams {
+    pub base_fire_rate_secs: f32,
+    pub base_damage: i32,
+    pub projectile_speed: f32,
+    pub projectile_sprite_path: &'static str,
+    pub projectile_size: Vec2,
+    pub projectile_color: Color,
+    pub projectile_lifetime_secs: f32,
+    pub piercing: u32,
+    pub lifesteal_percentage: f32,
+}
+
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+pub struct BouncingProjectileParams {
+    pub base_fire_rate_secs: f32,
+    pub num_shards_per_shot: u32,
+    pub base_damage: i32,
+    pub projectile_speed: f32,
+    pub projectile_sprite_path: &'static str,
+    pub projectile_size: Vec2,
+    pub projectile_color: Color,
+    pub projectile_lifetime_secs: f32,
+    pub max_bounces: u32,
+    pub damage_loss_per_bounce_multiplier: f32,
+    pub speed_loss_per_bounce_multiplier: f32,
+    pub spread_angle_degrees: f32,
+}
+
+
+#[derive(Debug, Clone, Copy, Reflect, PartialEq, Default)]
+#[reflect(Default)]
+pub enum ProjectileDebuffType {
+    #[default]
+    DamageAmp, 
+    Slow,      
+}
+
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+pub struct HomingDebuffProjectileParams {
+    pub base_fire_rate_secs: f32,
+    pub num_darts_per_shot: u32,
+    pub base_damage: i32,
+    pub projectile_speed: f32,
+    pub projectile_sprite_path: &'static str,
+    pub projectile_size: Vec2,
+    pub projectile_color: Color,
+    pub projectile_lifetime_secs: f32,
+    pub homing_strength: f32,
+    pub homing_initial_target_search_radius: f32,
+    pub debuff_type: ProjectileDebuffType,
+    pub debuff_magnitude_per_stack: f32,
+    pub max_debuff_stacks: u32,
+    pub debuff_duration_secs_on_target: f32,
+}
+
+#[derive(Debug, Clone, Reflect, PartialEq)] // Removed Default from derive as there's an impl Default
+pub struct ExpandingEnergyBombParams {
+    pub base_fire_rate_secs: f32,
+    pub max_radius: f32,
+    pub expansion_duration_secs: f32,
+    pub min_damage_at_min_radius: i32,
+    pub max_damage_at_max_radius: i32,
+    pub bomb_color: Color,
+    pub visual_sprite_path: Option<&'static str>,
+    pub detonation_can_be_manual: bool,
+    pub auto_detonation_delay_after_max_expansion_secs: f32,
+}
+impl Default for ExpandingEnergyBombParams {
+    fn default() -> Self {
+        Self {
+            base_fire_rate_secs: 2.0, max_radius: 250.0, expansion_duration_secs: 2.5,
+            min_damage_at_min_radius: 10, max_damage_at_max_radius: 80, bomb_color: Color::CYAN,
+            visual_sprite_path: Some("sprites/spirit_bomb_effect_placeholder.png"),
+            detonation_can_be_manual: true, auto_detonation_delay_after_max_expansion_secs: 1.0,
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Copy, Reflect, PartialEq, Default)]
+#[reflect(Default)]
+pub enum AuraDebuffType {
+    #[default]
+    ReduceAccuracy,
+    SlowAttackSpeed,
+    MinorDamageOverTime,
+}
+
+
+#[derive(Debug, Clone, Reflect, PartialEq)] // Removed Default from derive as there's an impl Default
+pub struct DebuffAuraParams {
+    pub base_fire_rate_secs: f32,
+    pub cloud_radius: f32,
+    pub cloud_duration_secs: f32,
+    pub cloud_color: Color,
+    pub visual_sprite_path: Option<&'static str>,
+    pub debuff_type: AuraDebuffType,
+    pub debuff_magnitude: f32,
+    pub debuff_duration_secs: f32,
+}
+impl Default for DebuffAuraParams {
+    fn default() -> Self {
+        Self {
+            base_fire_rate_secs: 1.0, cloud_radius: 100.0, cloud_duration_secs: 3.0,
+            cloud_color: Color::GRAY, visual_sprite_path: Some("sprites/debuff_cloud_placeholder.png"),
+            debuff_type: AuraDebuffType::ReduceAccuracy, debuff_magnitude: 0.2, debuff_duration_secs: 2.0,
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+pub struct PersistentAuraParams {
+    pub is_active_by_default: bool,
+    pub damage_per_tick: i32,
+    pub tick_interval_secs: f32,
+    pub radius: f32,
+    pub aura_color: Color,
+    pub visual_sprite_path: Option<&'static str>,
+    pub fire_rate_secs_placeholder: f32,
+}
+
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+pub struct PointBlankNovaParams {
+    pub base_fire_rate_secs: f32,
+    pub damage: i32,
+    pub radius: f32,
+    pub nova_color: Color,
+    pub visual_duration_secs: f32,
+    pub slow_effect_multiplier: f32,
+    pub slow_duration_secs: f32,
+}
+
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+pub struct ChainZapParams {
+    pub base_fire_rate_secs: f32,
+    pub initial_target_range: f32,
+    pub max_chains: u32,
+    pub chain_search_radius: f32,
+    pub base_damage_per_zap: i32,
+    pub damage_falloff_per_chain: f32,
+    pub zap_color: Color,
+    pub zap_width: f32,
+    pub zap_duration_secs: f32,
+}
+
+#[derive(Debug, Clone, Reflect, PartialEq)] // Removed Default derive, kept impl Default
+pub struct LineDashAttackParams {
+    pub base_fire_rate_secs: f32,
+    pub dash_speed: f32,
+    pub dash_duration_secs: f32,
+    pub damage_per_hit: i32,
+    pub hitbox_width: f32,
+    pub piercing_cap: u32,
+    pub dash_trail_color: Option<Color>,
+    pub invulnerable_during_dash: bool,
+}
+impl Default for LineDashAttackParams { // This impl was already here, ensure no #[derive(Default)]
+    fn default() -> Self {
+        Self {
+            base_fire_rate_secs: 1.0,
+            dash_speed: 1000.0,
+            dash_duration_secs: 0.3,
+            damage_per_hit: 10,
+            hitbox_width: 50.0,
+            piercing_cap: 3,
+            dash_trail_color: Some(Color::WHITE),
+            invulnerable_during_dash: false,
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+pub struct BlinkStrikeProjectileParams {
+    pub base_fire_rate_secs: f32,
+    pub base_damage: i32,
+    pub projectile_speed: f32,
+    pub projectile_sprite_path: &'static str,
+    pub projectile_size: Vec2,
+    pub projectile_color: Color,
+    pub projectile_lifetime_secs: f32,
+    pub piercing: u32,
+    pub blink_chance_on_hit_percent: f32,
+    pub blink_distance: f32,
+    pub blink_to_target_behind: bool,
+    pub blink_requires_kill: bool,
+    pub num_projectiles_per_shot: u32,
+}
+
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
 pub struct LobbedBouncingMagmaParams {
     pub base_fire_rate_secs: f32,
     pub projectile_speed: f32,
@@ -504,7 +482,7 @@ pub struct LobbedBouncingMagmaParams {
 }
 
 
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, PartialEq)] // Added PartialEq for AttackTypeData comparison in weapon_systems
 pub enum AttackTypeData {
     StandardProjectile(StandardProjectileParams),
     ReturningProjectile(ReturningProjectileParams),
@@ -522,13 +500,13 @@ pub enum AttackTypeData {
     BouncingProjectile(BouncingProjectileParams),
     LifestealProjectile(LifestealProjectileParams),
     GroundTargetedAoE(GroundTargetedAoEParams),
-    LineDashAttack(LineDashAttackParams), // Changed from DashAttack to LineDashAttack
+    LineDashAttack(LineDashAttackParams),
     OrbitingPet(OrbitingPetParams),
     RepositioningTether(RepositioningTetherParams),
-    BlinkStrikeProjectile(BlinkStrikeProjectileParams),
-    LobbedBouncingMagma(LobbedBouncingMagmaParams), // Added for Magma Ball
+    BlinkStrikeProjectile(BlinkStrikeProjectileParams), 
+    LobbedBouncingMagma(LobbedBouncingMagmaParams),
 }
-// Default implementation for AttackTypeData (using StandardProjectile as a sensible default)
+
 impl Default for AttackTypeData {
     fn default() -> Self {
         AttackTypeData::StandardProjectile(StandardProjectileParams::default())
@@ -559,13 +537,8 @@ pub struct RetaliationNovaEffect { pub damage: i32, pub radius_sq: f32, pub time
 #[derive(Component, Reflect, Default, Debug)] #[reflect(Component)]
 pub struct TemporaryHealthRegenBuff { pub regen_per_second: f32, pub duration_timer: Timer, }
 
-// --- Automatic Weapons ---
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Default)]
-#[reflect(Default)] // Added Default derive
-pub struct AutomaticWeaponId(pub u32);
 
-
-#[derive(Debug, Clone, Reflect)] // Removed Default derive, will ensure it's initialized properly
+#[derive(Debug, Clone, Reflect)] // Removed Default derive
 pub struct AutomaticWeaponDefinition {
     pub id: AutomaticWeaponId,
     pub name: String,
@@ -591,7 +564,6 @@ impl Plugin for ItemsPlugin {
         app .register_type::<ItemId>() .register_type::<SurvivorTemporaryBuff>() .register_type::<ItemEffect>() .register_type::<ItemLibrary>()
             .register_type::<ExplosionEffect>() .register_type::<RetaliationNovaEffect>() .register_type::<TemporaryHealthRegenBuff>()
             .register_type::<AutomaticWeaponId>()
-            // Register all param structs
             .register_type::<StandardProjectileParams>() .register_type::<ReturningProjectileParams>() .register_type::<ChanneledBeamParams>() .register_type::<ConeAttackParams>() .register_type::<LobbedAoEPoolParams>()
             .register_type::<ChargeLevelParams>() .register_type::<ChargeUpEnergyShotParams>()
             .register_type::<TrailOfFireParams>()
@@ -606,15 +578,17 @@ impl Plugin for ItemsPlugin {
             .register_type::<BouncingProjectileParams>()
             .register_type::<LifestealProjectileParams>()
             .register_type::<GroundTargetedAoEParams>()
-            .register_type::<LineDashAttackParams>() // Changed from DashAttackParams
+            .register_type::<LineDashAttackParams>() 
             .register_type::<OrbitingPetParams>()
             .register_type::<RepositioningTetherMode>()
             .register_type::<RepositioningTetherParams>()
             .register_type::<BlinkStrikeProjectileParams>()
-            .register_type::<LobbedBouncingMagmaParams>() // Added
+            .register_type::<LobbedBouncingMagmaParams>()
             .register_type::<AttackTypeData>()
-            // .register_type::<AutomaticWeaponDefinition>() // AutomaticWeaponDefinition does not need to be registered if not used as a component/resource directly in queries that require reflection for those purposes.
-            .register_type::<AutomaticWeaponLibrary>() // This is a Resource
+            // AutomaticWeaponDefinition does not need to be registered if it's not a Component or Resource itself that needs full reflection capabilities.
+            // However, its fields (like AttackTypeData which IS registered) need to be reflectable.
+            // .register_type::<AutomaticWeaponDefinition>() 
+            .register_type::<AutomaticWeaponLibrary>()
             .init_resource::<ItemLibrary>()
             .init_resource::<AutomaticWeaponLibrary>()
             .add_systems(Startup, (populate_item_library, populate_automatic_weapon_library) )
@@ -665,7 +639,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             base_projectile_color: Color::rgb(0.4, 0.1, 0.7),
             projectile_lifetime_secs: 2.5,
             charge_levels: vec![
-                ChargeLevelParams { // Tap Fire
+                ChargeLevelParams { 
                     charge_time_secs: 0.01, 
                     projectile_damage: 10,
                     projectile_speed: 500.0,
@@ -676,7 +650,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
                     explosion_damage: 0,
                     projectile_sprite_path_override: None,
                 },
-                ChargeLevelParams { // Partial Charge
+                ChargeLevelParams { 
                     charge_time_secs: 0.75,
                     projectile_damage: 25,
                     projectile_speed: 450.0,
@@ -687,7 +661,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
                     explosion_damage: 0,
                     projectile_sprite_path_override: None,
                 },
-                ChargeLevelParams { // Full Charge
+                ChargeLevelParams { 
                     charge_time_secs: 1.5,
                     projectile_damage: 60, 
                     projectile_speed: 350.0, 
@@ -763,7 +737,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             base_piercing: 0, 
             additional_projectiles: 0,
             projectile_sprite_path: "sprites/auto_arcane_ray.png",
-            projectile_size: Vec2::new(50.0, 50.0), // Placeholder size
+            projectile_size: Vec2::new(50.0, 50.0), 
             projectile_color: Color::rgb(0.7, 0.2, 0.9),
             projectile_lifetime_secs: 0.8,
         }),
@@ -818,14 +792,14 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(9),
         name: "Venom Spit".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams { // Placeholder, will be AoE Cloud Lobber
+        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams { 
             base_damage: 10, 
             base_fire_rate_secs: 0.4,
             base_projectile_speed: 500.0,
             base_piercing: 0,
             additional_projectiles: 2, 
             projectile_sprite_path: "sprites/auto_venom_spit.png",
-            projectile_size: Vec2::new(15.0, 15.0), // Smaller than old
+            projectile_size: Vec2::new(15.0, 15.0), 
             projectile_color: Color::rgb(0.2, 0.8, 0.1),
             projectile_lifetime_secs: 1.8,
         }),
@@ -918,7 +892,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(15),
         name: "Void Tendril".to_string(),
-        attack_data: AttackTypeData::ConeAttack(ConeAttackParams { // Reimagined as ConeAttack
+        attack_data: AttackTypeData::ConeAttack(ConeAttackParams { 
             base_damage: 18, 
             base_fire_rate_secs: 0.65, 
             cone_angle_degrees: 150.0, 
@@ -952,7 +926,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(17),
         name: "Magma Ball".to_string(),
-        attack_data: AttackTypeData::LobbedBouncingMagma(LobbedBouncingMagmaParams::default()), // Placeholder, needs specific params
+        attack_data: AttackTypeData::LobbedBouncingMagma(LobbedBouncingMagmaParams::default()),
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
@@ -1103,7 +1077,7 @@ fn populate_item_library(mut library: ResMut<ItemLibrary>) {
 
 fn apply_collected_item_effects_system(
     mut events: EventReader<ItemCollectedEvent>,
-    mut player_query: Query<(&mut Survivor, Option<&mut ComponentHealth>, Option<&mut CircleOfWarding>, Option<&mut SwarmOfNightmares>)>,
+    mut player_query: Query<(&mut Survivor, Option<&mut Health>, Option<&mut CircleOfWarding>, Option<&mut SwarmOfNightmares>)>, // Changed ComponentHealth to Health
     item_library: Res<ItemLibrary>,
     skill_library: Res<SkillLibrary>,
 ) {
@@ -1127,16 +1101,16 @@ fn apply_collected_item_effects_system(
                             } => {
                                 if let Some(hp_boost) = max_health_increase { player.max_health += *hp_boost; if let Some(ref mut health_comp) = opt_health_component { health_comp.0 += *hp_boost; health_comp.0 = health_comp.0.min(player.max_health); } }
                                 if let Some(speed_mult) = speed_multiplier { player.speed *= *speed_mult; }
-                                if let Some(dmg_inc) = damage_increase { player.auto_weapon_damage_bonus += *dmg_inc; }
+                                if let Some(dmg_inc) = damage_increase { player.auto_weapon_damage_bonus += *dmg_inc; } // Applied to generalized bonus
                                 if let Some(xp_mult) = xp_gain_multiplier { player.xp_gain_multiplier *= *xp_mult; }
                                 if let Some(radius_inc_percent) = pickup_radius_increase { player.pickup_radius_multiplier *= 1.0 + radius_inc_percent; }
-                                if let Some(projectile_speed_inc) = auto_weapon_projectile_speed_multiplier_increase { player.auto_weapon_projectile_speed_multiplier *= 1.0 + projectile_speed_inc; }
+                                if let Some(projectile_speed_inc) = auto_weapon_projectile_speed_multiplier_increase { player.auto_weapon_projectile_speed_multiplier *= 1.0 + projectile_speed_inc; } // Applied to generalized bonus
                             }
                             ItemEffect::GrantSpecificSkill { skill_id } => {
                                 if let Some(skill_to_grant_def) = skill_library.get_skill_definition(*skill_id) {
                                     let already_has_skill = player.equipped_skills.iter().any(|s| s.definition_id == *skill_id);
                                     if !already_has_skill { if player.equipped_skills.len() < 5 { 
-                                        player.equipped_skills.push(ActiveSkillInstance::new(*skill_id_to_grant_def.id )); // Use id from skill_def
+                                        player.equipped_skills.push(ActiveSkillInstance::new(skill_to_grant_def.id )); 
                                     } else { applied_successfully = false; }
                                     } else { applied_successfully = false; 
                                     }
@@ -1178,8 +1152,6 @@ fn apply_collected_item_effects_system(
                      player.collected_item_ids.push(item_id);
                 } else if !is_new_item {
                 }
-
-
             }
         }
     }
