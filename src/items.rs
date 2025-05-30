@@ -2,10 +2,10 @@
 use bevy::prelude::*;
 use crate::{
     survivor::Survivor,
-    components::Health, // Removed unused alias ComponentHealth
+    components::Health,
     game::{AppState, ItemCollectedEvent},
     horror::Horror,
-    visual_effects::spawn_damage_text,
+    visual_effects, // Import the module
     audio::{PlaySoundEvent, SoundEffect},
     skills::{SkillId, SkillLibrary, ActiveSkillInstance},
     weapons::{CircleOfWarding, SwarmOfNightmares},
@@ -29,7 +29,7 @@ pub enum ItemEffect {
         pickup_radius_increase: Option<f32>,
         auto_weapon_projectile_speed_multiplier_increase: Option<f32>,
     },
-    OnAutomaticProjectileHitExplode { // Renamed for generality
+    OnAutomaticProjectileHitExplode {
         chance: f32,
         explosion_damage: i32,
         explosion_radius: f32,
@@ -41,7 +41,7 @@ pub enum ItemEffect {
         retaliation_radius: f32,
         retaliation_color: Color,
     },
-    OnHorrorKillTrigger {
+    OnHorrorKillTrigger { // Changed from OnEnemyKillTrigger
         chance: f32,
         effect: SurvivorTemporaryBuff,
     },
@@ -58,14 +58,14 @@ pub struct AutomaticWeaponId(pub u32);
 
 // --- Parameter Struct Definitions for AttackTypeData ---
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)] // Added Default, PartialEq for ChanneledBeamParams comparison
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
 pub struct StandardProjectileParams {
     pub base_damage: i32,
     pub base_fire_rate_secs: f32,
     pub base_projectile_speed: f32,
     pub base_piercing: u32,
     pub additional_projectiles: u32,
-    pub projectile_sprite_path: String, // Changed to String
+    pub projectile_sprite_path: String,
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
@@ -75,7 +75,7 @@ pub struct StandardProjectileParams {
 pub struct ReturningProjectileParams {
     pub base_damage: i32,
     pub base_fire_rate_secs: f32,
-    pub projectile_sprite_path: String, // Changed to String
+    pub projectile_sprite_path: String,
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_speed: f32,
@@ -83,7 +83,7 @@ pub struct ReturningProjectileParams {
     pub piercing: u32,
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq)] // Removed Default from derive as there's an impl Default
+#[derive(Debug, Clone, Reflect, PartialEq)]
 pub struct ChanneledBeamParams {
     pub base_damage_per_tick: i32,
     pub tick_rate_secs: f32,
@@ -109,7 +109,7 @@ pub struct ConeAttackParams {
     pub cone_angle_degrees: f32,
     pub cone_radius: f32,
     pub color: Color,
-    pub visual_sprite_path: Option<String>, // Changed to Option<String>
+    pub visual_sprite_path: Option<String>,
     pub visual_size_scale_with_radius_angle: Option<(f32, f32)>,
     pub visual_anchor_offset: Option<Vec2>,
 }
@@ -120,7 +120,7 @@ pub struct LobbedAoEPoolParams {
     pub pool_damage_per_tick: i32,
     pub base_fire_rate_secs: f32,
     pub projectile_speed: f32,
-    pub projectile_sprite_path: String, // Changed to String
+    pub projectile_sprite_path: String,
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_arc_height: f32,
@@ -141,13 +141,13 @@ pub struct ChargeLevelParams {
     pub explodes_on_impact: bool,
     pub explosion_radius: f32,
     pub explosion_damage: i32,
-    pub projectile_sprite_path_override: Option<String>, // Changed to Option<String>
+    pub projectile_sprite_path_override: Option<String>,
 }
 
 #[derive(Debug, Clone, Reflect, Default, PartialEq)]
 pub struct ChargeUpEnergyShotParams {
     pub base_fire_rate_secs: f32,
-    pub base_projectile_sprite_path: String, // Changed to String
+    pub base_projectile_sprite_path: String,
     pub base_projectile_color: Color,
     pub charge_levels: Vec<ChargeLevelParams>,
     pub projectile_lifetime_secs: f32,
@@ -158,7 +158,7 @@ pub struct TrailOfFireParams {
     pub base_damage_on_impact: i32,
     pub base_fire_rate_secs: f32,
     pub projectile_speed: f32,
-    pub projectile_sprite_path: String, // Changed to String
+    pub projectile_sprite_path: String,
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
@@ -180,12 +180,12 @@ pub enum RepositioningTetherMode {
     Alternate,
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq)] // Removed Default from derive as there's an impl Default
+#[derive(Debug, Clone, Reflect, PartialEq)]
 pub struct RepositioningTetherParams {
     pub base_fire_rate_secs: f32,
     pub tether_projectile_speed: f32,
     pub tether_range: f32,
-    pub tether_sprite_path: String, // Changed to String
+    pub tether_sprite_path: String,
     pub tether_color: Color,
     pub tether_size: Vec2,
     pub mode: RepositioningTetherMode,
@@ -200,7 +200,7 @@ impl Default for RepositioningTetherParams {
             base_fire_rate_secs: 1.0,
             tether_projectile_speed: 600.0,
             tether_range: 400.0,
-            tether_sprite_path: "sprites/tether_placeholder.png",
+            tether_sprite_path: "sprites/tether_placeholder.png".to_string(),
             tether_color: Color::WHITE,
             tether_size: Vec2::new(10.0, 10.0),
             mode: RepositioningTetherMode::Pull,
@@ -213,12 +213,12 @@ impl Default for RepositioningTetherParams {
 }
 
 
-#[derive(Debug, Clone, Reflect, PartialEq)] // Removed Default from derive as there's an impl Default
+#[derive(Debug, Clone, Reflect, PartialEq)]
 pub struct OrbitingPetParams {
     pub base_fire_rate_secs: f32,
     pub max_active_orbs: u32,
     pub orb_duration_secs: f32,
-    pub orb_sprite_path: String, // Changed to String
+    pub orb_sprite_path: String,
     pub orb_size: Vec2,
     pub orb_color: Color,
     pub orbit_radius: f32,
@@ -234,7 +234,7 @@ pub struct OrbitingPetParams {
     pub bolt_damage: i32,
     pub bolt_speed: f32,
     pub bolt_fire_interval_secs: f32,
-    pub bolt_sprite_path: Option<String>, // Changed to Option<String>
+    pub bolt_sprite_path: Option<String>,
     pub bolt_size: Option<Vec2>,
     pub bolt_color: Option<Color>,
     pub bolt_lifetime_secs: Option<f32>,
@@ -244,7 +244,7 @@ impl Default for OrbitingPetParams {
     fn default() -> Self {
         Self {
             base_fire_rate_secs: 1.0, max_active_orbs: 1, orb_duration_secs: 10.0,
-            orb_sprite_path: "sprites/auto_shadow_orb.png", orb_size: Vec2::new(32.0, 32.0),
+            orb_sprite_path: "sprites/auto_shadow_orb.png".to_string(), orb_size: Vec2::new(32.0, 32.0),
             orb_color: Color::PURPLE, orbit_radius: 75.0, orbit_speed_rad_per_sec: 1.0,
             can_be_deployed_at_location: false, deployment_range: 0.0,
             pulses_aoe: true, pulse_damage: 5, pulse_radius: 50.0, pulse_interval_secs: 1.5, pulse_color: Some(Color::rgba(0.5, 0.2, 0.8, 0.4)),
@@ -255,11 +255,12 @@ impl Default for OrbitingPetParams {
 }
 
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)] // Added Default, PartialEq
+#[derive(Debug, Clone, Reflect, Default, PartialEq)]
 pub struct GroundTargetedAoEParams {
     pub base_fire_rate_secs: f32,
     pub targeting_range: f32,
-    pub reticle_sprite_path: Option<String>, // Changed to Option<String>
+    pub reticle_sprite_path: Option<String>,
+    pub visual_sprite_path: Option<String>, // Added field
     pub reticle_size: Vec2,
     pub delay_before_eruption_secs: f32,
     pub eruption_radius: f32,
@@ -276,7 +277,7 @@ pub struct LifestealProjectileParams {
     pub base_fire_rate_secs: f32,
     pub base_damage: i32,
     pub projectile_speed: f32,
-    pub projectile_sprite_path: String, // Changed to String
+    pub projectile_sprite_path: String,
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
@@ -290,7 +291,7 @@ pub struct BouncingProjectileParams {
     pub num_shards_per_shot: u32,
     pub base_damage: i32,
     pub projectile_speed: f32,
-    pub projectile_sprite_path: String, // Changed to String
+    pub projectile_sprite_path: String,
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
@@ -305,8 +306,8 @@ pub struct BouncingProjectileParams {
 #[reflect(Default)]
 pub enum ProjectileDebuffType {
     #[default]
-    DamageAmp, 
-    Slow,      
+    DamageAmp,
+    Slow,
 }
 
 #[derive(Debug, Clone, Reflect, Default, PartialEq)]
@@ -315,7 +316,7 @@ pub struct HomingDebuffProjectileParams {
     pub num_darts_per_shot: u32,
     pub base_damage: i32,
     pub projectile_speed: f32,
-    pub projectile_sprite_path: String, // Changed to String
+    pub projectile_sprite_path: String,
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
@@ -327,7 +328,7 @@ pub struct HomingDebuffProjectileParams {
     pub debuff_duration_secs_on_target: f32,
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq)] // Removed Default from derive as there's an impl Default
+#[derive(Debug, Clone, Reflect, PartialEq)]
 pub struct ExpandingEnergyBombParams {
     pub base_fire_rate_secs: f32,
     pub max_radius: f32,
@@ -335,7 +336,7 @@ pub struct ExpandingEnergyBombParams {
     pub min_damage_at_min_radius: i32,
     pub max_damage_at_max_radius: i32,
     pub bomb_color: Color,
-    pub visual_sprite_path: Option<String>, // Changed to Option<String>
+    pub visual_sprite_path: Option<String>,
     pub detonation_can_be_manual: bool,
     pub auto_detonation_delay_after_max_expansion_secs: f32,
 }
@@ -344,7 +345,7 @@ impl Default for ExpandingEnergyBombParams {
         Self {
             base_fire_rate_secs: 2.0, max_radius: 250.0, expansion_duration_secs: 2.5,
             min_damage_at_min_radius: 10, max_damage_at_max_radius: 80, bomb_color: Color::CYAN,
-            visual_sprite_path: Some("sprites/spirit_bomb_effect_placeholder.png"),
+            visual_sprite_path: Some("sprites/spirit_bomb_effect_placeholder.png".to_string()),
             detonation_can_be_manual: true, auto_detonation_delay_after_max_expansion_secs: 1.0,
         }
     }
@@ -361,13 +362,13 @@ pub enum AuraDebuffType {
 }
 
 
-#[derive(Debug, Clone, Reflect, PartialEq)] // Removed Default from derive as there's an impl Default
+#[derive(Debug, Clone, Reflect, PartialEq)]
 pub struct DebuffAuraParams {
     pub base_fire_rate_secs: f32,
     pub cloud_radius: f32,
     pub cloud_duration_secs: f32,
     pub cloud_color: Color,
-    pub visual_sprite_path: Option<String>, // Changed to Option<String>
+    pub visual_sprite_path: Option<String>,
     pub debuff_type: AuraDebuffType,
     pub debuff_magnitude: f32,
     pub debuff_duration_secs: f32,
@@ -376,7 +377,7 @@ impl Default for DebuffAuraParams {
     fn default() -> Self {
         Self {
             base_fire_rate_secs: 1.0, cloud_radius: 100.0, cloud_duration_secs: 3.0,
-            cloud_color: Color::GRAY, visual_sprite_path: Some("sprites/debuff_cloud_placeholder.png"),
+            cloud_color: Color::GRAY, visual_sprite_path: Some("sprites/debuff_cloud_placeholder.png".to_string()),
             debuff_type: AuraDebuffType::ReduceAccuracy, debuff_magnitude: 0.2, debuff_duration_secs: 2.0,
         }
     }
@@ -390,7 +391,7 @@ pub struct PersistentAuraParams {
     pub tick_interval_secs: f32,
     pub radius: f32,
     pub aura_color: Color,
-    pub visual_sprite_path: Option<String>, // Changed to Option<String>
+    pub visual_sprite_path: Option<String>,
     pub fire_rate_secs_placeholder: f32,
 }
 
@@ -418,7 +419,7 @@ pub struct ChainZapParams {
     pub zap_duration_secs: f32,
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq)] // Removed Default derive, kept impl Default
+#[derive(Debug, Clone, Reflect, PartialEq)]
 pub struct LineDashAttackParams {
     pub base_fire_rate_secs: f32,
     pub dash_speed: f32,
@@ -429,7 +430,7 @@ pub struct LineDashAttackParams {
     pub dash_trail_color: Option<Color>,
     pub invulnerable_during_dash: bool,
 }
-impl Default for LineDashAttackParams { // This impl was already here, ensure no #[derive(Default)]
+impl Default for LineDashAttackParams {
     fn default() -> Self {
         Self {
             base_fire_rate_secs: 1.0,
@@ -450,7 +451,7 @@ pub struct BlinkStrikeProjectileParams {
     pub base_fire_rate_secs: f32,
     pub base_damage: i32,
     pub projectile_speed: f32,
-    pub projectile_sprite_path: String, // Changed to String
+    pub projectile_sprite_path: String,
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
@@ -462,11 +463,11 @@ pub struct BlinkStrikeProjectileParams {
     pub num_projectiles_per_shot: u32,
 }
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
 pub struct LobbedBouncingMagmaParams {
     pub base_fire_rate_secs: f32,
     pub projectile_speed: f32,
-    pub projectile_sprite_path: String, // Changed to String
+    pub projectile_sprite_path: String,
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_arc_height: f32,
@@ -479,10 +480,34 @@ pub struct LobbedBouncingMagmaParams {
     pub fire_pool_duration_secs: f32,
     pub fire_pool_tick_interval_secs: f32,
     pub fire_pool_color: Color,
+    pub projectile_lifetime_secs: f32, // Added field
+}
+
+impl Default for LobbedBouncingMagmaParams {
+    fn default() -> Self {
+        Self {
+            base_fire_rate_secs: 0.9,
+            projectile_speed: 350.0,
+            projectile_sprite_path: "sprites/magma_ball_placeholder.png".to_string(),
+            projectile_size: Vec2::new(28.0, 28.0),
+            projectile_color: Color::ORANGE_RED,
+            projectile_arc_height: 60.0,
+            num_bounces: 3,
+            damage_per_bounce_impact: 15,
+            bounce_impact_radius: 50.0,
+            fire_pool_on_bounce_chance: 0.66,
+            fire_pool_damage_per_tick: 8,
+            fire_pool_radius: 60.0,
+            fire_pool_duration_secs: 2.5,
+            fire_pool_tick_interval_secs: 0.4,
+            fire_pool_color: Color::rgba(1.0, 0.4, 0.0, 0.6),
+            projectile_lifetime_secs: 3.0, // Added default value
+        }
+    }
 }
 
 
-#[derive(Debug, Clone, Reflect, PartialEq)] // Added PartialEq for AttackTypeData comparison in weapon_systems
+#[derive(Debug, Clone, Reflect, PartialEq)]
 pub enum AttackTypeData {
     StandardProjectile(StandardProjectileParams),
     ReturningProjectile(ReturningProjectileParams),
@@ -503,7 +528,7 @@ pub enum AttackTypeData {
     LineDashAttack(LineDashAttackParams),
     OrbitingPet(OrbitingPetParams),
     RepositioningTether(RepositioningTetherParams),
-    BlinkStrikeProjectile(BlinkStrikeProjectileParams), 
+    BlinkStrikeProjectile(BlinkStrikeProjectileParams),
     LobbedBouncingMagma(LobbedBouncingMagmaParams),
 }
 
@@ -520,7 +545,7 @@ pub struct ItemDefinition {
     pub name: String,
     pub description: String,
     pub effects: Vec<ItemEffect>,
-    pub icon_path: String, // Changed to String
+    pub icon_path: String,
 }
 
 #[derive(Resource, Default, Reflect)] #[reflect(Resource)]
@@ -538,7 +563,7 @@ pub struct RetaliationNovaEffect { pub damage: i32, pub radius_sq: f32, pub time
 pub struct TemporaryHealthRegenBuff { pub regen_per_second: f32, pub duration_timer: Timer, }
 
 
-#[derive(Debug, Clone, Reflect)] // Removed Default derive
+#[derive(Debug, Clone, Reflect)]
 pub struct AutomaticWeaponDefinition {
     pub id: AutomaticWeaponId,
     pub name: String,
@@ -578,16 +603,14 @@ impl Plugin for ItemsPlugin {
             .register_type::<BouncingProjectileParams>()
             .register_type::<LifestealProjectileParams>()
             .register_type::<GroundTargetedAoEParams>()
-            .register_type::<LineDashAttackParams>() 
+            .register_type::<LineDashAttackParams>()
             .register_type::<OrbitingPetParams>()
             .register_type::<RepositioningTetherMode>()
             .register_type::<RepositioningTetherParams>()
             .register_type::<BlinkStrikeProjectileParams>()
             .register_type::<LobbedBouncingMagmaParams>()
             .register_type::<AttackTypeData>()
-            // AutomaticWeaponDefinition does not need to be registered if it's not a Component or Resource itself that needs full reflection capabilities.
-            // However, its fields (like AttackTypeData which IS registered) need to be reflectable.
-            // .register_type::<AutomaticWeaponDefinition>() 
+            .register_type::<AutomaticWeaponDefinition>() // Registered
             .register_type::<AutomaticWeaponLibrary>()
             .init_resource::<ItemLibrary>()
             .init_resource::<AutomaticWeaponLibrary>()
@@ -639,8 +662,8 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             base_projectile_color: Color::rgb(0.4, 0.1, 0.7),
             projectile_lifetime_secs: 2.5,
             charge_levels: vec![
-                ChargeLevelParams { 
-                    charge_time_secs: 0.01, 
+                ChargeLevelParams {
+                    charge_time_secs: 0.01,
                     projectile_damage: 10,
                     projectile_speed: 500.0,
                     projectile_size: Vec2::new(25.0, 25.0),
@@ -650,7 +673,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
                     explosion_damage: 0,
                     projectile_sprite_path_override: None,
                 },
-                ChargeLevelParams { 
+                ChargeLevelParams {
                     charge_time_secs: 0.75,
                     projectile_damage: 25,
                     projectile_speed: 450.0,
@@ -661,14 +684,14 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
                     explosion_damage: 0,
                     projectile_sprite_path_override: None,
                 },
-                ChargeLevelParams { 
+                ChargeLevelParams {
                     charge_time_secs: 1.5,
-                    projectile_damage: 60, 
-                    projectile_speed: 350.0, 
-                    projectile_size: Vec2::new(60.0, 60.0), 
-                    piercing: 2, 
+                    projectile_damage: 60,
+                    projectile_speed: 350.0,
+                    projectile_size: Vec2::new(60.0, 60.0),
+                    piercing: 2,
                     explodes_on_impact: true,
-                    explosion_radius: 75.0, 
+                    explosion_radius: 75.0,
                     explosion_damage: 30,
                     projectile_sprite_path_override: Some("sprites/void_cannon_charged_placeholder.png".to_string()),
                 },
@@ -734,10 +757,10 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             base_damage: 40,
             base_fire_rate_secs: 1.5,
             base_projectile_speed: 900.0,
-            base_piercing: 0, 
+            base_piercing: 0,
             additional_projectiles: 0,
             projectile_sprite_path: "sprites/auto_arcane_ray.png".to_string(),
-            projectile_size: Vec2::new(50.0, 50.0), 
+            projectile_size: Vec2::new(50.0, 50.0),
             projectile_color: Color::rgb(0.7, 0.2, 0.9),
             projectile_lifetime_secs: 0.8,
         }),
@@ -747,15 +770,15 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         id: AutomaticWeaponId(7),
         name: "Shadow Orb".to_string(),
         attack_data: AttackTypeData::OrbitingPet(OrbitingPetParams {
-            base_fire_rate_secs: 1.0, 
+            base_fire_rate_secs: 1.0,
             max_active_orbs: 2,
             orb_duration_secs: 10.0,
-            orb_sprite_path: "sprites/auto_shadow_orb.png".to_string(), 
-            orb_size: Vec2::new(32.0, 32.0), 
-            orb_color: Color::rgb(0.2, 0.1, 0.3), 
+            orb_sprite_path: "sprites/auto_shadow_orb.png".to_string(),
+            orb_size: Vec2::new(32.0, 32.0),
+            orb_color: Color::rgb(0.2, 0.1, 0.3),
             orbit_radius: 100.0,
             orbit_speed_rad_per_sec: 1.0,
-            can_be_deployed_at_location: false, 
+            can_be_deployed_at_location: false,
             deployment_range: 0.0,
             pulses_aoe: true,
             pulse_damage: 10,
@@ -770,7 +793,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             bolt_size: Some(Vec2::new(10.0, 15.0)),
             bolt_color: Some(Color::rgb(0.3, 0.1, 0.5)),
             bolt_lifetime_secs: Some(1.0),
-            bolt_homing_strength: Some(0.5), 
+            bolt_homing_strength: Some(0.5),
         }),
     });
 
@@ -792,14 +815,14 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(9),
         name: "Venom Spit".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams { 
-            base_damage: 10, 
+        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
+            base_damage: 10,
             base_fire_rate_secs: 0.4,
             base_projectile_speed: 500.0,
             base_piercing: 0,
-            additional_projectiles: 2, 
+            additional_projectiles: 2,
             projectile_sprite_path: "sprites/auto_venom_spit.png".to_string(),
-            projectile_size: Vec2::new(15.0, 15.0), 
+            projectile_size: Vec2::new(15.0, 15.0),
             projectile_color: Color::rgb(0.2, 0.8, 0.1),
             projectile_lifetime_secs: 1.8,
         }),
@@ -826,7 +849,8 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             base_fire_rate_secs: 1.8,
             targeting_range: 400.0,
             reticle_sprite_path: Some("sprites/ground_target_reticle_placeholder.png".to_string()),
-            reticle_size: Vec2::new(64.0, 64.0), 
+            visual_sprite_path: Some("sprites/eruption_effect_placeholder.png".to_string()), // Added
+            reticle_size: Vec2::new(64.0, 64.0),
             delay_before_eruption_secs: 0.5,
             eruption_radius: 80.0,
             damage: 45,
@@ -892,15 +916,15 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(15),
         name: "Void Tendril".to_string(),
-        attack_data: AttackTypeData::ConeAttack(ConeAttackParams { 
-            base_damage: 18, 
-            base_fire_rate_secs: 0.65, 
-            cone_angle_degrees: 150.0, 
-            cone_radius: 100.0, 
-            color: Color::rgb(0.3, 0.0, 0.5), 
+        attack_data: AttackTypeData::ConeAttack(ConeAttackParams {
+            base_damage: 18,
+            base_fire_rate_secs: 0.65,
+            cone_angle_degrees: 150.0,
+            cone_radius: 100.0,
+            color: Color::rgb(0.3, 0.0, 0.5),
             visual_sprite_path: Some("sprites/void_tendril_sweep_placeholder.png".to_string()),
-            visual_size_scale_with_radius_angle: Some((1.0, 0.8)), 
-            visual_anchor_offset: Some(Vec2::new(0.0, 20.0)), 
+            visual_size_scale_with_radius_angle: Some((1.0, 0.8)),
+            visual_anchor_offset: Some(Vec2::new(0.0, 20.0)),
         }),
     });
 
@@ -926,7 +950,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(17),
         name: "Magma Ball".to_string(),
-        attack_data: AttackTypeData::LobbedBouncingMagma(LobbedBouncingMagmaParams::default()),
+        attack_data: AttackTypeData::LobbedBouncingMagma(LobbedBouncingMagmaParams::default()), // Uses default with added lifetime
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
@@ -965,14 +989,15 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             base_fire_rate_secs: 1.1,
             targeting_range: 350.0,
             reticle_sprite_path: Some("sprites/nature_reticle_placeholder.png".to_string()),
+            visual_sprite_path: Some("sprites/nature_eruption_placeholder.png".to_string()), // Added
             reticle_size: Vec2::new(80.0, 80.0),
             delay_before_eruption_secs: 0.4,
             eruption_radius: 80.0,
-            damage: 5, 
-            aoe_color: Color::rgb(0.1, 0.6, 0.2), 
+            damage: 5,
+            aoe_color: Color::rgb(0.1, 0.6, 0.2),
             aoe_visual_duration_secs: 0.6,
-            knock_up_strength: 0.0, 
-            root_duration_secs: Some(2.5), 
+            knock_up_strength: 0.0,
+            root_duration_secs: Some(2.5),
         }),
     });
 
@@ -995,18 +1020,18 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(22),
         name: "Psionic Lash".to_string(),
-        attack_data: AttackTypeData::RepositioningTether(RepositioningTetherParams { 
+        attack_data: AttackTypeData::RepositioningTether(RepositioningTetherParams {
             base_fire_rate_secs: 1.0,
             tether_projectile_speed: 800.0,
             tether_range: 500.0,
-            tether_sprite_path: "sprites/auto_psionic_lash.png".to_string(), 
+            tether_sprite_path: "sprites/auto_psionic_lash.png".to_string(),
             tether_color: Color::rgb(0.8, 0.4, 0.9),
-            tether_size: Vec2::new(8.0, 20.0), 
+            tether_size: Vec2::new(8.0, 20.0),
             mode: RepositioningTetherMode::Alternate,
             pull_strength: 100.0,
             push_strength: 100.0,
             reactivation_window_secs: 1.5,
-            effect_duration_secs: 0.2, 
+            effect_duration_secs: 0.2,
         }),
     });
 
@@ -1018,18 +1043,19 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             base_damage: 14,
             projectile_speed: 1000.0,
             projectile_sprite_path: "sprites/auto_aether_bolt.png".to_string(),
-            projectile_size: Vec2::new(16.0, 16.0), 
+            projectile_size: Vec2::new(16.0, 16.0),
             projectile_color: Color::rgb(0.9,0.9,0.9),
             projectile_lifetime_secs: 1.4,
             piercing: 1,
-            blink_chance_on_hit_percent: 0.25, 
-            blink_distance: 100.0, 
-            blink_to_target_behind: true, 
-            blink_requires_kill: false, 
-            num_projectiles_per_shot: 2, 
+            blink_chance_on_hit_percent: 0.25,
+            blink_distance: 100.0,
+            blink_to_target_behind: true,
+            blink_requires_kill: false,
+            num_projectiles_per_shot: 2,
         }),
     });
 }
+
 
 fn populate_item_library(mut library: ResMut<ItemLibrary>) {
     library.items.push(ItemDefinition { id: ItemId(1), name: "Corrupted Heart".to_string(), description: "Increases Max Health by 25.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: Some(25), speed_multiplier: None, damage_increase: None, xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_corrupted_heart_placeholder.png".to_string() });
@@ -1040,44 +1066,44 @@ fn populate_item_library(mut library: ResMut<ItemLibrary>) {
     library.items.push(ItemDefinition { id: ItemId(6), name: "Fragmented Sanity".to_string(), description: "Your automatic projectiles have a chance to violently detonate on impact.".to_string(), effects: vec![ItemEffect::OnAutomaticProjectileHitExplode { chance: 0.15, explosion_damage: 20, explosion_radius: 75.0, explosion_color: Color::rgba(1.0, 0.5, 0.2, 0.6), }], icon_path: "sprites/icons/item_fragmented_sanity_placeholder.png".to_string() });
     library.items.push(ItemDefinition { id: ItemId(7), name: "Cloak of VengefulSpirits".to_string(), description: "When struck, has a chance to unleash a damaging psychic nova.".to_string(), effects: vec![ItemEffect::OnSurvivorHitRetaliate { chance: 0.25, retaliation_damage: 30, retaliation_radius: 120.0, retaliation_color: Color::rgba(0.9, 0.1, 0.1, 0.5), }], icon_path: "sprites/icons/item_cloak_vengeful_spirits_placeholder.png".to_string() });
     library.items.push(ItemDefinition { id: ItemId(8), name: "Soul Siphon Shard".to_string(), description: "Defeated foes have a 20% chance to grant brief, rapid health regeneration.".to_string(), effects: vec![ItemEffect::OnHorrorKillTrigger { chance: 0.20, effect: SurvivorTemporaryBuff::HealthRegen { rate: 5.0, duration_secs: 3.0 }, }], icon_path: "sprites/icons/item_soul_siphon_shard_placeholder.png".to_string() });
-    library.items.push(ItemDefinition { id: ItemId(9), name: "Tome of Forbidden Rites".to_string(), description: "Grants knowledge of the 'Void Lance' skill.".to_string(), effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(3) }], icon_path: "sprites/icons/item_tome_forbidden_rites_placeholder.png".to_string() }); 
+    library.items.push(ItemDefinition { id: ItemId(9), name: "Tome of Forbidden Rites".to_string(), description: "Grants knowledge of the 'Void Lance' skill.".to_string(), effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(3) }], icon_path: "sprites/icons/item_tome_forbidden_rites_placeholder.png".to_string() });
     library.items.push(ItemDefinition { id: ItemId(10), name: "Glyph-Etched Wardstone".to_string(), description: "Activates a Circle of Warding, damaging nearby foes.".to_string(), effects: vec![ItemEffect::ActivateCircleOfWarding { base_damage: 3, base_radius: 75.0, base_tick_interval: 0.5, }], icon_path: "sprites/icons/item_glyph_wardstone_placeholder.png".to_string() });
     library.items.push(ItemDefinition { id: ItemId(11), name: "Broodmother's Oculus".to_string(), description: "Summons a Swarm of Nightmares to orbit and attack enemies.".to_string(), effects: vec![ItemEffect::ActivateSwarmOfNightmares { num_larvae: 2, base_damage: 5, base_orbit_radius: 80.0, base_rotation_speed: std::f32::consts::PI / 2.0, }], icon_path: "sprites/icons/item_broodmother_oculus_placeholder.png".to_string() });
     library.items.push(ItemDefinition { id: ItemId(12), name: "Crystalline Conduit".to_string(), description: "Increases automatic weapon damage by +3 and projectile speed by +10%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: Some(3), xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: Some(0.10) }], icon_path: "sprites/icons/item_crystalline_conduit_placeholder.png".to_string() });
-    library.items.push(ItemDefinition { 
-        id: ItemId(13), 
-        name: "Tome of Shattered Thoughts".to_string(), 
-        description: "Unlocks the 'Mind Shatter' psychic burst skill.".to_string(), 
-        effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(2) }], 
-        icon_path: "sprites/icons/item_tome_mind_shatter_placeholder.png".to_string() 
+    library.items.push(ItemDefinition {
+        id: ItemId(13),
+        name: "Tome of Shattered Thoughts".to_string(),
+        description: "Unlocks the 'Mind Shatter' psychic burst skill.".to_string(),
+        effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(2) }],
+        icon_path: "sprites/icons/item_tome_mind_shatter_placeholder.png".to_string()
     });
-    library.items.push(ItemDefinition { 
-        id: ItemId(14), 
-        name: "Tome of the Glacial Heart".to_string(), 
-        description: "Unlocks the 'Glacial Nova' chilling skill.".to_string(), 
-        effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(5) }], 
-        icon_path: "sprites/icons/item_tome_glacial_nova_placeholder.png".to_string() 
+    library.items.push(ItemDefinition {
+        id: ItemId(14),
+        name: "Tome of the Glacial Heart".to_string(),
+        description: "Unlocks the 'Glacial Nova' chilling skill.".to_string(),
+        effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(5) }],
+        icon_path: "sprites/icons/item_tome_glacial_nova_placeholder.png".to_string()
     });
-    library.items.push(ItemDefinition { 
-        id: ItemId(15), 
-        name: "Tome of the Watcher".to_string(), 
-        description: "Unlocks the 'Psychic Sentry' summoning skill.".to_string(), 
-        effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(6) }], 
-        icon_path: "sprites/icons/item_tome_psychic_sentry_placeholder.png".to_string() 
+    library.items.push(ItemDefinition {
+        id: ItemId(15),
+        name: "Tome of the Watcher".to_string(),
+        description: "Unlocks the 'Psychic Sentry' summoning skill.".to_string(),
+        effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(6) }],
+        icon_path: "sprites/icons/item_tome_psychic_sentry_placeholder.png".to_string()
     });
-     library.items.push(ItemDefinition { 
-        id: ItemId(16), 
-        name: "Tome of Ethereal Defense".to_string(), 
-        description: "Unlocks the 'Ethereal Ward' defensive skill.".to_string(), 
-        effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(7) }], 
-        icon_path: "sprites/icons/item_tome_ethereal_ward_placeholder.png".to_string() 
+     library.items.push(ItemDefinition {
+        id: ItemId(16),
+        name: "Tome of Ethereal Defense".to_string(),
+        description: "Unlocks the 'Ethereal Ward' defensive skill.".to_string(),
+        effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(7) }],
+        icon_path: "sprites/icons/item_tome_ethereal_ward_placeholder.png".to_string()
     });
 
 }
 
 fn apply_collected_item_effects_system(
     mut events: EventReader<ItemCollectedEvent>,
-    mut player_query: Query<(&mut Survivor, Option<&mut Health>, Option<&mut CircleOfWarding>, Option<&mut SwarmOfNightmares>)>, // Changed ComponentHealth to Health
+    mut player_query: Query<(&mut Survivor, Option<&mut Health>, Option<&mut CircleOfWarding>, Option<&mut SwarmOfNightmares>)>,
     item_library: Res<ItemLibrary>,
     skill_library: Res<SkillLibrary>,
 ) {
@@ -1085,10 +1111,10 @@ fn apply_collected_item_effects_system(
         for event in events.read() {
             let item_id = event.0;
             let is_new_item = !player.collected_item_ids.contains(&item_id);
-            
+
             if let Some(item_def) = item_library.get_item_definition(item_id) {
-                let mut applied_successfully = true; 
-                if is_new_item { 
+                let mut applied_successfully = true;
+                if is_new_item {
                     for effect in &item_def.effects {
                         match effect {
                             ItemEffect::PassiveStatBoost {
@@ -1101,18 +1127,18 @@ fn apply_collected_item_effects_system(
                             } => {
                                 if let Some(hp_boost) = max_health_increase { player.max_health += *hp_boost; if let Some(ref mut health_comp) = opt_health_component { health_comp.0 += *hp_boost; health_comp.0 = health_comp.0.min(player.max_health); } }
                                 if let Some(speed_mult) = speed_multiplier { player.speed *= *speed_mult; }
-                                if let Some(dmg_inc) = damage_increase { player.auto_weapon_damage_bonus += *dmg_inc; } // Applied to generalized bonus
+                                if let Some(dmg_inc) = damage_increase { player.auto_weapon_damage_bonus += *dmg_inc; }
                                 if let Some(xp_mult) = xp_gain_multiplier { player.xp_gain_multiplier *= *xp_mult; }
                                 if let Some(radius_inc_percent) = pickup_radius_increase { player.pickup_radius_multiplier *= 1.0 + radius_inc_percent; }
-                                if let Some(projectile_speed_inc) = auto_weapon_projectile_speed_multiplier_increase { player.auto_weapon_projectile_speed_multiplier *= 1.0 + projectile_speed_inc; } // Applied to generalized bonus
+                                if let Some(projectile_speed_inc) = auto_weapon_projectile_speed_multiplier_increase { player.auto_weapon_projectile_speed_multiplier *= 1.0 + projectile_speed_inc; }
                             }
                             ItemEffect::GrantSpecificSkill { skill_id } => {
                                 if let Some(skill_to_grant_def) = skill_library.get_skill_definition(*skill_id) {
                                     let already_has_skill = player.equipped_skills.iter().any(|s| s.definition_id == *skill_id);
-                                    if !already_has_skill { if player.equipped_skills.len() < 5 { 
-                                        player.equipped_skills.push(ActiveSkillInstance::new(skill_to_grant_def.id )); 
+                                    if !already_has_skill { if player.equipped_skills.len() < 5 {
+                                        player.equipped_skills.push(ActiveSkillInstance::new(skill_to_grant_def.id ));
                                     } else { applied_successfully = false; }
-                                    } else { applied_successfully = false; 
+                                    } else { applied_successfully = false;
                                     }
                                 } else { applied_successfully = false; }
                             }
@@ -1123,9 +1149,9 @@ fn apply_collected_item_effects_system(
                                         circle_aura.base_damage_per_tick = *base_damage;
                                         circle_aura.current_radius = *base_radius;
                                         circle_aura.damage_tick_timer = Timer::from_seconds(*base_tick_interval, TimerMode::Repeating);
-                                    } else { 
-                                        circle_aura.base_damage_per_tick += 1; 
-                                        circle_aura.current_radius *= 1.05; 
+                                    } else {
+                                        circle_aura.base_damage_per_tick += 1;
+                                        circle_aura.current_radius *= 1.05;
                                     }
                                 } else { applied_successfully = false; }
                             }
@@ -1137,8 +1163,8 @@ fn apply_collected_item_effects_system(
                                         nightmare_swarm.damage_per_hit = *base_damage;
                                         nightmare_swarm.orbit_radius = *base_orbit_radius;
                                         nightmare_swarm.rotation_speed = *base_rotation_speed;
-                                    } else { 
-                                        nightmare_swarm.num_larvae = (nightmare_swarm.num_larvae + 1).min(8); 
+                                    } else {
+                                        nightmare_swarm.num_larvae = (nightmare_swarm.num_larvae + 1).min(8);
                                         nightmare_swarm.damage_per_hit += 1;
                                     }
                                 } else { applied_successfully = false; }
@@ -1157,19 +1183,19 @@ fn apply_collected_item_effects_system(
     }
 }
 
-fn explosion_effect_system( mut commands: Commands, time: Res<Time>, mut explosion_query: Query<(Entity, &mut ExplosionEffect, &GlobalTransform, &mut Sprite, &mut Transform)>, mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>, asset_server: Res<AssetServer>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (explosion_entity, mut explosion, explosion_g_transform, mut sprite, mut vis_transform) in explosion_query.iter_mut() { explosion.timer.tick(time.delta()); let progress = explosion.timer.percent(); let current_radius = explosion.radius_sq.sqrt(); vis_transform.scale = Vec3::splat(current_radius * 2.0 * progress); sprite.color.set_a(1.0 - progress); if explosion.timer.percent() < 0.5 { let explosion_pos = explosion_g_transform.translation().truncate(); for (horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() { if explosion.already_hit_entities.contains(&horror_entity) { continue; } let horror_pos = horror_gtransform.translation().truncate(); if horror_pos.distance_squared(explosion_pos) < explosion.radius_sq { horror_health.0 -= explosion.damage; spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), explosion.damage, &time); sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit)); explosion.already_hit_entities.push(horror_entity); } } } if explosion.timer.finished() { commands.entity(explosion_entity).despawn_recursive(); } } }
-fn retaliation_nova_effect_system( mut commands: Commands, time: Res<Time>, mut nova_query: Query<(Entity, &mut RetaliationNovaEffect, &GlobalTransform, &mut Sprite, &mut Transform)>, mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>, asset_server: Res<AssetServer>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (nova_entity, mut nova, nova_g_transform, mut sprite, mut vis_transform) in nova_query.iter_mut() { nova.timer.tick(time.delta()); let progress = nova.timer.percent(); let current_radius = nova.radius_sq.sqrt(); vis_transform.scale = Vec3::splat(current_radius * 2.0 * progress); sprite.color.set_a(1.0 - progress * progress); if nova.timer.percent() < 0.3 { let nova_pos = nova_g_transform.translation().truncate(); for (horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() { if nova.already_hit_entities.contains(&horror_entity) { continue; } let horror_pos = horror_gtransform.translation().truncate(); if horror_pos.distance_squared(nova_pos) < nova.radius_sq { horror_health.0 -= nova.damage; spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), nova.damage, &time); sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit)); nova.already_hit_entities.push(horror_entity); } } } if nova.timer.finished() { commands.entity(nova_entity).despawn_recursive(); } } }
-fn temporary_health_regen_buff_system( mut commands: Commands, time: Res<Time>, mut buff_query: Query<(Entity, &mut TemporaryHealthRegenBuff)>, mut player_query: Query<(&Survivor, &mut Health)>) { 
+fn explosion_effect_system( mut commands: Commands, time: Res<Time>, mut explosion_query: Query<(Entity, &mut ExplosionEffect, &GlobalTransform, &mut Sprite, &mut Transform)>, mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>, asset_server: Res<AssetServer>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (explosion_entity, mut explosion, explosion_g_transform, mut sprite, mut vis_transform) in explosion_query.iter_mut() { explosion.timer.tick(time.delta()); let progress = explosion.timer.percent(); let current_radius = explosion.radius_sq.sqrt(); vis_transform.scale = Vec3::splat(current_radius * 2.0 * progress); sprite.color.set_a(1.0 - progress); if explosion.timer.percent() < 0.5 { let explosion_pos = explosion_g_transform.translation().truncate(); for (horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() { if explosion.already_hit_entities.contains(&horror_entity) { continue; } let horror_pos = horror_gtransform.translation().truncate(); if horror_pos.distance_squared(explosion_pos) < explosion.radius_sq { horror_health.0 -= explosion.damage; visual_effects::spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), explosion.damage, &time); sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit)); explosion.already_hit_entities.push(horror_entity); } } } if explosion.timer.finished() { commands.entity(explosion_entity).despawn_recursive(); } } }
+fn retaliation_nova_effect_system( mut commands: Commands, time: Res<Time>, mut nova_query: Query<(Entity, &mut RetaliationNovaEffect, &GlobalTransform, &mut Sprite, &mut Transform)>, mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>, asset_server: Res<AssetServer>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (nova_entity, mut nova, nova_g_transform, mut sprite, mut vis_transform) in nova_query.iter_mut() { nova.timer.tick(time.delta()); let progress = nova.timer.percent(); let current_radius = nova.radius_sq.sqrt(); vis_transform.scale = Vec3::splat(current_radius * 2.0 * progress); sprite.color.set_a(1.0 - progress * progress); if nova.timer.percent() < 0.3 { let nova_pos = nova_g_transform.translation().truncate(); for (horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() { if nova.already_hit_entities.contains(&horror_entity) { continue; } let horror_pos = horror_gtransform.translation().truncate(); if horror_pos.distance_squared(nova_pos) < nova.radius_sq { horror_health.0 -= nova.damage; visual_effects::spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), nova.damage, &time); sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit)); nova.already_hit_entities.push(horror_entity); } } } if nova.timer.finished() { commands.entity(nova_entity).despawn_recursive(); } } }
+fn temporary_health_regen_buff_system( mut commands: Commands, time: Res<Time>, mut buff_query: Query<(Entity, &mut TemporaryHealthRegenBuff)>, mut player_query: Query<(&Survivor, &mut Health)>) {
     if let Ok((survivor_stats, mut health_component)) = player_query.get_single_mut() {
-        for (entity, mut buff) in buff_query.iter_mut() { 
-            buff.duration_timer.tick(time.delta()); 
-            if buff.duration_timer.finished() { 
-                commands.entity(entity).remove::<TemporaryHealthRegenBuff>(); 
-            } else { 
-                let regen_amount = buff.regen_per_second * time.delta().as_secs_f32(); 
-                health_component.0 = (health_component.0 as f32 + regen_amount).round() as i32; 
-                health_component.0 = health_component.0.min(survivor_stats.max_health); 
-            } 
+        for (entity, mut buff) in buff_query.iter_mut() {
+            buff.duration_timer.tick(time.delta());
+            if buff.duration_timer.finished() {
+                commands.entity(entity).remove::<TemporaryHealthRegenBuff>();
+            } else {
+                let regen_amount = buff.regen_per_second * time.delta().as_secs_f32();
+                health_component.0 = (health_component.0 as f32 + regen_amount).round() as i32;
+                health_component.0 = health_component.0.min(survivor_stats.max_health);
+            }
         }
     }
 }

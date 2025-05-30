@@ -1,5 +1,6 @@
 // mescgit/bulletheavengame/bulletheavengame-a4c13a6183f1601049189db29b13bcfdace86153/src/audio.rs
 use bevy::prelude::*;
+use bevy::audio::Volume; // Added import for Volume
 use crate::game::AppState;
 
 #[derive(Event)]
@@ -16,11 +17,10 @@ pub enum SoundEffect {
     MadnessConsumes,
     OmenAccepted,
     HorrorProjectile,
-    TetherHit,        // Added
-    PlayerBlink,      // Added
-    GlacialNovaHit,   // Added
-    ChainLightningZap, // Added
-    // Add other specific sounds as needed
+    TetherHit,
+    PlayerBlink,
+    GlacialNovaHit,
+    ChainLightningZap,
 }
 
 #[derive(Resource)]
@@ -35,10 +35,10 @@ pub struct GameAudioHandles {
     pub omen_accepted: Handle<AudioSource>,
     pub horror_projectile: Handle<AudioSource>,
     pub background_music: Handle<AudioSource>,
-    pub tether_hit: Handle<AudioSource>,        // Added
-    pub player_blink: Handle<AudioSource>,      // Added
-    pub glacial_nova_hit: Handle<AudioSource>,  // Added
-    pub chain_lightning_zap: Handle<AudioSource>,// Added
+    pub tether_hit: Handle<AudioSource>,
+    pub player_blink: Handle<AudioSource>,
+    pub glacial_nova_hit: Handle<AudioSource>,
+    pub chain_lightning_zap: Handle<AudioSource>,
 }
 
 #[derive(Component)]
@@ -69,7 +69,6 @@ fn setup_audio_handles(mut commands: Commands, asset_server: Res<AssetServer>) {
         omen_accepted: asset_server.load("audio/omen_accepted_placeholder.ogg"),
         horror_projectile: asset_server.load("audio/horror_projectile_placeholder.ogg"),
         background_music: asset_server.load("audio/cyclopean_ruins_ambience_placeholder.ogg"),
-        // Assuming placeholder sounds for new effects
         tether_hit: asset_server.load("audio/tether_hit_placeholder.ogg"),
         player_blink: asset_server.load("audio/player_blink_placeholder.ogg"),
         glacial_nova_hit: asset_server.load("audio/glacial_nova_hit_placeholder.ogg"),
@@ -100,7 +99,7 @@ fn play_sound_system(
         };
         commands.spawn(AudioBundle {
             source,
-            settings: PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::new(0.5)), // Example: set default volume
+            settings: PlaybackSettings::DESPAWN.with_volume(Volume::new_relative(0.5)),
         });
     }
 }
@@ -118,7 +117,7 @@ fn start_background_music(
             source: audio_handles.background_music.clone(),
             settings: PlaybackSettings {
                 mode: bevy::audio::PlaybackMode::Loop,
-                volume: bevy::audio::Volume::new(0.3),
+                volume: Volume::new_relative(0.3),
                 ..default()
             },
         },

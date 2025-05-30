@@ -487,7 +487,7 @@ fn update_collected_items_ui(
                                     height: Val::Px(COLLECTED_ITEM_ICON_SIZE),
                                     ..default()
                                 },
-                                image: asset_server.load(item_def.icon_path).into(),
+                                image: asset_server.load(item_def.icon_path.clone()).into(),
                                 ..default()
                             },
                             CollectedItemIcon(collected_item_id),
