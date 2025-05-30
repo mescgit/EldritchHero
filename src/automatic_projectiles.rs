@@ -23,8 +23,8 @@ impl Plugin for AutomaticProjectilesPlugin {
                 automatic_projectile_collision_system,
                 projectile_screen_bounce_system.after(automatic_projectile_collision_system),
                 automatic_projectile_lifetime_system,
-            ).chain().in_set(Update.run_if(in_state(AppState::InGame))))
-            .add_systems(PostUpdate, reset_projectile_bounce_flag_system.in_set(Update.run_if(in_state(AppState::InGame))));
+            ).chain().run_if(in_state(AppState::InGame))) // Corrected run_if syntax
+            .add_systems(PostUpdate, reset_projectile_bounce_flag_system.run_if(in_state(AppState::InGame))); // Corrected run_if syntax
     }
 }
 
@@ -229,8 +229,10 @@ fn automatic_projectile_collision_system(
                         
                         // If player already has a waiting tether, clean it up first
                         if let Some(mut existing_activation_comp) = opt_existing_activation_comp.as_deref_mut() {
-                            if commands.get_entity(existing_activation_comp.tethered_enemy_entity).is_some() {
-                                commands.entity(existing_activation_comp.tethered_enemy_entity).remove::<crate::weapon_systems::HorrorLatchedByTetherComponent>();
+                            if let Some(enemy_entity) = existing_activation_comp.tethered_enemy_entity {
+                                if commands.get_entity(enemy_entity).is_some() {
+                                    commands.entity(enemy_entity).remove::<crate::weapon_systems::HorrorLatchedByTetherComponent>();
+                                }
                             }
                            // commands.entity(player_entity).remove::<crate::weapon_systems::PlayerWaitingTetherActivationComponent>(); // This is incorrect, need to use commands on the player entity directly
                         }
@@ -255,7 +257,7 @@ fn automatic_projectile_collision_system(
                         });
                         
                         commands.entity(horror_entity).insert(crate::weapon_systems::HorrorLatchedByTetherComponent {
-                            player_who_latched: player_entity
+                            player_who_latched: Some(player_entity) // Wrapped in Some()
                         });
                         
                         sound_event_writer.send(PlaySoundEvent(SoundEffect::TetherHit)); 
@@ -283,8 +285,8 @@ fn automatic_projectile_collision_system(
 
                     // Blink Strike Logic (player blink)
                     if let Some(weapon_def) = weapon_library.get_weapon_definition(proj_stats.weapon_id) {
-                        if let crate::items::AttackTypeData::BlinkStrike(ref blink_strike_params) = weapon_def.attack_data {
-                            if rand::thread_rng().gen_bool(blink_strike_params.blink_chance as f64) {
+                        if let crate::items::AttackTypeData::BlinkStrikeProjectile(ref blink_strike_params) = weapon_def.attack_data { // Corrected variant name
+                            if rand::thread_rng().gen_bool(blink_strike_params.blink_chance_on_hit_percent as f64) { // Used correct field from BlinkStrikeProjectileParams
                                 player_blink_event_writer.send(crate::components::PlayerBlinkEvent {
                                     player_entity: proj_stats.owner,
                                     hit_enemy_entity: horror_entity,
@@ -308,7 +310,7 @@ fn automatic_projectile_collision_system(
                                     /*
                                     let mut new_player_pos = player_transform.translation;
                                     if blink_p.blink_to_target_behind {
-                                        let dir_from_player_to_horror = (horror_gtransform.translation() - player_transform.translation).truncate().normalize_or_else(|| survivor_stats.aim_direction.normalize_or_zero());
+                                        let dir_from_player_to_horror = (horror_gtransform.translation() - player_transform.translation).truncate().normalize_or_zero(); // Corrected normalize_or_else
                                         new_player_pos = horror_gtransform.translation() - dir_from_player_to_horror.extend(0.0) * blink_p.blink_distance;
                                     } else { 
                                         let aim_dir = survivor_stats.aim_direction.normalize_or_zero();
@@ -431,6 +433,7 @@ fn automatic_projectile_collision_system(
 fn projectile_screen_bounce_system(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Velocity, &GlobalTransform, &mut AutomaticProjectile, &mut Damage, &Sprite, &mut Transform)>,
+    explosion_query: Query<&crate::weapon_systems::ExplodesOnFinalImpact>, // Added query for ExplodesOnFinalImpact
 ) {
     const SCREEN_MIN_X: f32 = -600.0;
     const SCREEN_MAX_X: f32 = 600.0;
@@ -452,7 +455,7 @@ fn projectile_screen_bounce_system(
             let radius = sprite.custom_size.map_or(1.0, |s| s.x.max(s.y) / 2.0);
             if proj_pos.x - radius < SCREEN_MIN_X || proj_pos.x + radius > SCREEN_MAX_X || 
                proj_pos.y - radius < SCREEN_MIN_Y || proj_pos.y + radius > SCREEN_MAX_Y {
-                if let Some(_explosion_params) = commands.entity(entity).get::<crate::weapon_systems::ExplodesOnFinalImpact>() {
+                if explosion_query.get(entity).is_ok() { // Corrected check for ExplodesOnFinalImpact
                     // Lifesteal projectiles typically don't explode on screen bounce unless specifically designed to.
                     // For now, this specific explosion on screen edge after all bounces is not implemented.
                  }

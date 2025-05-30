@@ -2,9 +2,9 @@
 use bevy::prelude::*;
 use bevy::prelude::in_state; // Added import
 use bevy::prelude::Name; 
-use crate::items::{StandardProjectileParams, ReturningProjectileParams, ChanneledBeamParams, ConeAttackParams, AutomaticWeaponId};
+use crate::items::{StandardProjectileParams, ReturningProjectileParams, ChanneledBeamParams, ConeAttackParams, AutomaticWeaponId, AttackTypeData, AutomaticWeaponLibrary};
 use crate::components::{Velocity, Damage, Lifetime, Health, RootedComponent}; 
-use crate::survivor::{BASE_SURVIVOR_SPEED as BASE_PLAYER_SPEED, Survivor};
+use crate::survivor::{BASE_SURVIVOR_SPEED as BASE_PLAYER_SPEED, Survivor, MindAffliction};
 use crate::camera_systems::MainCamera; 
 use crate::horror::Horror; 
 use crate::game::AppState; 
@@ -315,11 +315,11 @@ pub fn blink_strike_projectile_weapon_fire_system(
     player_q: Query<(Entity, &Transform, &Survivor)>,
     weapon_library: Res<AutomaticWeaponLibrary>,
     time: Res<Time>, // Assuming MindAffliction might be here or similar timer
-    mut mind_affliction_q: Query<&mut crate::survivor::MindAffliction>, // Example, might be different
+    mut mind_affliction_q: Query<&mut MindAffliction>, // Example, might be different
 ) {
     if let Ok((player_entity, player_transform, survivor_stats)) = player_q.get_single() {
         if let Ok(mut mind_affliction) = mind_affliction_q.get_single_mut() { // Adjust if timer is different
-            if let Some(weapon_id) = survivor_stats.equipped_weapon_id { // Or active_automatic_weapon_id
+            if let Some(weapon_id) = survivor_stats.inherent_weapon_id { // Or active_automatic_weapon_id
                 if let Some(weapon_def) = weapon_library.get_weapon_definition(weapon_id) {
                     if let AttackTypeData::BlinkStrikeProjectile(ref params) = weapon_def.attack_data {
                         if mind_affliction.fire_timer.tick(time.delta()).just_finished() {
@@ -440,11 +440,11 @@ pub fn spawn_repositioning_tether_attack(
     weapon_params: &crate::items::RepositioningTetherParams, // Specific params for this weapon
     weapon_id: crate::items::AutomaticWeaponId,
     // Queries needed for reactivation logic
-    mut player_waiting_query: Query<&mut PlayerWaitingTetherActivationComponent>, // Query for the specific player
+    player_waiting_query: Query<&PlayerWaitingTetherActivationComponent>, // Query for the specific player (removed mut)
     mut horror_query: Query<&mut Transform, With<Horror>>, // Query all horrors for their transforms
     player_transform_query: Query<&Transform, With<Survivor>>, // Query player transform
 ) {
-    if let Ok(mut waiting_comp) = player_waiting_query.get_mut(player_entity) {
+    if let Ok(waiting_comp) = player_waiting_query.get(player_entity) { // removed get_mut
         if !waiting_comp.reactivation_window_timer.finished() {
             // Reactivation logic
             if let Ok(player_tform) = player_transform_query.get(player_entity) {
@@ -742,7 +742,7 @@ impl Plugin for WeaponSystemsPlugin {
                 lobbed_bouncing_projectile_system, 
                 magma_pool_system,
                 repositioning_tether_firing_system, // Added new system
-            ).in_set(Update.run_if(in_state(AppState::InGame))));
+            ).run_if(in_state(AppState::InGame)));
     }
 }
 
@@ -751,8 +751,8 @@ pub fn repositioning_tether_firing_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     // Player related queries to check for firing readiness
-    player_query: Query<(Entity, &Transform, &crate::survivor::Survivor, &crate::survivor::MindAffliction)>,
-    weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
+    player_query: Query<(Entity, &Transform, &Survivor, &MindAffliction)>,
+    weapon_library: Res<AutomaticWeaponLibrary>,
     // Queries needed by spawn_repositioning_tether_attack
     player_waiting_query: Query<&mut PlayerWaitingTetherActivationComponent>, 
     horror_query: Query<&mut Transform, With<Horror>>, 
@@ -760,9 +760,9 @@ pub fn repositioning_tether_firing_system(
     // Consider sound event writer if needed here, or if spawn_repositioning_tether_attack handles it
 ) {
     for (player_entity, player_transform, player_stats, mind_affliction) in player_query.iter() {
-        if let Some(weapon_id) = player_stats.equipped_weapon_id {
+        if let Some(weapon_id) = player_stats.inherent_weapon_id {
             if let Some(weapon_def) = weapon_library.get_weapon_definition(weapon_id) {
-                if let crate::items::AttackTypeData::RepositioningTether(ref params) = weapon_def.attack_data {
+                if let AttackTypeData::RepositioningTether(ref params) = weapon_def.attack_data {
                     // Check if the weapon is ready to fire (based on MindAffliction timer)
                     // Note: player_shooting_system already updates the timer's duration.
                     // Here, we just check if it just finished.
@@ -841,16 +841,16 @@ pub fn manage_player_orbs_system(
     mut commands: Commands,
     time: Res<Time>,
     asset_server: Res<AssetServer>, // For spawn_orbiting_pet_attack
-    weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
+    weapon_library: Res<AutomaticWeaponLibrary>,
     mut player_query: Query<(Entity, &Transform, &mut Survivor, Option<&mut PlayerOrbControllerComponent>)>,
     orb_query: Query<Entity, With<OrbitingPetComponent>>, // To check if orb entities still exist
 ) {
     let Ok((player_entity, player_transform, mut player_stats, opt_orb_controller)) = player_query.get_single_mut() else { return; };
 
     let mut shadow_orb_params_opt: Option<crate::items::OrbitingPetParams> = None;
-    if let Some(active_weapon_id) = player_stats.active_automatic_weapon_id {
+    if let Some(active_weapon_id) = player_stats.inherent_weapon_id {
         if let Some(weapon_def) = weapon_library.get_weapon_definition(active_weapon_id) {
-            if let crate::items::AttackTypeData::OrbitingPet(params) = &weapon_def.attack_data {
+            if let AttackTypeData::OrbitingPet(params) = &weapon_def.attack_data {
                 shadow_orb_params_opt = Some(params.clone());
             }
         }
@@ -860,7 +860,7 @@ pub fn manage_player_orbs_system(
         let mut controller_exists_and_spawn = false;
         if let Some(mut controller) = opt_orb_controller {
             controller.spawn_cooldown_timer.tick(time.delta());
-            if controller.spawn_cooldown_timer.finished() && controller.active_orb_entities.len() < controller.max_orbs_allowed {
+            if controller.spawn_cooldown_timer.finished() && controller.active_orb_entities.len() < controller.max_orbs_allowed as usize {
                 spawn_orbiting_pet_attack(&mut commands, &asset_server, player_entity, player_transform, &params, &mut controller);
                 controller.spawn_cooldown_timer.reset();
             }
@@ -874,7 +874,7 @@ pub fn manage_player_orbs_system(
                 max_orbs_allowed: params.max_active_orbs,
                 spawn_cooldown_timer: Timer::from_seconds(params.base_fire_rate_secs, TimerMode::Repeating), // Repeating, will be reset on spawn
             };
-            if new_controller.active_orb_entities.len() < new_controller.max_orbs_allowed {
+            if new_controller.active_orb_entities.len() < new_controller.max_orbs_allowed as usize {
                  spawn_orbiting_pet_attack(&mut commands, &asset_server, player_entity, player_transform, &params, &mut new_controller);
                  new_controller.spawn_cooldown_timer.reset(); // Start cooldown after first spawn
             }
@@ -986,7 +986,7 @@ pub fn orbiting_pet_behavior_system(
                     }
 
                     if let Some((target_entity, _)) = closest_target {
-                        if let Ok(target_gtransform) = horror_query.get_component::<GlobalTransform>(target_entity) {
+                        if let Ok((_entity, target_gtransform)) = horror_query.get(target_entity) { // Corrected deprecated get_component
                             let direction = (target_gtransform.translation().truncate() - orb_pos_2d).normalize_or_zero();
                             if direction != Vec2::ZERO {
                                 // Use params_snapshot for bolt properties
@@ -1038,14 +1038,14 @@ pub fn spawn_magma_ball_attack(
     weapon_id: AutomaticWeaponId,
 ) {
     let initial_pos = player_transform.translation;
-    let projectile_velocity = aim_direction.normalize_or_zero() * params.speed;
+    let projectile_velocity = aim_direction.normalize_or_zero() * params.projectile_speed;
 
     commands.spawn((
         SpriteBundle {
-            texture: asset_server.load(params.sprite_path),
+            texture: asset_server.load(params.projectile_sprite_path),
             sprite: Sprite {
-                custom_size: Some(params.sprite_size),
-                color: params.sprite_color,
+                custom_size: Some(params.projectile_size),
+                color: params.projectile_color,
                 ..default()
             },
             transform: Transform::from_translation(initial_pos)
@@ -1054,24 +1054,25 @@ pub fn spawn_magma_ball_attack(
         },
         LobbedBouncingProjectileComponent {
             params: params.clone(),
-            bounces_left: params.max_bounces,
-            speed: params.speed,
+            bounces_left: params.num_bounces, // Corrected field
+            speed: params.projectile_speed, // Corrected field
             initial_spawn_position: initial_pos,
         },
         Velocity(projectile_velocity),
-        Damage(params.damage), // Direct hit damage
-        Lifetime { timer: Timer::from_seconds(params.lifetime_secs, TimerMode::Once) },
-        crate::automatic_projectiles::AutomaticProjectile { // For collision detection and lifetime
-            piercing_left: 0, // Not typical piercing, bounce logic handles multiple hits
+        Damage(params.damage_per_bounce_impact), // Corrected field for direct hit damage
+        Lifetime { timer: Timer::from_seconds(5.0, TimerMode::Once) }, // Used fixed value for lifetime
+        crate::automatic_projectiles::AutomaticProjectile {
+            owner: Entity::PLACEHOLDER, // Placeholder - ideally pass player entity
+            piercing_left: 0,
             weapon_id,
-            // Max bounces handled by LobbedBouncingProjectileComponent, but AutomaticProjectile needs some values
-            bounces_left: Some(params.max_bounces), 
-            damage_on_hit: params.damage,
-            current_speed: params.speed,
-            damage_loss_per_bounce_multiplier: Some(1.0), // No damage loss on direct hit, pool does its own damage
-            speed_loss_per_bounce_multiplier: Some(1.0), // No speed loss for now
+            bounces_left: Some(params.num_bounces),
+            damage_on_hit: params.damage_per_bounce_impact,
+            current_speed: params.projectile_speed,
+            damage_loss_per_bounce_multiplier: Some(1.0), // No damage loss on direct hit for this projectile type
+            speed_loss_per_bounce_multiplier: Some(1.0),   // No speed loss for this projectile type
             has_bounced_this_frame: false,
             lifesteal_percentage: None,
+            blink_params_on_hit: None,
         },
         Name::new("MagmaBallProjectile"),
     ));
@@ -1097,8 +1098,8 @@ pub fn lobbed_bouncing_projectile_system(
     for (
         entity,
         mut bouncing_comp,
-        mut velocity,
-        mut damage,
+        _velocity, // velocity might not be needed directly if auto_proj_comp handles it
+        _damage,   // damage might not be needed directly if auto_proj_comp handles it
         transform,
         mut lifetime,
         mut auto_proj_comp,
@@ -1126,7 +1127,7 @@ pub fn lobbed_bouncing_projectile_system(
             bouncing_comp.bounces_left = auto_proj_comp.bounces_left.unwrap();
 
             // Spawn Magma Pool at collision point (current transform.translation)
-            if rand::random::<f32>() < bouncing_comp.params.fire_pool_chance_per_bounce {
+            if rand::random::<f32>() < bouncing_comp.params.fire_pool_on_bounce_chance { // Corrected field name
                 spawn_magma_pool(
                     &mut commands,
                     &asset_server,
@@ -1272,7 +1273,7 @@ pub fn player_dashing_system(
         player_transform.translation += movement_this_frame.extend(0.0);
 
         let player_hitbox_center = player_transform.translation.truncate();
-        let player_half_width = dashing_comp.params.hitbox_width / 2.0;
+        let _player_half_width = dashing_comp.params.hitbox_width / 2.0; // Marked unused
 
         for (horror_entity, horror_gtransform, mut horror_health, horror_data) in horror_query.iter_mut() {
             if dashing_comp.already_hit_horrors.len() >= dashing_comp.params.piercing_cap as usize {
@@ -1284,8 +1285,8 @@ pub fn player_dashing_system(
 
             let horror_pos = horror_gtransform.translation().truncate();
             // Using horror_data.size for AABB check
-            let horror_half_width = horror_data.size.x / 2.0;
-            let horror_half_height = horror_data.size.y / 2.0;
+            let _horror_half_width = horror_data.size.x / 2.0; // Marked unused
+            let _horror_half_height = horror_data.size.y / 2.0; // Marked unused
 
             let x_collision = (player_hitbox_center.x - horror_pos.x).abs() * 2.0 < (dashing_comp.params.hitbox_width + horror_data.size.x);
             let y_collision = (player_hitbox_center.y - horror_pos.y).abs() * 2.0 < (dashing_comp.params.hitbox_width + horror_data.size.y); // Assuming player hitbox is also somewhat square for y-axis checks.
@@ -1335,7 +1336,7 @@ pub fn player_dashing_system(
 pub fn ground_targeting_reticule_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
+    weapon_library: Res<AutomaticWeaponLibrary>,
     player_query: Query<(Entity, &GlobalTransform, &Survivor)>, 
     mut reticule_query: Query<(Entity, &mut Transform, &GroundTargetReticuleComponent, &Parent)>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
@@ -1347,9 +1348,9 @@ pub fn ground_targeting_reticule_system(
     let mut should_have_reticule = false;
     let mut current_reticule_params_opt: Option<crate::items::GroundTargetedAoEParams> = None;
 
-    if let Some(active_weapon_id) = player_stats.active_automatic_weapon_id {
+    if let Some(active_weapon_id) = player_stats.inherent_weapon_id {
         if let Some(weapon_def) = weapon_library.get_weapon_definition(active_weapon_id) {
-            if let crate::items::AttackTypeData::GroundTargetedAoE(params) = &weapon_def.attack_data {
+            if let AttackTypeData::GroundTargetedAoE(params) = &weapon_def.attack_data {
                 should_have_reticule = true;
                 current_reticule_params_opt = Some(params.clone());
             }
@@ -1435,7 +1436,7 @@ pub fn pending_ground_aoe_system(
         pending_comp.eruption_timer.tick(time.delta());
 
         if pending_comp.eruption_timer.finished() {
-            let sprite_path = pending_comp.params.visual_sprite_path.unwrap_or("sprites/eruption_effect_placeholder.png");
+            let sprite_path = pending_comp.params.reticle_sprite_path.unwrap_or("sprites/eruption_effect_placeholder.png"); // Corrected field
             let _eruption_visual_entity = commands.spawn(( 
                 SpriteBundle {
                     texture: asset_server.load(sprite_path),
@@ -1560,11 +1561,11 @@ pub fn bouncing_projectile_weapon_fire_system(
     player_q: Query<(Entity, &Transform, &Survivor)>,
     weapon_library: Res<AutomaticWeaponLibrary>,
     time: Res<Time>, // Assuming MindAffliction might be here or similar timer
-    mut mind_affliction_q: Query<&mut crate::survivor::MindAffliction>, // Example, might be different
+    mut mind_affliction_q: Query<&mut MindAffliction>, // Example, might be different
 ) {
     if let Ok((player_entity, player_transform, survivor_stats)) = player_q.get_single() {
         if let Ok(mut mind_affliction) = mind_affliction_q.get_single_mut() { // Adjust if timer is different
-            if let Some(weapon_id) = survivor_stats.equipped_weapon_id { // Or active_automatic_weapon_id
+            if let Some(weapon_id) = survivor_stats.inherent_weapon_id { // Or active_automatic_weapon_id
                 if let Some(weapon_def) = weapon_library.get_weapon_definition(weapon_id) {
                     if let AttackTypeData::BouncingProjectile(ref params) = weapon_def.attack_data {
                         if mind_affliction.fire_timer.tick(time.delta()).just_finished() {
@@ -1639,8 +1640,8 @@ pub fn spawn_homing_debuff_projectile_attack(
             let angle_offset_degrees = if params.num_darts_per_shot > 1 {
                 (i as f32 * (spread_angle_degrees * 2.0) / (params.num_darts_per_shot as f32 - 1.0)) - spread_angle_degrees
             } else { 0.0 };
-            current_aim_direction = Quat::from_rotation_z(angle_offset_degrees.to_radians()) * current_aim_direction.extend(0.0);
-            current_aim_direction = current_aim_direction.truncate().normalize_or_zero();
+            let rotated_aim_direction_3d = Quat::from_rotation_z(angle_offset_degrees.to_radians()) * current_aim_direction.extend(0.0);
+            current_aim_direction = rotated_aim_direction_3d.truncate().normalize_or_zero();
         }
         
         let mut closest_target: Option<(Entity, f32)> = None; 
@@ -1666,6 +1667,7 @@ pub fn spawn_homing_debuff_projectile_attack(
                 ..default()
             },
             crate::automatic_projectiles::AutomaticProjectile {
+                owner: Entity::PLACEHOLDER, // Placeholder - ideally pass player entity
                 piercing_left: 0, 
                 weapon_id,
                 bounces_left: None, 
@@ -1675,6 +1677,7 @@ pub fn spawn_homing_debuff_projectile_attack(
                 speed_loss_per_bounce_multiplier: None,
                 has_bounced_this_frame: false,
                 lifesteal_percentage: None,
+                blink_params_on_hit: None,
             },
             Velocity(current_aim_direction * params.projectile_speed),
             Damage(params.base_damage),
@@ -1754,7 +1757,7 @@ pub fn spawn_expanding_energy_bomb_attack(
             params: params.clone(),
             current_radius: initial_radius,
             expansion_timer: Timer::from_seconds(params.expansion_duration_secs, TimerMode::Once),
-            wait_at_max_radius_timer: Timer::from_seconds(params.auto_detonation_delay_after_max_expansion_secs, TimerMode::Paused),
+            wait_at_max_radius_timer: Timer::from_seconds(params.auto_detonation_delay_after_max_expansion_secs, TimerMode::Once),
             state: SpiritBombState::Expanding,
         },
         Name::new("SpiritBombField"),
@@ -1944,19 +1947,19 @@ pub fn manage_persistent_aura_system(
     mut commands: Commands,
     time: Res<Time>,
     asset_server: &Res<AssetServer>,
-    weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
-    player_query: Query<(Entity, &Transform, &Survivor, Option<&PlayerPersistentAuraComponent>)>,
+    weapon_library: Res<AutomaticWeaponLibrary>,
+    mut player_query: Query<(Entity, &Transform, &Survivor, Option<&mut PlayerPersistentAuraComponent>)>, // Changed to &mut
     mut horror_query: Query<(&GlobalTransform, &mut Health), With<Horror>>,
 ) {
-    let Ok((player_entity, player_transform, player_stats, opt_aura_comp)) = player_query.get_single() else { return; };
+    let Ok((player_entity, player_transform, player_stats, opt_aura_comp)) = player_query.get_single_mut() else { return; }; // Changed to get_single_mut()
 
     let mut should_have_aura = false;
     let mut current_aura_params_opt: Option<crate::items::PersistentAuraParams> = None;
     let mut current_weapon_id_opt: Option<AutomaticWeaponId> = None;
 
-    if let Some(active_weapon_id) = player_stats.active_automatic_weapon_id {
+    if let Some(active_weapon_id) = player_stats.inherent_weapon_id {
         if let Some(weapon_def) = weapon_library.get_weapon_definition(active_weapon_id) {
-            if let crate::items::AttackTypeData::PersistentAura(params) = &weapon_def.attack_data {
+            if let AttackTypeData::PersistentAura(params) = &weapon_def.attack_data {
                 should_have_aura = true;
                 current_aura_params_opt = Some(params.clone());
                 current_weapon_id_opt = Some(active_weapon_id);
@@ -2026,19 +2029,18 @@ pub fn manage_persistent_aura_system(
                     weapon_id: weapon_id,
                 });
 
-            } else {
-                let mut mutable_aura_comp = commands.entity(player_entity).get_mut::<PlayerPersistentAuraComponent>().unwrap(); 
-                mutable_aura_comp.tick_timer.tick(time.delta());
-                if mutable_aura_comp.tick_timer.just_finished() {
+            } else { // active_aura here is &mut PlayerPersistentAuraComponent due to query change and pattern match
+                active_aura.tick_timer.tick(time.delta());
+                if active_aura.tick_timer.just_finished() {
                     let player_world_pos = player_transform.translation;
                     for (horror_gtransform, mut horror_health) in horror_query.iter_mut() {
-                        if player_world_pos.distance_squared(horror_gtransform.translation()) < mutable_aura_comp.radius.powi(2) {
-                            horror_health.0 -= mutable_aura_comp.damage_per_tick;
+                        if player_world_pos.distance_squared(horror_gtransform.translation()) < active_aura.radius.powi(2) {
+                            horror_health.0 -= active_aura.damage_per_tick;
                             crate::visual_effects::spawn_damage_text(
                                 &mut commands, 
                                 &asset_server, 
                                 horror_gtransform.translation(), 
-                                mutable_aura_comp.damage_per_tick, 
+                                active_aura.damage_per_tick,
                                 &time
                             );
                         }
@@ -2046,7 +2048,7 @@ pub fn manage_persistent_aura_system(
                 }
             }
         }
-        (false, Some(active_aura), _, _) => {
+        (false, Some(mut active_aura), _, _) => { // active_aura here is &mut PlayerPersistentAuraComponent
             if let Some(visual_entity) = active_aura.visual_entity {
                 commands.entity(visual_entity).despawn_recursive();
             }
@@ -2066,7 +2068,7 @@ pub fn spawn_point_blank_nova_attack(
     params: &crate::items::PointBlankNovaParams,
     all_horrors_query: &mut Query<(Entity, &GlobalTransform, &mut Health, &mut Velocity), With<Horror>>, 
     time: &Res<Time>, 
-    sound_event_writer: &mut EventWriter<crate::audio::PlaySoundEvent>, 
+    _sound_event_writer: &mut EventWriter<crate::audio::PlaySoundEvent>,  // Marked unused
 ) {
     let player_pos = player_transform.translation;
 
@@ -2090,7 +2092,7 @@ pub fn spawn_point_blank_nova_attack(
         Name::new("GlacialNovaVisual"),
     ));
 
-    for (horror_entity, horror_gtransform, mut horror_health, mut horror_velocity) in all_horrors_query.iter_mut() {
+    for (horror_entity, horror_gtransform, mut horror_health, mut _horror_velocity) in all_horrors_query.iter_mut() { // Marked _horror_velocity unused
         let horror_pos = horror_gtransform.translation();
         let distance_sq = player_pos.distance_squared(horror_pos);
 
@@ -2270,8 +2272,17 @@ pub fn spawn_trail_of_fire_attack(
         Damage(params.base_damage_on_impact),
         Lifetime { timer: Timer::from_seconds(params.projectile_lifetime_secs, TimerMode::Once) },
         crate::automatic_projectiles::AutomaticProjectile {
+            owner: Entity::PLACEHOLDER, // Placeholder - ideally pass player entity
             piercing_left: 0, 
-            weapon_id: weapon_id, 
+            weapon_id: weapon_id,
+            bounces_left: None,
+            damage_on_hit: params.base_damage_on_impact,
+            current_speed: params.projectile_speed,
+            damage_loss_per_bounce_multiplier: None,
+            speed_loss_per_bounce_multiplier: None,
+            has_bounced_this_frame: false,
+            lifesteal_percentage: None,
+            blink_params_on_hit: None,
         },
         Name::new("InfernoBoltProjectile"),
     ));
@@ -2387,8 +2398,18 @@ pub fn spawn_charge_shot_projectile(
         Damage(chosen_level_params.projectile_damage),
         Lifetime { timer: Timer::from_seconds(charge_params.projectile_lifetime_secs, TimerMode::Once) },
         crate::automatic_projectiles::AutomaticProjectile { 
+            owner: Entity::PLACEHOLDER, // Placeholder - ideally pass player entity
             piercing_left: chosen_level_params.piercing,
-            already_hit_entities: Vec::new(), 
+            weapon_id: AutomaticWeaponId(0), // Placeholder - needs actual weapon_id
+            bounces_left: None,
+            damage_on_hit: chosen_level_params.projectile_damage,
+            current_speed: chosen_level_params.projectile_speed,
+            damage_loss_per_bounce_multiplier: None,
+            speed_loss_per_bounce_multiplier: None,
+            has_bounced_this_frame: false,
+            lifesteal_percentage: None,
+            blink_params_on_hit: None,
+            // already_hit_entities: Vec::new(), // Field does not exist on AutomaticProjectile
         },
         Name::new("ChargeShotProjectile"),
     ));
@@ -2405,7 +2426,7 @@ pub fn spawn_charge_shot_projectile(
 pub fn charge_weapon_system(
     time: Res<Time>,
     mut query: Query<&mut ChargingWeaponComponent>, 
-    weapon_library: Res<crate::items::AutomaticWeaponLibrary>, 
+    weapon_library: Res<AutomaticWeaponLibrary>,
 ) {
     for mut charging_comp in query.iter_mut() {
         if !charging_comp.is_actively_charging {
@@ -2413,7 +2434,7 @@ pub fn charge_weapon_system(
         }
 
         if let Some(weapon_def) = weapon_library.get_weapon_definition(charging_comp.weapon_id) {
-            if let crate::items::AttackTypeData::ChargeUpEnergyShot(charge_params) = &weapon_def.attack_data {
+            if let AttackTypeData::ChargeUpEnergyShot(charge_params) = &weapon_def.attack_data {
                 
                 charging_comp.charge_timer.tick(time.delta());
 
@@ -2676,7 +2697,7 @@ pub fn execute_cone_attack(
     aim_direction: Vec2, 
     mut enemy_query: Query<(Entity, &Transform, &mut Health), With<Horror>>,
     // Added time for Lifetime component
-    time: Res<Time>,
+    _time: Res<Time>, // Marked unused
 ) {
     let player_pos = player_transform.translation.truncate();
     let forward_vector = aim_direction.normalize_or_zero();
@@ -2694,7 +2715,7 @@ pub fn execute_cone_attack(
         let mut visual_transform = Transform::from_translation(player_transform.translation);
         visual_transform.rotation = Quat::from_rotation_z(aim_direction.y.atan2(aim_direction.x));
         
-        let mut anchor = bevy::sprite::Anchor::CenterLeft; // Default anchor
+        let anchor = bevy::sprite::Anchor::CenterLeft; // Default anchor, removed mut
         if let Some(offset) = params.visual_anchor_offset {
             // Apply offset relative to player's facing direction
             let rotated_offset = visual_transform.rotation * offset.extend(0.0);
@@ -2709,7 +2730,7 @@ pub fn execute_cone_attack(
                 sprite: Sprite {
                     custom_size: Some(sprite_size),
                     color: params.color, // Apply tint
-                    anchor,
+                    anchor, // Used here
                     ..default()
                 },
                 transform: visual_transform,
@@ -2720,7 +2741,7 @@ pub fn execute_cone_attack(
         ));
     }
 
-    for (enemy_entity, enemy_transform, mut enemy_health) in enemy_query.iter_mut() {
+    for (_enemy_entity, enemy_transform, mut enemy_health) in enemy_query.iter_mut() { // Marked _enemy_entity unused
         let enemy_pos = enemy_transform.translation.truncate();
         let vector_to_enemy = enemy_pos - player_pos;
         

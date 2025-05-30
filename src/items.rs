@@ -2,7 +2,7 @@
 use bevy::prelude::*;
 use crate::{
     survivor::Survivor,
-    components::{Health as ComponentHealth, Health},
+    components::Health, // Removed unused alias ComponentHealth
     game::{AppState, ItemCollectedEvent},
     horror::Horror,
     visual_effects::spawn_damage_text,

@@ -1,5 +1,6 @@
 // src/visual_effects.rs
 use bevy::prelude::*;
+use rand::Rng; // Added import for gen_range
 use crate::components::{Lifetime, Velocity}; // Added Velocity
 
 const DAMAGE_TEXT_LIFETIME: f32 = 0.75;

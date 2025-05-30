@@ -215,5 +215,5 @@ pub struct ContinuousDamageComponent {
 #[derive(Component, Debug, Reflect, Default)]
 #[reflect(Component)]
 pub struct HorrorLatchedByTetherComponent {
-    pub player_who_latched: Entity,
+    pub player_who_latched: Option<Entity>, // Changed to Option<Entity> to allow Default derive
 }
