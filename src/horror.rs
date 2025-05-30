@@ -97,7 +97,7 @@ impl HorrorStats {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)] // Added Clone here
 pub struct Horror {
     pub horror_type: HorrorType, pub size: Vec2, pub damage_on_collision: i32, pub speed: f32,
     pub xp_value: u32, pub item_drop_chance: f64, pub is_elite: bool,

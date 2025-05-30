@@ -4,16 +4,10 @@ use bevy::prelude::in_state;
 use bevy::prelude::Name;
 use crate::items::{
     StandardProjectileParams, ReturningProjectileParams, ChanneledBeamParams, ConeAttackParams,
-    AutomaticWeaponId, AttackTypeData, LobbedAoEPoolParams, ChargeUpEnergyShotParams, ChargeLevelParams,
-    TrailOfFireParams, ChainZapParams, PointBlankNovaParams, PersistentAuraParams, DebuffAuraParams, AuraDebuffType,
-    ExpandingEnergyBombParams, HomingDebuffProjectileParams, ProjectileDebuffType,
-    BouncingProjectileParams, LifestealProjectileParams, GroundTargetedAoEParams, LineDashAttackParams,
-    OrbitingPetParams, RepositioningTetherParams, RepositioningTetherMode,
-    BlinkStrikeProjectileParams, LobbedBouncingMagmaParams, AutomaticWeaponLibrary
+    AutomaticWeaponId, AttackTypeData, OrbitingPetParams
 };
 use crate::components::{
-    Velocity, Damage, Lifetime, Health, RootedComponent, HorrorLatchedByTetherComponent,
-    AccuracyDebuffComponent, AttackSpeedDebuffComponent, ContinuousDamageComponent
+    Velocity, Damage, Lifetime, Health, RootedComponent, HorrorLatchedByTetherComponent
 };
 use crate::survivor::{BASE_SURVIVOR_SPEED as BASE_PLAYER_SPEED, Survivor, SanityStrain as SurvivorSanityStrain};
 use crate::camera_systems::MainCamera;
@@ -117,7 +111,7 @@ pub struct ChargingWeaponComponent {
     pub is_actively_charging: bool,
 }
 
-#[derive(Component, Debug, Reflect, Default)]
+#[derive(Component, Debug, Reflect, Default, Clone)]
 #[reflect(Component)]
 pub struct ExplodesOnFinalImpact {
     pub explosion_radius: f32,
@@ -215,7 +209,7 @@ pub struct HomingTargetComponent {
     pub strength: f32,
 }
 
-#[derive(Component, Debug, Reflect, Default)]
+#[derive(Component, Debug, Reflect, Default, Clone)]
 #[reflect(Component)]
 pub struct DebuffOnHitComponent {
     pub debuff_type: crate::items::ProjectileDebuffType,
@@ -433,7 +427,7 @@ pub fn spawn_repositioning_tether_attack(
     horror_query: &mut Query<&mut Transform, With<Horror>>,                   
     player_transform_query: &Query<&Transform, With<Survivor>>,               
 ) {
-    if let Ok(mut waiting_comp) = player_waiting_query.get_mut(player_entity) {
+    if let Ok(waiting_comp) = player_waiting_query.get_mut(player_entity) {
         if !waiting_comp.reactivation_window_timer.finished() {
             if let Ok(player_tform) = player_transform_query.get(player_entity) {
                 if let Ok(mut horror_tform) = horror_query.get_mut(waiting_comp.hit_horror_entity) {
@@ -527,6 +521,55 @@ pub struct MagmaPoolComponent {
 }
 
 // --- Orbiting Pet Definitions (New Implementation) ---
+
+pub fn charge_weapon_system(mut _commands: Commands) {
+    // TODO: Implement system
+}
+
+pub fn trail_spawning_projectile_system(mut _commands: Commands) {
+    // TODO: Implement system
+}
+
+pub fn fire_trail_segment_system(mut _commands: Commands) {
+    // TODO: Implement system
+}
+
+pub fn chain_lightning_visual_system(mut _commands: Commands) {
+    // TODO: Implement system
+}
+
+pub fn nova_visual_system(mut _commands: Commands) {
+    // TODO: Implement system
+}
+
+pub fn manage_persistent_aura_system(mut _commands: Commands) {
+    // TODO: Implement system
+}
+
+pub fn debuff_cloud_system(mut _commands: Commands) {
+    // TODO: Implement system
+}
+
+pub fn expanding_energy_bomb_system(mut _commands: Commands) {
+    // TODO: Implement system
+}
+
+pub fn homing_projectile_system(mut _commands: Commands) {
+    // TODO: Implement system
+}
+
+pub fn lobbed_projectile_system(mut _commands: Commands) {
+    // TODO: Implement system
+}
+
+pub fn ichor_pool_system(mut _commands: Commands) {
+    // TODO: Implement system
+}
+
+pub fn channeled_beam_update_system(mut _commands: Commands) {
+    // TODO: Implement system
+}
+
 #[derive(Component, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct OrbitingPetComponent {
@@ -599,29 +642,33 @@ impl Plugin for WeaponSystemsPlugin {
             .add_systems(Update, (
                 manage_player_orbs_system,
                 orbiting_pet_behavior_system,
-                tether_reactivation_window_system, // Correct, was already correct
-                charge_weapon_system,               // Correct
-                trail_spawning_projectile_system, // Correct
-                fire_trail_segment_system,        // Correct
-                chain_lightning_visual_system,    // Correct
-                nova_visual_system,               // Correct
-                manage_persistent_aura_system,    // Correct
-                debuff_cloud_system,              // Correct
-                expanding_energy_bomb_system,     // Correct
-                homing_projectile_system,         // Correct
-                returning_projectile_system,      // Correct
-                lobbed_projectile_system,         // Correct
-                ichor_pool_system,                // Correct
+                tether_reactivation_window_system,
+                returning_projectile_system,
                 player_is_channeling_effect_system,
-                channeled_beam_update_system,     // Correct
-                channeled_beam_damage_system,     // Correct
+                channeled_beam_damage_system,
                 ground_targeting_reticule_system,
-                pending_ground_aoe_system,
-                eruption_visual_system,
-                player_dashing_system,
+            ).run_if(in_state(AppState::InGame)))
+            .add_systems(Update, pending_ground_aoe_system.run_if(in_state(AppState::InGame)))
+            .add_systems(Update, eruption_visual_system.run_if(in_state(AppState::InGame)))
+            .add_systems(Update, player_dashing_system.run_if(in_state(AppState::InGame)))
+            .add_systems(Update, (
                 lobbed_bouncing_projectile_system,
                 magma_pool_system,
                 repositioning_tether_firing_system,
+            ).run_if(in_state(AppState::InGame)))
+            .add_systems(Update, (
+                charge_weapon_system,
+                trail_spawning_projectile_system,
+                fire_trail_segment_system,
+                chain_lightning_visual_system,
+                nova_visual_system,
+                manage_persistent_aura_system,
+                debuff_cloud_system,
+                expanding_energy_bomb_system,
+                homing_projectile_system,
+                lobbed_projectile_system,
+                ichor_pool_system,
+                channeled_beam_update_system,
             ).run_if(in_state(AppState::InGame)));
     }
 }
@@ -681,7 +728,7 @@ pub fn spawn_orbiting_pet_attack(
 
     let orb_entity = commands.spawn((
         SpriteBundle {
-            texture: asset_server.load(params.orb_sprite_path.as_str()), // Use .as_str() for String
+            texture: asset_server.load(params.orb_sprite_path.to_string()), // Use .to_string() for String
             sprite: Sprite {
                 custom_size: Some(params.orb_size),
                 color: params.orb_color,
@@ -708,10 +755,10 @@ pub fn manage_player_orbs_system(
     time: Res<Time>,
     asset_server: Res<AssetServer>,
     weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
-    mut player_query: Query<(Entity, &Transform, &mut Survivor, Option<&mut PlayerOrbControllerComponent>)>,
+    mut player_query: Query<(Entity, &Transform, &Survivor, Option<&mut PlayerOrbControllerComponent>)>,
     orb_query: Query<Entity, With<OrbitingPetComponent>>,
 ) {
-    let Ok((player_entity, player_transform, mut player_stats, opt_orb_controller)) = player_query.get_single_mut() else { return; };
+    let Ok((player_entity, player_transform, player_stats, opt_orb_controller)) = player_query.get_single_mut() else { return; };
 
     let mut shadow_orb_params_opt: Option<crate::items::OrbitingPetParams> = None;
     let active_weapon_id = player_stats.inherent_weapon_id;
@@ -722,7 +769,7 @@ pub fn manage_player_orbs_system(
     }
 
     if let Some(params) = shadow_orb_params_opt {
-        if let Some(mut controller) = opt_orb_controller {
+        if let Some(mut controller) = opt_orb_controller { // Re-add mut here
             controller.spawn_cooldown_timer.tick(time.delta());
             if controller.spawn_cooldown_timer.finished() && controller.active_orb_entities.len() < controller.max_orbs_allowed as usize {
                 spawn_orbiting_pet_attack(&mut commands, &asset_server, player_entity, player_transform, &params, &mut controller);
@@ -742,7 +789,7 @@ pub fn manage_player_orbs_system(
             commands.entity(player_entity).insert(new_controller);
         }
     } else {
-        if let Some(mut controller) = opt_orb_controller {
+        if let Some(controller) = opt_orb_controller { // Remove mut here
             for orb_entity in controller.active_orb_entities.iter() {
                 if orb_query.get(*orb_entity).is_ok() {
                     commands.entity(*orb_entity).despawn_recursive();
@@ -889,7 +936,7 @@ pub fn spawn_magma_ball_attack(
 
     commands.spawn((
         SpriteBundle {
-            texture: asset_server.load(params.projectile_sprite_path.as_str()), // Use .as_str()
+            texture: asset_server.load(params.projectile_sprite_path.to_string()), // Use .to_string()
             sprite: Sprite {
                 custom_size: Some(params.projectile_size),
                 color: params.projectile_color,
@@ -936,7 +983,7 @@ pub fn lobbed_bouncing_projectile_system(
         &mut Damage,   // Keep for same reason
         &Transform,
         &mut Lifetime,
-        &mut crate::automatic_projectiles::AutomaticProjectile,
+        & crate::automatic_projectiles::AutomaticProjectile,
     )>,
 ) {
     for (
@@ -946,7 +993,7 @@ pub fn lobbed_bouncing_projectile_system(
         _damage,   // Explicitly unused for now
         transform,
         mut lifetime,
-        mut auto_proj_comp,
+        auto_proj_comp,
     ) in projectile_query.iter_mut()
     {
         lifetime.timer.tick(time.delta());
@@ -1235,7 +1282,7 @@ pub fn spawn_pending_ground_aoe_attack(
 pub fn pending_ground_aoe_system(
     mut commands: Commands,
     time: Res<Time>,
-    asset_server: &Res<AssetServer>,
+    asset_server: Res<AssetServer>,
     mut pending_aoe_query: Query<(Entity, &mut PendingGroundAoEComponent)>,
     mut horror_query: Query<(Entity, &GlobalTransform, &mut Health, &mut Velocity), With<Horror>>,
 ) {
@@ -1392,7 +1439,7 @@ pub fn spawn_returning_projectile_attack(
 
     commands.spawn((
         SpriteBundle {
-            texture: asset_server.load(params.projectile_sprite_path.as_str()), // Use .as_str()
+            texture: asset_server.load(params.projectile_sprite_path.to_string()), // Use .to_string()
             sprite: Sprite {
                 custom_size: Some(params.projectile_size),
                 color: params.projectile_color,
