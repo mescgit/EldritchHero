@@ -1,12 +1,12 @@
 // src/automatic_projectiles.rs
 use bevy::prelude::*;
+use bevy::prelude::in_state; // Added import
 use rand::Rng; 
 use crate::{
     components::{Velocity, Damage, Lifetime, Health},
     visual_effects::spawn_damage_text,
     audio::{PlaySoundEvent, SoundEffect},
-    skills::SkillProjectile, 
-    horror::HorrorProjectile, 
+    horror::Horror, // Added this line
     survivor::Survivor, 
     items::{ItemLibrary, ItemEffect, ExplosionEffect, AutomaticWeaponId}, 
     game::AppState, 
@@ -23,12 +23,12 @@ impl Plugin for AutomaticProjectilesPlugin {
                 automatic_projectile_collision_system,
                 projectile_screen_bounce_system.after(automatic_projectile_collision_system),
                 automatic_projectile_lifetime_system,
-            ).chain().in_set(OnUpdate(AppState::InGame)))
-            .add_systems(PostUpdate, reset_projectile_bounce_flag_system.in_set(OnUpdate(AppState::InGame)));
+            ).chain().in_set(Update.run_if(in_state(AppState::InGame))))
+            .add_systems(PostUpdate, reset_projectile_bounce_flag_system.in_set(Update.run_if(in_state(AppState::InGame))));
     }
 }
 
-#[derive(Component, Reflect, Default, Debug)] 
+#[derive(Component, Reflect, Debug)] 
 #[reflect(Component)] 
 pub struct AutomaticProjectile { 
     pub owner: Entity, // Added owner entity
@@ -229,8 +229,8 @@ fn automatic_projectile_collision_system(
                         
                         // If player already has a waiting tether, clean it up first
                         if let Some(mut existing_activation_comp) = opt_existing_activation_comp.as_deref_mut() {
-                            if commands.get_entity(existing_activation_comp.hit_horror_entity).is_some() {
-                                commands.entity(existing_activation_comp.hit_horror_entity).remove::<crate::weapon_systems::HorrorLatchedByTetherComponent>();
+                            if commands.get_entity(existing_activation_comp.tethered_enemy_entity).is_some() {
+                                commands.entity(existing_activation_comp.tethered_enemy_entity).remove::<crate::weapon_systems::HorrorLatchedByTetherComponent>();
                             }
                            // commands.entity(player_entity).remove::<crate::weapon_systems::PlayerWaitingTetherActivationComponent>(); // This is incorrect, need to use commands on the player entity directly
                         }

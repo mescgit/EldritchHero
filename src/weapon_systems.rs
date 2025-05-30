@@ -1,5 +1,6 @@
 // mescgit/eldritchhero/EldritchHero-77df6cd0b3e48857123b0971c9f30b59714a1b8a/src/weapon_systems.rs
 use bevy::prelude::*;
+use bevy::prelude::in_state; // Added import
 use bevy::prelude::Name; 
 use crate::items::{StandardProjectileParams, ReturningProjectileParams, ChanneledBeamParams, ConeAttackParams, AutomaticWeaponId};
 use crate::components::{Velocity, Damage, Lifetime, Health, RootedComponent}; 
@@ -253,6 +254,7 @@ impl Default for PlayerDashingComponent {
 pub fn spawn_blink_strike_projectile_attack(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
+    owner: Entity, // Added owner
     params: &crate::items::BlinkStrikeProjectileParams,
     player_transform: &Transform,
     aim_direction: Vec2,
@@ -283,6 +285,7 @@ pub fn spawn_blink_strike_projectile_attack(
         crate::automatic_projectiles::spawn_automatic_projectile(
             commands,
             asset_server,
+            owner, // Added owner
             player_transform.translation,
             current_projectile_aim_direction,
             params.base_damage,
@@ -302,6 +305,41 @@ pub fn spawn_blink_strike_projectile_attack(
         );
     }
 }
+
+// This system calls spawn_blink_strike_projectile_attack
+// It needs to be defined or found to pass the player_entity (owner)
+// Assuming a structure similar to other _weapon_fire_system functions:
+pub fn blink_strike_projectile_weapon_fire_system(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    player_q: Query<(Entity, &Transform, &Survivor)>,
+    weapon_library: Res<AutomaticWeaponLibrary>,
+    time: Res<Time>, // Assuming MindAffliction might be here or similar timer
+    mut mind_affliction_q: Query<&mut crate::survivor::MindAffliction>, // Example, might be different
+) {
+    if let Ok((player_entity, player_transform, survivor_stats)) = player_q.get_single() {
+        if let Ok(mut mind_affliction) = mind_affliction_q.get_single_mut() { // Adjust if timer is different
+            if let Some(weapon_id) = survivor_stats.equipped_weapon_id { // Or active_automatic_weapon_id
+                if let Some(weapon_def) = weapon_library.get_weapon_definition(weapon_id) {
+                    if let AttackTypeData::BlinkStrikeProjectile(ref params) = weapon_def.attack_data {
+                        if mind_affliction.fire_timer.tick(time.delta()).just_finished() {
+                            spawn_blink_strike_projectile_attack(
+                                &mut commands,
+                                &asset_server,
+                                player_entity, // Pass owner
+                                params,
+                                player_transform,
+                                survivor_stats.aim_direction,
+                                weapon_id,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 // --- Repositioning Tether Systems ---
 
@@ -346,7 +384,7 @@ impl Default for PlayerWaitingTetherActivationComponent {
     }
 }
 
-#[derive(Component, Debug, Reflect, Default)]
+#[derive(Component, Debug, Reflect)]
 #[reflect(Component)]
 pub struct HorrorLatchedByTetherComponent {
     pub player_who_latched: Entity,
@@ -440,6 +478,7 @@ pub fn spawn_repositioning_tether_attack(
         let _projectile_entity = crate::automatic_projectiles::spawn_automatic_projectile(
             commands,
             asset_server,
+            player_entity, // Added owner
             player_transform.translation, // Current player transform for spawn
             aim_direction,
             0, // Tether projectile damage (0 or very low)
@@ -450,9 +489,12 @@ pub fn spawn_repositioning_tether_attack(
             weapon_params.tether_size,
             weapon_params.tether_color,
             weapon_params.tether_range / weapon_params.tether_projectile_speed, // Lifetime
-            None, None, None, None, // Bouncing, Lifesteal
-            Some(weapon_params.clone()), // Pass RepositioningTetherParams for the projectile to carry
-            None, // No blink params
+            None, // opt_max_bounces
+            None, // opt_dmg_loss_mult
+            None, // opt_speed_loss_mult
+            None, // opt_lifesteal_percentage
+            Some(weapon_params.clone()), // opt_tether_params_for_comp
+            None, // opt_blink_params
         );
     }
     // Note: The logic to add TetherProjectileComponent to the projectile is now expected
@@ -498,22 +540,6 @@ pub fn tether_reactivation_window_system(
     // So, the component with params_snapshot should be added there.
     // Here, we just ensure the projectile is spawned.
 //}
-
-pub fn tether_reactivation_window_system(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut query: Query<(Entity, &mut PlayerWaitingTetherActivationComponent)>,
-) {
-    for (player_entity, mut waiting_comp) in query.iter_mut() {
-        waiting_comp.reactivation_window_timer.tick(time.delta());
-        if waiting_comp.reactivation_window_timer.finished() {
-            if commands.get_entity(waiting_comp.hit_horror_entity).is_some() {
-                 commands.entity(waiting_comp.hit_horror_entity).remove::<HorrorLatchedByTetherComponent>();
-            }
-            commands.entity(player_entity).remove::<PlayerWaitingTetherActivationComponent>();
-        }
-    }
-}
 
 #[derive(Component, Debug, Reflect, Default)]
 #[reflect(Component)]
@@ -598,7 +624,7 @@ pub struct ActiveOrbitingPetsResource {
 }
 */
 
-#[derive(Component, Debug, Reflect, Default)]
+#[derive(Component, Debug, Reflect)]
 #[reflect(Component)]
 pub struct OrbitingPetComponent {
     pub params_snapshot: crate::items::OrbitingPetParams, // Cloned params
@@ -716,7 +742,7 @@ impl Plugin for WeaponSystemsPlugin {
                 lobbed_bouncing_projectile_system, 
                 magma_pool_system,
                 repositioning_tether_firing_system, // Added new system
-            ).in_set(OnUpdate(AppState::InGame)));
+            ).in_set(Update.run_if(in_state(AppState::InGame))));
     }
 }
 
@@ -725,7 +751,7 @@ pub fn repositioning_tether_firing_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     // Player related queries to check for firing readiness
-    player_query: Query<(Entity, &Transform, &crate::player::Player, &crate::player::MindAffliction)>,
+    player_query: Query<(Entity, &Transform, &crate::survivor::Survivor, &crate::survivor::MindAffliction)>,
     weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
     // Queries needed by spawn_repositioning_tether_attack
     player_waiting_query: Query<&mut PlayerWaitingTetherActivationComponent>, 
@@ -974,6 +1000,7 @@ pub fn orbiting_pet_behavior_system(
                                 crate::automatic_projectiles::spawn_automatic_projectile(
                                     &mut commands,
                                     &asset_server,
+                                    orb_comp.owner_player_entity, // Added owner
                                     orb_transform.translation,
                                     direction,
                                     orb_comp.params_snapshot.bolt_damage,
@@ -984,8 +1011,12 @@ pub fn orbiting_pet_behavior_system(
                                     bolt_sz,
                                     bolt_col,
                                     bolt_lt,
-                                    None, None, None, None, // Bouncing params
-                                    None, // Lifesteal
+                                    None, // opt_max_bounces
+                                    None, // opt_dmg_loss_mult
+                                    None, // opt_speed_loss_mult
+                                    None, // opt_lifesteal_percentage
+                                    None, // opt_tether_params_for_comp
+                                    None, // opt_blink_params
                                 );
                             }
                         }
@@ -1474,6 +1505,7 @@ pub fn eruption_visual_system(
 pub fn spawn_bouncing_projectile_attack(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
+    owner: Entity, // Added owner
     params: &crate::items::BouncingProjectileParams,
     player_transform: &Transform,
     aim_direction: Vec2, 
@@ -1498,6 +1530,7 @@ pub fn spawn_bouncing_projectile_attack(
         crate::automatic_projectiles::spawn_automatic_projectile(
             commands,
             asset_server,
+            owner, // Added owner
             player_transform.translation, 
             current_projectile_aim_direction,
             params.base_damage,
@@ -1511,8 +1544,44 @@ pub fn spawn_bouncing_projectile_attack(
             Some(params.max_bounces),
             Some(params.damage_loss_per_bounce_multiplier),
             Some(params.speed_loss_per_bounce_multiplier),
-            None, 
+            None, // opt_lifesteal_percentage
+            None, // opt_tether_params_for_comp
+            None, // opt_blink_params
         );
+    }
+}
+
+// This system calls spawn_bouncing_projectile_attack
+// It needs to be defined or found to pass the player_entity (owner)
+// Assuming a structure similar to other _weapon_fire_system functions:
+pub fn bouncing_projectile_weapon_fire_system(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    player_q: Query<(Entity, &Transform, &Survivor)>,
+    weapon_library: Res<AutomaticWeaponLibrary>,
+    time: Res<Time>, // Assuming MindAffliction might be here or similar timer
+    mut mind_affliction_q: Query<&mut crate::survivor::MindAffliction>, // Example, might be different
+) {
+    if let Ok((player_entity, player_transform, survivor_stats)) = player_q.get_single() {
+        if let Ok(mut mind_affliction) = mind_affliction_q.get_single_mut() { // Adjust if timer is different
+            if let Some(weapon_id) = survivor_stats.equipped_weapon_id { // Or active_automatic_weapon_id
+                if let Some(weapon_def) = weapon_library.get_weapon_definition(weapon_id) {
+                    if let AttackTypeData::BouncingProjectile(ref params) = weapon_def.attack_data {
+                        if mind_affliction.fire_timer.tick(time.delta()).just_finished() {
+                            spawn_bouncing_projectile_attack(
+                                &mut commands,
+                                &asset_server,
+                                player_entity, // Pass owner
+                                params,
+                                player_transform,
+                                survivor_stats.aim_direction,
+                                weapon_id,
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

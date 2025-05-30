@@ -1136,7 +1136,7 @@ fn apply_collected_item_effects_system(
                                 if let Some(skill_to_grant_def) = skill_library.get_skill_definition(*skill_id) {
                                     let already_has_skill = player.equipped_skills.iter().any(|s| s.definition_id == *skill_id);
                                     if !already_has_skill { if player.equipped_skills.len() < 5 { 
-                                        player.equipped_skills.push(ActiveSkillInstance::new(*skill_id_to_grant_def.id )); // Use id from skill_def
+                                        player.equipped_skills.push(ActiveSkillInstance::new(*skill_to_grant_def.id )); // Use id from skill_def
                                     } else { applied_successfully = false; }
                                     } else { applied_successfully = false; 
                                     }
