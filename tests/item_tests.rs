@@ -1,8 +1,7 @@
-use cosmic_gardener::items::{ItemId, ItemDefinition, ItemEffect, ItemLibrary};
-use cosmic_gardener::survivor::Survivor; // Assuming survivor.rs is at crate root
-use cosmic_gardener::skills::ActiveSkillInstance; // For Survivor::new_with_skills_and_items
-use cosmic_gardener::components::Health as ComponentHealth; // For checking health component
-use bevy::prelude::default; // For default components if needed for Survivor
+use eldritch_hero::items::{ItemId, ItemDefinition, ItemEffect, ItemLibrary};
+use eldritch_hero::survivor::Survivor; // Assuming survivor.rs is at crate root
+use eldritch_hero::skills::ActiveSkillInstance; // For Survivor::new_with_skills_and_items
+use eldritch_hero::components::Health as ComponentHealth; // For checking health component
 
 // Helper function to create a basic ItemLibrary for testing
 fn setup_test_item_library() -> ItemLibrary {

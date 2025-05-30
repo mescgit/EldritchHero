@@ -1,7 +1,6 @@
-use cosmic_gardener::upgrades::{UpgradeId, UpgradeCard, UpgradeType, UpgradePool};
-use cosmic_gardener::skills::{SkillId, ActiveSkillInstance};
-use cosmic_gardener::survivor::Survivor; // For applying upgrades to survivor's skills
-use std::time::Duration;
+use eldritch_hero::upgrades::{UpgradeId, UpgradeCard, UpgradeType, UpgradePool};
+use eldritch_hero::skills::{SkillId, ActiveSkillInstance};
+use eldritch_hero::survivor::Survivor; // For applying upgrades to survivor's skills
 
 fn setup_test_upgrade_pool() -> UpgradePool {
     let mut pool = UpgradePool::default();
