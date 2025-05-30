@@ -268,16 +268,16 @@ fn despawn_survivor(mut commands: Commands, survivor_query: Query<Entity, With<S
 fn survivor_health_regeneration_system(time: Res<Time>, mut query: Query<(&Survivor, &mut ComponentHealth)>,) { for (survivor_stats, mut current_health) in query.iter_mut() { if survivor_stats.health_regen_rate > 0.0 && current_health.0 > 0 && current_health.0 < survivor_stats.max_health { let regen_amount = survivor_stats.health_regen_rate * time.delta_seconds(); current_health.0 = (current_health.0 as f32 + regen_amount).round() as i32; current_health.0 = current_health.0.min(survivor_stats.max_health); } } }
 
 fn survivor_movement( 
-    keyboard_input: Res<ButtonInput<KeyCode>>, 
+    keyboard_input: Res<Input<KeyCode>>, // Changed ButtonInput to Input
     mut query: Query<(&Survivor, &mut Transform, &mut Velocity, Option<&SurvivorBuffEffect>, Option<&MindStrainDebuff>)>, 
     time: Res<Time>,
 ) { 
     for (survivor, mut transform, mut velocity, buff_effect_opt, mind_strain_opt) in query.iter_mut() { 
         let mut direction = Vec2::ZERO; 
-        if keyboard_input.pressed(KeyCode::KeyA) { direction.x -= 1.0; } 
-        if keyboard_input.pressed(KeyCode::KeyD) { direction.x += 1.0; } 
-        if keyboard_input.pressed(KeyCode::KeyW) { direction.y += 1.0; } 
-        if keyboard_input.pressed(KeyCode::KeyS) { direction.y -= 1.0; } 
+        if keyboard_input.pressed(KeyCode::A) { direction.x -= 1.0; } 
+        if keyboard_input.pressed(KeyCode::D) { direction.x += 1.0; } 
+        if keyboard_input.pressed(KeyCode::W) { direction.y += 1.0; } 
+        if keyboard_input.pressed(KeyCode::S) { direction.y -= 1.0; } 
         
         let mut current_speed = survivor.speed; 
         if let Some(buff) = buff_effect_opt { 
@@ -351,7 +351,7 @@ fn survivor_casting_system(
                     let current_piercing = params.base_piercing + survivor_stats.auto_weapon_piercing_bonus;
                     let total_projectiles = 1 + params.additional_projectiles + survivor_stats.auto_weapon_additional_projectiles_bonus;
 
-                    let base_angle = survivor_stats.aim_direction.to_angle();
+                    let base_angle = survivor_stats.aim_direction.y.atan2(survivor_stats.aim_direction.x); // Changed to_angle()
                     // Use saturating_sub to prevent underflow if total_projectiles is 0, though it should be at least 1.
                     let spread_arc_degrees = PROJECTILE_SPREAD_ANGLE_DEGREES * (total_projectiles.saturating_sub(1)) as f32;
                     let start_angle_offset_rad = if total_projectiles > 1 { -spread_arc_degrees.to_radians() / 2.0 } else { 0.0 };

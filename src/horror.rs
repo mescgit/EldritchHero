@@ -587,7 +587,7 @@ fn void_blinker_ai_system(
                 } 
             } 
             VoidBlinkerState::PhasingOut => { 
-                sprite.color.set_a(1.0 - behavior.action_timer.fraction()); 
+                sprite.color.set_a(1.0 - behavior.action_timer.percent()); // Changed .fraction() to .percent()
                 if behavior.action_timer.just_finished() { 
                     *visibility = Visibility::Hidden; 
                     behavior.state = VoidBlinkerState::PhasedOut; 
@@ -608,7 +608,7 @@ fn void_blinker_ai_system(
                 } 
             } 
             VoidBlinkerState::PhasingIn => { 
-                sprite.color.set_a(behavior.action_timer.fraction()); 
+                sprite.color.set_a(behavior.action_timer.percent()); // Changed .fraction() to .percent()
                 if behavior.action_timer.just_finished() { 
                     sprite.color.set_a(1.0); 
                     behavior.state = VoidBlinkerState::Cooldown; 

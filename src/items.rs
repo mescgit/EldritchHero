@@ -2,7 +2,7 @@
 use bevy::prelude::*;
 use crate::{
     survivor::Survivor,
-    components::{Health as ComponentHealth, Health},
+    components::Health, // Removed unused alias ComponentHealth
     game::{AppState, ItemCollectedEvent},
     horror::Horror,
     visual_effects::spawn_damage_text,
@@ -65,7 +65,7 @@ pub struct StandardProjectileParams {
     pub base_projectile_speed: f32,
     pub base_piercing: u32,
     pub additional_projectiles: u32,
-    pub projectile_sprite_path: &'static str,
+    pub projectile_sprite_path: String, // Changed to String
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
@@ -75,7 +75,7 @@ pub struct StandardProjectileParams {
 pub struct ReturningProjectileParams {
     pub base_damage: i32,
     pub base_fire_rate_secs: f32,
-    pub projectile_sprite_path: &'static str,
+    pub projectile_sprite_path: String, // Changed to String
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_speed: f32,
@@ -109,7 +109,7 @@ pub struct ConeAttackParams {
     pub cone_angle_degrees: f32,
     pub cone_radius: f32,
     pub color: Color,
-    pub visual_sprite_path: Option<&'static str>,
+    pub visual_sprite_path: Option<String>, // Changed to Option<String>
     pub visual_size_scale_with_radius_angle: Option<(f32, f32)>,
     pub visual_anchor_offset: Option<Vec2>,
 }
@@ -120,7 +120,7 @@ pub struct LobbedAoEPoolParams {
     pub pool_damage_per_tick: i32,
     pub base_fire_rate_secs: f32,
     pub projectile_speed: f32,
-    pub projectile_sprite_path: &'static str,
+    pub projectile_sprite_path: String, // Changed to String
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_arc_height: f32,
@@ -141,13 +141,13 @@ pub struct ChargeLevelParams {
     pub explodes_on_impact: bool,
     pub explosion_radius: f32,
     pub explosion_damage: i32,
-    pub projectile_sprite_path_override: Option<&'static str>,
+    pub projectile_sprite_path_override: Option<String>, // Changed to Option<String>
 }
 
 #[derive(Debug, Clone, Reflect, Default, PartialEq)]
 pub struct ChargeUpEnergyShotParams {
     pub base_fire_rate_secs: f32,
-    pub base_projectile_sprite_path: &'static str,
+    pub base_projectile_sprite_path: String, // Changed to String
     pub base_projectile_color: Color,
     pub charge_levels: Vec<ChargeLevelParams>,
     pub projectile_lifetime_secs: f32,
@@ -158,7 +158,7 @@ pub struct TrailOfFireParams {
     pub base_damage_on_impact: i32,
     pub base_fire_rate_secs: f32,
     pub projectile_speed: f32,
-    pub projectile_sprite_path: &'static str,
+    pub projectile_sprite_path: String, // Changed to String
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
@@ -185,7 +185,7 @@ pub struct RepositioningTetherParams {
     pub base_fire_rate_secs: f32,
     pub tether_projectile_speed: f32,
     pub tether_range: f32,
-    pub tether_sprite_path: &'static str,
+    pub tether_sprite_path: String, // Changed to String
     pub tether_color: Color,
     pub tether_size: Vec2,
     pub mode: RepositioningTetherMode,
@@ -218,7 +218,7 @@ pub struct OrbitingPetParams {
     pub base_fire_rate_secs: f32,
     pub max_active_orbs: u32,
     pub orb_duration_secs: f32,
-    pub orb_sprite_path: &'static str,
+    pub orb_sprite_path: String, // Changed to String
     pub orb_size: Vec2,
     pub orb_color: Color,
     pub orbit_radius: f32,
@@ -234,7 +234,7 @@ pub struct OrbitingPetParams {
     pub bolt_damage: i32,
     pub bolt_speed: f32,
     pub bolt_fire_interval_secs: f32,
-    pub bolt_sprite_path: Option<&'static str>,
+    pub bolt_sprite_path: Option<String>, // Changed to Option<String>
     pub bolt_size: Option<Vec2>,
     pub bolt_color: Option<Color>,
     pub bolt_lifetime_secs: Option<f32>,
@@ -259,7 +259,7 @@ impl Default for OrbitingPetParams {
 pub struct GroundTargetedAoEParams {
     pub base_fire_rate_secs: f32,
     pub targeting_range: f32,
-    pub reticle_sprite_path: Option<&'static str>,
+    pub reticle_sprite_path: Option<String>, // Changed to Option<String>
     pub reticle_size: Vec2,
     pub delay_before_eruption_secs: f32,
     pub eruption_radius: f32,
@@ -276,7 +276,7 @@ pub struct LifestealProjectileParams {
     pub base_fire_rate_secs: f32,
     pub base_damage: i32,
     pub projectile_speed: f32,
-    pub projectile_sprite_path: &'static str,
+    pub projectile_sprite_path: String, // Changed to String
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
@@ -290,7 +290,7 @@ pub struct BouncingProjectileParams {
     pub num_shards_per_shot: u32,
     pub base_damage: i32,
     pub projectile_speed: f32,
-    pub projectile_sprite_path: &'static str,
+    pub projectile_sprite_path: String, // Changed to String
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
@@ -315,7 +315,7 @@ pub struct HomingDebuffProjectileParams {
     pub num_darts_per_shot: u32,
     pub base_damage: i32,
     pub projectile_speed: f32,
-    pub projectile_sprite_path: &'static str,
+    pub projectile_sprite_path: String, // Changed to String
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
@@ -335,7 +335,7 @@ pub struct ExpandingEnergyBombParams {
     pub min_damage_at_min_radius: i32,
     pub max_damage_at_max_radius: i32,
     pub bomb_color: Color,
-    pub visual_sprite_path: Option<&'static str>,
+    pub visual_sprite_path: Option<String>, // Changed to Option<String>
     pub detonation_can_be_manual: bool,
     pub auto_detonation_delay_after_max_expansion_secs: f32,
 }
@@ -367,7 +367,7 @@ pub struct DebuffAuraParams {
     pub cloud_radius: f32,
     pub cloud_duration_secs: f32,
     pub cloud_color: Color,
-    pub visual_sprite_path: Option<&'static str>,
+    pub visual_sprite_path: Option<String>, // Changed to Option<String>
     pub debuff_type: AuraDebuffType,
     pub debuff_magnitude: f32,
     pub debuff_duration_secs: f32,
@@ -390,7 +390,7 @@ pub struct PersistentAuraParams {
     pub tick_interval_secs: f32,
     pub radius: f32,
     pub aura_color: Color,
-    pub visual_sprite_path: Option<&'static str>,
+    pub visual_sprite_path: Option<String>, // Changed to Option<String>
     pub fire_rate_secs_placeholder: f32,
 }
 
@@ -450,7 +450,7 @@ pub struct BlinkStrikeProjectileParams {
     pub base_fire_rate_secs: f32,
     pub base_damage: i32,
     pub projectile_speed: f32,
-    pub projectile_sprite_path: &'static str,
+    pub projectile_sprite_path: String, // Changed to String
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
@@ -466,7 +466,7 @@ pub struct BlinkStrikeProjectileParams {
 pub struct LobbedBouncingMagmaParams {
     pub base_fire_rate_secs: f32,
     pub projectile_speed: f32,
-    pub projectile_sprite_path: &'static str,
+    pub projectile_sprite_path: String, // Changed to String
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_arc_height: f32,
@@ -520,7 +520,7 @@ pub struct ItemDefinition {
     pub name: String,
     pub description: String,
     pub effects: Vec<ItemEffect>,
-    pub icon_path: &'static str,
+    pub icon_path: String, // Changed to String
 }
 
 #[derive(Resource, Default, Reflect)] #[reflect(Resource)]
@@ -605,7 +605,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             pool_damage_per_tick: 3,
             base_fire_rate_secs: 0.6,
             projectile_speed: 400.0,
-            projectile_sprite_path: "sprites/ichor_blast_placeholder.png",
+            projectile_sprite_path: "sprites/ichor_blast_placeholder.png".to_string(),
             projectile_size: Vec2::new(30.0, 30.0),
             projectile_color: Color::rgb(0.7, 0.5, 1.0),
             projectile_arc_height: 50.0,
@@ -635,7 +635,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         name: "Void Cannon".to_string(),
         attack_data: AttackTypeData::ChargeUpEnergyShot(ChargeUpEnergyShotParams {
             base_fire_rate_secs: 1.25,
-            base_projectile_sprite_path: "sprites/void_cannon_projectile_placeholder.png",
+            base_projectile_sprite_path: "sprites/void_cannon_projectile_placeholder.png".to_string(),
             base_projectile_color: Color::rgb(0.4, 0.1, 0.7),
             projectile_lifetime_secs: 2.5,
             charge_levels: vec![
@@ -670,7 +670,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
                     explodes_on_impact: true,
                     explosion_radius: 75.0, 
                     explosion_damage: 30,
-                    projectile_sprite_path_override: Some("sprites/void_cannon_charged_placeholder.png"),
+                    projectile_sprite_path_override: Some("sprites/void_cannon_charged_placeholder.png".to_string()),
                 },
             ],
         }),
@@ -682,7 +682,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         attack_data: AttackTypeData::ReturningProjectile(ReturningProjectileParams {
             base_damage: 12,
             base_fire_rate_secs: 0.75,
-            projectile_sprite_path: "sprites/spectral_blade_placeholder.png",
+            projectile_sprite_path: "sprites/spectral_blade_placeholder.png".to_string(),
             projectile_size: Vec2::new(50.0, 50.0),
             projectile_color: Color::rgb(0.6, 0.9, 1.0),
             projectile_speed: 400.0,
@@ -698,7 +698,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             base_damage_on_impact: 10,
             base_fire_rate_secs: 0.8,
             projectile_speed: 700.0,
-            projectile_sprite_path: "sprites/auto_inferno_bolt.png",
+            projectile_sprite_path: "sprites/auto_inferno_bolt.png".to_string(),
             projectile_size: Vec2::new(20.0, 20.0),
             projectile_color: Color::rgb(1.0, 0.3, 0.0),
             projectile_lifetime_secs: 1.5,
@@ -736,7 +736,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             base_projectile_speed: 900.0,
             base_piercing: 0, 
             additional_projectiles: 0,
-            projectile_sprite_path: "sprites/auto_arcane_ray.png",
+            projectile_sprite_path: "sprites/auto_arcane_ray.png".to_string(),
             projectile_size: Vec2::new(50.0, 50.0), 
             projectile_color: Color::rgb(0.7, 0.2, 0.9),
             projectile_lifetime_secs: 0.8,
@@ -750,7 +750,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             base_fire_rate_secs: 1.0, 
             max_active_orbs: 2,
             orb_duration_secs: 10.0,
-            orb_sprite_path: "sprites/auto_shadow_orb.png", 
+            orb_sprite_path: "sprites/auto_shadow_orb.png".to_string(), 
             orb_size: Vec2::new(32.0, 32.0), 
             orb_color: Color::rgb(0.2, 0.1, 0.3), 
             orbit_radius: 100.0,
@@ -766,7 +766,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             bolt_damage: 8,
             bolt_speed: 400.0,
             bolt_fire_interval_secs: 1.5,
-            bolt_sprite_path: Some("sprites/shadow_bolt_placeholder.png"),
+            bolt_sprite_path: Some("sprites/shadow_bolt_placeholder.png".to_string()),
             bolt_size: Some(Vec2::new(10.0, 15.0)),
             bolt_color: Some(Color::rgb(0.3, 0.1, 0.5)),
             bolt_lifetime_secs: Some(1.0),
@@ -798,7 +798,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             base_projectile_speed: 500.0,
             base_piercing: 0,
             additional_projectiles: 2, 
-            projectile_sprite_path: "sprites/auto_venom_spit.png",
+            projectile_sprite_path: "sprites/auto_venom_spit.png".to_string(),
             projectile_size: Vec2::new(15.0, 15.0), 
             projectile_color: Color::rgb(0.2, 0.8, 0.1),
             projectile_lifetime_secs: 1.8,
@@ -825,7 +825,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         attack_data: AttackTypeData::GroundTargetedAoE(GroundTargetedAoEParams {
             base_fire_rate_secs: 1.8,
             targeting_range: 400.0,
-            reticle_sprite_path: Some("sprites/ground_target_reticle_placeholder.png"),
+            reticle_sprite_path: Some("sprites/ground_target_reticle_placeholder.png".to_string()),
             reticle_size: Vec2::new(64.0, 64.0), 
             delay_before_eruption_secs: 0.5,
             eruption_radius: 80.0,
@@ -846,7 +846,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             cone_angle_degrees: 60.0,
             cone_radius: 150.0,
             color: Color::rgb(1.0, 0.8, 0.2),
-            visual_sprite_path: Some("sprites/sunfire_burst_effect_placeholder.png"),
+            visual_sprite_path: Some("sprites/sunfire_burst_effect_placeholder.png".to_string()),
             visual_size_scale_with_radius_angle: Some((1.0, 0.5)),
             visual_anchor_offset: None,
         }),
@@ -860,7 +860,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             num_darts_per_shot: 2,
             base_damage: 8,
             projectile_speed: 700.0,
-            projectile_sprite_path: "sprites/auto_moonbeam_dart.png",
+            projectile_sprite_path: "sprites/auto_moonbeam_dart.png".to_string(),
             projectile_size: Vec2::new(15.0, 25.0),
             projectile_color: Color::rgb(0.7, 0.7, 0.9),
             projectile_lifetime_secs: 2.0,
@@ -883,7 +883,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             min_damage_at_min_radius: 20,
             max_damage_at_max_radius: 100,
             bomb_color: Color::rgba(0.6, 1.0, 0.9, 0.6),
-            visual_sprite_path: Some("sprites/spirit_bomb_effect_placeholder.png"),
+            visual_sprite_path: Some("sprites/spirit_bomb_effect_placeholder.png".to_string()),
             detonation_can_be_manual: true,
             auto_detonation_delay_after_max_expansion_secs: 1.0,
         }),
@@ -898,7 +898,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             cone_angle_degrees: 150.0, 
             cone_radius: 100.0, 
             color: Color::rgb(0.3, 0.0, 0.5), 
-            visual_sprite_path: Some("sprites/void_tendril_sweep_placeholder.png"),
+            visual_sprite_path: Some("sprites/void_tendril_sweep_placeholder.png".to_string()),
             visual_size_scale_with_radius_angle: Some((1.0, 0.8)), 
             visual_anchor_offset: Some(Vec2::new(0.0, 20.0)), 
         }),
@@ -912,7 +912,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             num_shards_per_shot: 5,
             base_damage: 10,
             projectile_speed: 700.0,
-            projectile_sprite_path: "sprites/auto_crystal_shard.png",
+            projectile_sprite_path: "sprites/auto_crystal_shard.png".to_string(),
             projectile_size: Vec2::new(18.0, 18.0),
             projectile_color: Color::rgb(0.8, 0.6, 1.0),
             projectile_lifetime_secs: 3.0,
@@ -937,7 +937,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             cloud_radius: 120.0,
             cloud_duration_secs: 2.0,
             cloud_color: Color::rgba(0.9, 0.8, 0.5, 0.5),
-            visual_sprite_path: Some("sprites/sand_cloud_placeholder.png"),
+            visual_sprite_path: Some("sprites/sand_cloud_placeholder.png".to_string()),
             debuff_type: AuraDebuffType::ReduceAccuracy,
             debuff_magnitude: 0.20,
             debuff_duration_secs: 3.0,
@@ -953,7 +953,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             tick_interval_secs: 0.25,
             radius: 75.0,
             aura_color: Color::rgba(0.6, 0.6, 0.6, 0.4),
-            visual_sprite_path: Some("sprites/metal_shrapnel_aura_placeholder.png"),
+            visual_sprite_path: Some("sprites/metal_shrapnel_aura_placeholder.png".to_string()),
             fire_rate_secs_placeholder: 0.25,
         }),
     });
@@ -964,7 +964,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         attack_data: AttackTypeData::GroundTargetedAoE(GroundTargetedAoEParams {
             base_fire_rate_secs: 1.1,
             targeting_range: 350.0,
-            reticle_sprite_path: Some("sprites/nature_reticle_placeholder.png"),
+            reticle_sprite_path: Some("sprites/nature_reticle_placeholder.png".to_string()),
             reticle_size: Vec2::new(80.0, 80.0),
             delay_before_eruption_secs: 0.4,
             eruption_radius: 80.0,
@@ -983,7 +983,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             base_fire_rate_secs: 0.45,
             base_damage: 18,
             projectile_speed: 750.0,
-            projectile_sprite_path: "sprites/auto_chi_bolt.png",
+            projectile_sprite_path: "sprites/auto_chi_bolt.png".to_string(),
             projectile_size: Vec2::new(20.0, 20.0),
             projectile_color: Color::rgb(0.5, 0.9, 0.8),
             projectile_lifetime_secs: 1.5,
@@ -999,7 +999,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             base_fire_rate_secs: 1.0,
             tether_projectile_speed: 800.0,
             tether_range: 500.0,
-            tether_sprite_path: "sprites/auto_psionic_lash.png", 
+            tether_sprite_path: "sprites/auto_psionic_lash.png".to_string(), 
             tether_color: Color::rgb(0.8, 0.4, 0.9),
             tether_size: Vec2::new(8.0, 20.0), 
             mode: RepositioningTetherMode::Alternate,
@@ -1017,7 +1017,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             base_fire_rate_secs: 0.3,
             base_damage: 14,
             projectile_speed: 1000.0,
-            projectile_sprite_path: "sprites/auto_aether_bolt.png",
+            projectile_sprite_path: "sprites/auto_aether_bolt.png".to_string(),
             projectile_size: Vec2::new(16.0, 16.0), 
             projectile_color: Color::rgb(0.9,0.9,0.9),
             projectile_lifetime_secs: 1.4,
@@ -1032,45 +1032,45 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
 }
 
 fn populate_item_library(mut library: ResMut<ItemLibrary>) {
-    library.items.push(ItemDefinition { id: ItemId(1), name: "Corrupted Heart".to_string(), description: "Increases Max Health by 25.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: Some(25), speed_multiplier: None, damage_increase: None, xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_corrupted_heart_placeholder.png" });
-    library.items.push(ItemDefinition { id: ItemId(2), name: "Whispering Idol".to_string(), description: "Increases Movement Speed by 15%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: Some(1.15), damage_increase: None, xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_whispering_idol_placeholder.png" });
-    library.items.push(ItemDefinition { id: ItemId(3), name: "Shard of Agony".to_string(), description: "Increases automatic weapon damage by 5.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: Some(5), xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_shard_of_agony_placeholder.png" });
-    library.items.push(ItemDefinition { id: ItemId(4), name: "Occult Tome Fragment".to_string(), description: "Increases XP gain by 20%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: None, xp_gain_multiplier: Some(1.20), pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_occult_tome_placeholder.png" });
-    library.items.push(ItemDefinition { id: ItemId(5), name: "Grasping Tentacle (Dried)".to_string(), description: "Increases pickup radius by 25%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: None, xp_gain_multiplier: None, pickup_radius_increase: Some(0.25), auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_grasping_tentacle_placeholder.png" });
-    library.items.push(ItemDefinition { id: ItemId(6), name: "Fragmented Sanity".to_string(), description: "Your automatic projectiles have a chance to violently detonate on impact.".to_string(), effects: vec![ItemEffect::OnAutomaticProjectileHitExplode { chance: 0.15, explosion_damage: 20, explosion_radius: 75.0, explosion_color: Color::rgba(1.0, 0.5, 0.2, 0.6), }], icon_path: "sprites/icons/item_fragmented_sanity_placeholder.png" });
-    library.items.push(ItemDefinition { id: ItemId(7), name: "Cloak of VengefulSpirits".to_string(), description: "When struck, has a chance to unleash a damaging psychic nova.".to_string(), effects: vec![ItemEffect::OnSurvivorHitRetaliate { chance: 0.25, retaliation_damage: 30, retaliation_radius: 120.0, retaliation_color: Color::rgba(0.9, 0.1, 0.1, 0.5), }], icon_path: "sprites/icons/item_cloak_vengeful_spirits_placeholder.png" });
-    library.items.push(ItemDefinition { id: ItemId(8), name: "Soul Siphon Shard".to_string(), description: "Defeated foes have a 20% chance to grant brief, rapid health regeneration.".to_string(), effects: vec![ItemEffect::OnHorrorKillTrigger { chance: 0.20, effect: SurvivorTemporaryBuff::HealthRegen { rate: 5.0, duration_secs: 3.0 }, }], icon_path: "sprites/icons/item_soul_siphon_shard_placeholder.png" });
-    library.items.push(ItemDefinition { id: ItemId(9), name: "Tome of Forbidden Rites".to_string(), description: "Grants knowledge of the 'Void Lance' skill.".to_string(), effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(3) }], icon_path: "sprites/icons/item_tome_forbidden_rites_placeholder.png" }); 
-    library.items.push(ItemDefinition { id: ItemId(10), name: "Glyph-Etched Wardstone".to_string(), description: "Activates a Circle of Warding, damaging nearby foes.".to_string(), effects: vec![ItemEffect::ActivateCircleOfWarding { base_damage: 3, base_radius: 75.0, base_tick_interval: 0.5, }], icon_path: "sprites/icons/item_glyph_wardstone_placeholder.png" });
-    library.items.push(ItemDefinition { id: ItemId(11), name: "Broodmother's Oculus".to_string(), description: "Summons a Swarm of Nightmares to orbit and attack enemies.".to_string(), effects: vec![ItemEffect::ActivateSwarmOfNightmares { num_larvae: 2, base_damage: 5, base_orbit_radius: 80.0, base_rotation_speed: std::f32::consts::PI / 2.0, }], icon_path: "sprites/icons/item_broodmother_oculus_placeholder.png" });
-    library.items.push(ItemDefinition { id: ItemId(12), name: "Crystalline Conduit".to_string(), description: "Increases automatic weapon damage by +3 and projectile speed by +10%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: Some(3), xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: Some(0.10) }], icon_path: "sprites/icons/item_crystalline_conduit_placeholder.png" });
+    library.items.push(ItemDefinition { id: ItemId(1), name: "Corrupted Heart".to_string(), description: "Increases Max Health by 25.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: Some(25), speed_multiplier: None, damage_increase: None, xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_corrupted_heart_placeholder.png".to_string() });
+    library.items.push(ItemDefinition { id: ItemId(2), name: "Whispering Idol".to_string(), description: "Increases Movement Speed by 15%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: Some(1.15), damage_increase: None, xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_whispering_idol_placeholder.png".to_string() });
+    library.items.push(ItemDefinition { id: ItemId(3), name: "Shard of Agony".to_string(), description: "Increases automatic weapon damage by 5.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: Some(5), xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_shard_of_agony_placeholder.png".to_string() });
+    library.items.push(ItemDefinition { id: ItemId(4), name: "Occult Tome Fragment".to_string(), description: "Increases XP gain by 20%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: None, xp_gain_multiplier: Some(1.20), pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_occult_tome_placeholder.png".to_string() });
+    library.items.push(ItemDefinition { id: ItemId(5), name: "Grasping Tentacle (Dried)".to_string(), description: "Increases pickup radius by 25%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: None, xp_gain_multiplier: None, pickup_radius_increase: Some(0.25), auto_weapon_projectile_speed_multiplier_increase: None }], icon_path: "sprites/icons/item_grasping_tentacle_placeholder.png".to_string() });
+    library.items.push(ItemDefinition { id: ItemId(6), name: "Fragmented Sanity".to_string(), description: "Your automatic projectiles have a chance to violently detonate on impact.".to_string(), effects: vec![ItemEffect::OnAutomaticProjectileHitExplode { chance: 0.15, explosion_damage: 20, explosion_radius: 75.0, explosion_color: Color::rgba(1.0, 0.5, 0.2, 0.6), }], icon_path: "sprites/icons/item_fragmented_sanity_placeholder.png".to_string() });
+    library.items.push(ItemDefinition { id: ItemId(7), name: "Cloak of VengefulSpirits".to_string(), description: "When struck, has a chance to unleash a damaging psychic nova.".to_string(), effects: vec![ItemEffect::OnSurvivorHitRetaliate { chance: 0.25, retaliation_damage: 30, retaliation_radius: 120.0, retaliation_color: Color::rgba(0.9, 0.1, 0.1, 0.5), }], icon_path: "sprites/icons/item_cloak_vengeful_spirits_placeholder.png".to_string() });
+    library.items.push(ItemDefinition { id: ItemId(8), name: "Soul Siphon Shard".to_string(), description: "Defeated foes have a 20% chance to grant brief, rapid health regeneration.".to_string(), effects: vec![ItemEffect::OnHorrorKillTrigger { chance: 0.20, effect: SurvivorTemporaryBuff::HealthRegen { rate: 5.0, duration_secs: 3.0 }, }], icon_path: "sprites/icons/item_soul_siphon_shard_placeholder.png".to_string() });
+    library.items.push(ItemDefinition { id: ItemId(9), name: "Tome of Forbidden Rites".to_string(), description: "Grants knowledge of the 'Void Lance' skill.".to_string(), effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(3) }], icon_path: "sprites/icons/item_tome_forbidden_rites_placeholder.png".to_string() }); 
+    library.items.push(ItemDefinition { id: ItemId(10), name: "Glyph-Etched Wardstone".to_string(), description: "Activates a Circle of Warding, damaging nearby foes.".to_string(), effects: vec![ItemEffect::ActivateCircleOfWarding { base_damage: 3, base_radius: 75.0, base_tick_interval: 0.5, }], icon_path: "sprites/icons/item_glyph_wardstone_placeholder.png".to_string() });
+    library.items.push(ItemDefinition { id: ItemId(11), name: "Broodmother's Oculus".to_string(), description: "Summons a Swarm of Nightmares to orbit and attack enemies.".to_string(), effects: vec![ItemEffect::ActivateSwarmOfNightmares { num_larvae: 2, base_damage: 5, base_orbit_radius: 80.0, base_rotation_speed: std::f32::consts::PI / 2.0, }], icon_path: "sprites/icons/item_broodmother_oculus_placeholder.png".to_string() });
+    library.items.push(ItemDefinition { id: ItemId(12), name: "Crystalline Conduit".to_string(), description: "Increases automatic weapon damage by +3 and projectile speed by +10%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: Some(3), xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: Some(0.10) }], icon_path: "sprites/icons/item_crystalline_conduit_placeholder.png".to_string() });
     library.items.push(ItemDefinition { 
         id: ItemId(13), 
         name: "Tome of Shattered Thoughts".to_string(), 
         description: "Unlocks the 'Mind Shatter' psychic burst skill.".to_string(), 
         effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(2) }], 
-        icon_path: "sprites/icons/item_tome_mind_shatter_placeholder.png" 
+        icon_path: "sprites/icons/item_tome_mind_shatter_placeholder.png".to_string() 
     });
     library.items.push(ItemDefinition { 
         id: ItemId(14), 
         name: "Tome of the Glacial Heart".to_string(), 
         description: "Unlocks the 'Glacial Nova' chilling skill.".to_string(), 
         effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(5) }], 
-        icon_path: "sprites/icons/item_tome_glacial_nova_placeholder.png" 
+        icon_path: "sprites/icons/item_tome_glacial_nova_placeholder.png".to_string() 
     });
     library.items.push(ItemDefinition { 
         id: ItemId(15), 
         name: "Tome of the Watcher".to_string(), 
         description: "Unlocks the 'Psychic Sentry' summoning skill.".to_string(), 
         effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(6) }], 
-        icon_path: "sprites/icons/item_tome_psychic_sentry_placeholder.png" 
+        icon_path: "sprites/icons/item_tome_psychic_sentry_placeholder.png".to_string() 
     });
      library.items.push(ItemDefinition { 
         id: ItemId(16), 
         name: "Tome of Ethereal Defense".to_string(), 
         description: "Unlocks the 'Ethereal Ward' defensive skill.".to_string(), 
         effects: vec![ItemEffect::GrantSpecificSkill { skill_id: SkillId(7) }], 
-        icon_path: "sprites/icons/item_tome_ethereal_ward_placeholder.png" 
+        icon_path: "sprites/icons/item_tome_ethereal_ward_placeholder.png".to_string() 
     });
 
 }
@@ -1157,8 +1157,8 @@ fn apply_collected_item_effects_system(
     }
 }
 
-fn explosion_effect_system( mut commands: Commands, time: Res<Time>, mut explosion_query: Query<(Entity, &mut ExplosionEffect, &GlobalTransform, &mut Sprite, &mut Transform)>, mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>, asset_server: Res<AssetServer>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (explosion_entity, mut explosion, explosion_g_transform, mut sprite, mut vis_transform) in explosion_query.iter_mut() { explosion.timer.tick(time.delta()); let progress = explosion.timer.fraction(); let current_radius = explosion.radius_sq.sqrt(); vis_transform.scale = Vec3::splat(current_radius * 2.0 * progress); sprite.color.set_a(1.0 - progress); if explosion.timer.fraction() < 0.5 { let explosion_pos = explosion_g_transform.translation().truncate(); for (horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() { if explosion.already_hit_entities.contains(&horror_entity) { continue; } let horror_pos = horror_gtransform.translation().truncate(); if horror_pos.distance_squared(explosion_pos) < explosion.radius_sq { horror_health.0 -= explosion.damage; spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), explosion.damage, &time); sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit)); explosion.already_hit_entities.push(horror_entity); } } } if explosion.timer.finished() { commands.entity(explosion_entity).despawn_recursive(); } } }
-fn retaliation_nova_effect_system( mut commands: Commands, time: Res<Time>, mut nova_query: Query<(Entity, &mut RetaliationNovaEffect, &GlobalTransform, &mut Sprite, &mut Transform)>, mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>, asset_server: Res<AssetServer>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (nova_entity, mut nova, nova_g_transform, mut sprite, mut vis_transform) in nova_query.iter_mut() { nova.timer.tick(time.delta()); let progress = nova.timer.fraction(); let current_radius = nova.radius_sq.sqrt(); vis_transform.scale = Vec3::splat(current_radius * 2.0 * progress); sprite.color.set_a(1.0 - progress * progress); if nova.timer.fraction() < 0.3 { let nova_pos = nova_g_transform.translation().truncate(); for (horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() { if nova.already_hit_entities.contains(&horror_entity) { continue; } let horror_pos = horror_gtransform.translation().truncate(); if horror_pos.distance_squared(nova_pos) < nova.radius_sq { horror_health.0 -= nova.damage; spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), nova.damage, &time); sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit)); nova.already_hit_entities.push(horror_entity); } } } if nova.timer.finished() { commands.entity(nova_entity).despawn_recursive(); } } }
+fn explosion_effect_system( mut commands: Commands, time: Res<Time>, mut explosion_query: Query<(Entity, &mut ExplosionEffect, &GlobalTransform, &mut Sprite, &mut Transform)>, mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>, asset_server: Res<AssetServer>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (explosion_entity, mut explosion, explosion_g_transform, mut sprite, mut vis_transform) in explosion_query.iter_mut() { explosion.timer.tick(time.delta()); let progress = explosion.timer.percent(); let current_radius = explosion.radius_sq.sqrt(); vis_transform.scale = Vec3::splat(current_radius * 2.0 * progress); sprite.color.set_a(1.0 - progress); if explosion.timer.percent() < 0.5 { let explosion_pos = explosion_g_transform.translation().truncate(); for (horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() { if explosion.already_hit_entities.contains(&horror_entity) { continue; } let horror_pos = horror_gtransform.translation().truncate(); if horror_pos.distance_squared(explosion_pos) < explosion.radius_sq { horror_health.0 -= explosion.damage; spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), explosion.damage, &time); sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit)); explosion.already_hit_entities.push(horror_entity); } } } if explosion.timer.finished() { commands.entity(explosion_entity).despawn_recursive(); } } }
+fn retaliation_nova_effect_system( mut commands: Commands, time: Res<Time>, mut nova_query: Query<(Entity, &mut RetaliationNovaEffect, &GlobalTransform, &mut Sprite, &mut Transform)>, mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>, asset_server: Res<AssetServer>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (nova_entity, mut nova, nova_g_transform, mut sprite, mut vis_transform) in nova_query.iter_mut() { nova.timer.tick(time.delta()); let progress = nova.timer.percent(); let current_radius = nova.radius_sq.sqrt(); vis_transform.scale = Vec3::splat(current_radius * 2.0 * progress); sprite.color.set_a(1.0 - progress * progress); if nova.timer.percent() < 0.3 { let nova_pos = nova_g_transform.translation().truncate(); for (horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() { if nova.already_hit_entities.contains(&horror_entity) { continue; } let horror_pos = horror_gtransform.translation().truncate(); if horror_pos.distance_squared(nova_pos) < nova.radius_sq { horror_health.0 -= nova.damage; spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), nova.damage, &time); sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit)); nova.already_hit_entities.push(horror_entity); } } } if nova.timer.finished() { commands.entity(nova_entity).despawn_recursive(); } } }
 fn temporary_health_regen_buff_system( mut commands: Commands, time: Res<Time>, mut buff_query: Query<(Entity, &mut TemporaryHealthRegenBuff)>, mut player_query: Query<(&Survivor, &mut Health)>) { 
     if let Ok((survivor_stats, mut health_component)) = player_query.get_single_mut() {
         for (entity, mut buff) in buff_query.iter_mut() { 

@@ -1,5 +1,6 @@
 // src/visual_effects.rs
 use bevy::prelude::*;
+use rand::Rng; // Added import for gen_range
 use crate::components::{Lifetime, Velocity}; // Added Velocity
 
 const DAMAGE_TEXT_LIFETIME: f32 = 0.75;
@@ -32,15 +33,18 @@ pub fn spawn_damage_text(
 
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section(
-                format!("{}{}", prefix, amount.abs()),
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: DAMAGE_TEXT_FONT_SIZE,
-                    color: text_color,
-                },
-            )
-            .with_justify(JustifyText::Center),
+            text: Text {
+                sections: vec![TextSection::new(
+                    format!("{}{}", prefix, amount.abs()),
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: DAMAGE_TEXT_FONT_SIZE,
+                        color: text_color,
+                    },
+                )],
+                alignment: TextAlignment::Center, // Corrected
+                ..default()
+            },
             // Ensure Z-value is high enough to be visible over other elements
             transform: Transform::from_xyz(position.x, position.y, position.z + 5.0), 
             ..default()
@@ -66,7 +70,7 @@ fn damage_text_fade_despawn_system(
     mut query: Query<(Entity, &mut Text, &Lifetime), With<DamageText>>,
 ) {
     for (entity, mut text, lifetime) in query.iter_mut() {
-        let remaining_fraction = lifetime.timer.fraction_remaining();
+        let remaining_fraction = lifetime.timer.percent_left(); // fraction_remaining() -> percent_left()
         // Ensure sections exist before trying to modify
         if let Some(section) = text.sections.get_mut(0) {
             let initial_alpha = section.style.color.a(); // Assuming initial alpha is 1.0

@@ -192,8 +192,8 @@ fn active_skill_cooldown_recharge_system(time: Res<Time>, mut player_query: Quer
 fn survivor_skill_input_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mouse_button_input: Res<Input<MouseButton>>, // Changed ButtonInput to Input
+    keyboard_input: Res<Input<KeyCode>>, // Changed ButtonInput to Input
     mut player_query: Query<(Entity, &mut Survivor, &Transform)>,
     skill_library: Res<SkillLibrary>,
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
@@ -201,11 +201,11 @@ fn survivor_skill_input_system(
     if let Ok((player_entity, mut player, player_transform)) = player_query.get_single_mut() {
         let mut skill_to_trigger_idx: Option<usize> = None;
         if mouse_button_input.just_pressed(MouseButton::Right) { skill_to_trigger_idx = Some(0); }
-        else if keyboard_input.just_pressed(KeyCode::Digit1) { skill_to_trigger_idx = Some(0); }
-        else if keyboard_input.just_pressed(KeyCode::Digit2) { skill_to_trigger_idx = Some(1); }
-        else if keyboard_input.just_pressed(KeyCode::Digit3) { skill_to_trigger_idx = Some(2); }
-        else if keyboard_input.just_pressed(KeyCode::KeyE) { skill_to_trigger_idx = Some(3); } 
-        else if keyboard_input.just_pressed(KeyCode::KeyR) { skill_to_trigger_idx = Some(4); } 
+        else if keyboard_input.just_pressed(KeyCode::Key1) { skill_to_trigger_idx = Some(0); }     // Digit1 -> Key1
+        else if keyboard_input.just_pressed(KeyCode::Key2) { skill_to_trigger_idx = Some(1); }     // Digit2 -> Key2
+        else if keyboard_input.just_pressed(KeyCode::Key3) { skill_to_trigger_idx = Some(2); }     // Digit3 -> Key3
+        else if keyboard_input.just_pressed(KeyCode::E) { skill_to_trigger_idx = Some(3); }      // KeyE -> E
+        else if keyboard_input.just_pressed(KeyCode::R) { skill_to_trigger_idx = Some(4); }      // KeyR -> R
 
         if let Some(idx) = skill_to_trigger_idx { if idx >= player.equipped_skills.len() { return; } let current_aim_direction = player.aim_direction; let skill_instance_snapshot = player.equipped_skills[idx].clone();
             if skill_instance_snapshot.is_ready() { if let Some(skill_def) = skill_library.get_skill_definition(skill_instance_snapshot.definition_id) {
@@ -281,7 +281,7 @@ fn survivor_skill_input_system(
                             let num_projectiles = 5;
                             let spread_angle_rad = 60.0f32.to_radians();
                             let angle_step = spread_angle_rad / (num_projectiles -1) as f32;
-                            let base_angle = current_aim_direction.to_angle() - spread_angle_rad / 2.0;
+                            let base_angle = current_aim_direction.y.atan2(current_aim_direction.x) - spread_angle_rad / 2.0; // Changed to_angle()
                             for i in 0..num_projectiles {
                                 let angle = base_angle + angle_step * i as f32;
                                 let direction = Vec2::new(angle.cos(), angle.sin());
@@ -430,7 +430,7 @@ fn skill_projectile_collision_system(
     }
 }
 
-fn active_skill_aoe_system(mut commands: Commands, time: Res<Time>, mut aoe_query: Query<(Entity, &mut ActiveSkillAoEEffect, &GlobalTransform, Option<&mut Sprite>)>, mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>, asset_server: Res<AssetServer>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (aoe_entity, mut aoe_effect, aoe_g_transform, opt_sprite) in aoe_query.iter_mut() { aoe_effect.lifetime_timer.tick(time.delta()); if let Some(mut sprite) = opt_sprite { let lifetime_remaining_fraction = 1.0 - aoe_effect.lifetime_timer.fraction(); let initial_alpha = sprite.color.a(); sprite.color.set_a((initial_alpha * lifetime_remaining_fraction).clamp(0.0, initial_alpha)); } if aoe_effect.lifetime_timer.finished() { commands.entity(aoe_entity).despawn_recursive(); continue; } aoe_effect.tick_timer.tick(time.delta()); if aoe_effect.tick_timer.just_finished() { aoe_effect.already_hit_this_tick.clear(); let aoe_pos = aoe_g_transform.translation().truncate(); for (horror_entity, horror_g_transform, mut horror_health) in horror_query.iter_mut() { if aoe_effect.already_hit_this_tick.contains(&horror_entity) { continue; } let horror_pos = horror_g_transform.translation().truncate(); if horror_pos.distance_squared(aoe_pos) < aoe_effect.actual_radius_sq { sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit)); horror_health.0 -= aoe_effect.actual_damage_per_tick; spawn_damage_text(&mut commands, &asset_server, horror_g_transform.translation(), aoe_effect.actual_damage_per_tick, &time); aoe_effect.already_hit_this_tick.push(horror_entity); } } } } }
+fn active_skill_aoe_system(mut commands: Commands, time: Res<Time>, mut aoe_query: Query<(Entity, &mut ActiveSkillAoEEffect, &GlobalTransform, Option<&mut Sprite>)>, mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>, asset_server: Res<AssetServer>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (aoe_entity, mut aoe_effect, aoe_g_transform, opt_sprite) in aoe_query.iter_mut() { aoe_effect.lifetime_timer.tick(time.delta()); if let Some(mut sprite) = opt_sprite { let lifetime_remaining_fraction = 1.0 - aoe_effect.lifetime_timer.percent(); let initial_alpha = sprite.color.a(); sprite.color.set_a((initial_alpha * lifetime_remaining_fraction).clamp(0.0, initial_alpha)); } if aoe_effect.lifetime_timer.finished() { commands.entity(aoe_entity).despawn_recursive(); continue; } aoe_effect.tick_timer.tick(time.delta()); if aoe_effect.tick_timer.just_finished() { aoe_effect.already_hit_this_tick.clear(); let aoe_pos = aoe_g_transform.translation().truncate(); for (horror_entity, horror_g_transform, mut horror_health) in horror_query.iter_mut() { if aoe_effect.already_hit_this_tick.contains(&horror_entity) { continue; } let horror_pos = horror_g_transform.translation().truncate(); if horror_pos.distance_squared(aoe_pos) < aoe_effect.actual_radius_sq { sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit)); horror_health.0 -= aoe_effect.actual_damage_per_tick; spawn_damage_text(&mut commands, &asset_server, horror_g_transform.translation(), aoe_effect.actual_damage_per_tick, &time); aoe_effect.already_hit_this_tick.push(horror_entity); } } } } }
 
 fn freezing_nova_effect_damage_system( 
     mut commands: Commands, 
@@ -442,12 +442,12 @@ fn freezing_nova_effect_damage_system(
 ) { 
     for (nova_entity, mut nova, nova_g_transform, mut sprite, mut vis_transform) in nova_query.iter_mut() { 
         nova.lifetime_timer.tick(time.delta()); 
-        let progress = nova.lifetime_timer.fraction(); 
+        let progress = nova.lifetime_timer.percent(); // fraction() -> percent()
         let current_visual_radius = nova.radius_sq.sqrt() * 2.0 * progress; 
         vis_transform.scale = Vec3::splat(current_visual_radius); 
         sprite.color.set_a((1.0 - progress * progress).max(0.0)); 
         
-        if nova.lifetime_timer.fraction() < 0.5 && !nova.already_hit_entities.contains(&nova_entity) { 
+        if nova.lifetime_timer.percent() < 0.5 && !nova.already_hit_entities.contains(&nova_entity) { // fraction() -> percent()
             let nova_pos = nova_g_transform.translation().truncate(); 
             for (horror_entity, horror_g_transform, mut horror_health, _horror_velocity, _horror_data) in horror_query.iter_mut() { 
                 if nova.already_hit_entities.contains(&horror_entity) { continue; } 
@@ -484,7 +484,7 @@ fn active_channeled_beam_system(
         beam_vis_transform.translation = (player_transform.translation.truncate() + beam_spawn_offset).extend(0.18);
         beam_vis_transform.rotation = Quat::from_rotation_z(beam.direction.y.atan2(beam.direction.x));
 
-        let lifetime_remaining_fraction = 1.0 - beam.lifetime_timer.fraction();
+        let lifetime_remaining_fraction = 1.0 - beam.lifetime_timer.percent(); // fraction() -> percent()
         let initial_alpha = beam.color.a(); 
         beam_sprite.color.set_a((initial_alpha * lifetime_remaining_fraction).clamp(0.0, initial_alpha));
 

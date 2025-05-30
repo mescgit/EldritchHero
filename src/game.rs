@@ -114,7 +114,7 @@ fn log_exiting_debug_menu_state() {}
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app .add_event::<UpgradeChosenEvent>() .add_event::<ItemCollectedEvent>()
-            .add_plugins((UpgradePlugin, DebugMenuPlugin)) .init_state::<AppState>()
+            .add_plugins((UpgradePlugin, DebugMenuPlugin)) .add_state::<AppState>() // Changed init_state to add_state
             .init_resource::<GameConfig>() .init_resource::<GameState>()
             .init_resource::<PreviousGameState>()
             .init_resource::<SelectedCharacter>()
@@ -171,7 +171,7 @@ impl Plugin for GamePlugin {
 }
 
 fn global_key_listener(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    keyboard_input: Res<Input<KeyCode>>, // Changed ButtonInput to Input
     current_app_state: Res<State<AppState>>,
     mut next_app_state: ResMut<NextState<AppState>>,
     mut prev_game_state: ResMut<PreviousGameState>,
@@ -181,7 +181,7 @@ fn global_key_listener(
         debug_display_state.visible = !debug_display_state.visible;
     }
 
-    if keyboard_input.just_pressed(KeyCode::Backquote) {
+    if keyboard_input.just_pressed(KeyCode::Grave) { // Backquote -> Grave
         match current_app_state.get() {
             AppState::InGame => {
                 prev_game_state.0 = Some(AppState::InGame);
@@ -200,7 +200,7 @@ fn global_key_listener(
 }
 
 fn debug_character_switch_system(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    keyboard_input: Res<Input<KeyCode>>, // Changed ButtonInput to Input
     mut player_query: Query<(&mut Survivor, &mut SanityStrain, &mut Name)>,
     weapon_library: Res<AutomaticWeaponLibrary>,
     current_app_state: Res<State<AppState>>,
@@ -280,19 +280,25 @@ fn setup_main_menu_ui(
     )).with_children(|parent| {
         // Game Title
         parent.spawn(
-            TextBundle::from_section(
-                "Eldritch Hero", // Changed title
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 70.0,
-                    color: Color::WHITE,
+            TextBundle {
+                text: Text {
+                    sections: vec![TextSection::new(
+                        "Eldritch Hero", // Changed title
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 70.0,
+                            color: Color::WHITE,
+                        },
+                    )],
+                    alignment: TextAlignment::Center, // Correctly set here
+                    ..default()
                 },
-            )
-            .with_text_justify(JustifyText::Center)
-            .with_style(Style {
-                margin: UiRect::bottom(Val::Px(25.0)), // Margin below the title
+                style: Style {
+                    margin: UiRect::bottom(Val::Px(25.0)), // Margin below the title
+                    ..default()
+                },
                 ..default()
-            })
+            }
         );
 
         // Container for weapon/ability buttons
@@ -349,10 +355,17 @@ fn setup_main_menu_ui(
                     CharacterSelectButton(weapon_def.id), // Existing component for button logic
                     Name::new(format!("WeaponButton_{}", weapon_def.name)),
                 )).with_children(|button_parent| {
-                    button_parent.spawn(TextBundle::from_section(
-                        weapon_def.name.clone(),
-                        button_text_style.clone(),
-                    ).with_text_justify(JustifyText::Center)); // Center text inside button
+                button_parent.spawn(TextBundle {
+                    text: Text {
+                        sections: vec![TextSection::new(
+                            weapon_def.name.clone(),
+                            button_text_style.clone(),
+                        )],
+                        alignment: TextAlignment::Center, // Added alignment here
+                        ..default()
+                    },
+                    ..default()
+                }); // Center text inside button
                 });
             }
         });
@@ -561,15 +574,22 @@ fn setup_level_up_ui(mut commands: Commands, asset_server: Res<AssetServer>, pla
     ))
     .with_children(|parent| {
         parent.spawn(
-            TextBundle::from_section(
-                format!("Revelation! Insight: {}", player_level),
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 50.0,
-                    color: Color::GOLD,
+            TextBundle {
+                text: Text {
+                    sections: vec![TextSection::new(
+                        format!("Revelation! Insight: {}", player_level),
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 50.0,
+                            color: Color::GOLD,
+                        }
+                    )],
+                    alignment: TextAlignment::Center, // Added alignment
+                    ..default()
                 },
-            )
-            .with_style(Style { margin: UiRect::bottom(Val::Px(20.0)), ..default()})
+                style: Style { margin: UiRect::bottom(Val::Px(20.0)), ..default()},
+                ..default()
+            }
         );
         for (index, card) in current_offered_upgrades.choices.iter().enumerate() { 
             let border_color_val = match card.rarity {
@@ -621,7 +641,7 @@ fn setup_level_up_ui(mut commands: Commands, asset_server: Res<AssetServer>, pla
     });
 }
 
-fn handle_upgrade_choice_interaction(mut interaction_query: Query< (&Interaction, &UpgradeButton, &mut BackgroundColor), (Changed<Interaction>, With<Button>), >, mut upgrade_chosen_event: EventWriter<UpgradeChosenEvent>, mut next_app_state: ResMut<NextState<AppState>>, keyboard_input: Res<ButtonInput<KeyCode>>, level_up_ui_query: Query<&OfferedUpgrades, With<LevelUpUI>>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (interaction, upgrade_button_data, mut bg_color) in interaction_query.iter_mut() { match *interaction { Interaction::Pressed => { sound_event_writer.send(PlaySoundEvent(SoundEffect::OmenAccepted)); upgrade_chosen_event.send(UpgradeChosenEvent(upgrade_button_data.0.clone())); next_app_state.set(AppState::InGame); return; } Interaction::Hovered => { *bg_color = Color::DARK_GREEN.into(); } Interaction::None => { *bg_color = Color::GRAY.into(); } } } if let Ok(offered) = level_up_ui_query.get_single() { let choice_made = if keyboard_input.just_pressed(KeyCode::Digit1) && offered.choices.len() > 0 { Some(offered.choices[0].clone()) } else if keyboard_input.just_pressed(KeyCode::Digit2) && offered.choices.len() > 1 { Some(offered.choices[1].clone()) } else if keyboard_input.just_pressed(KeyCode::Digit3) && offered.choices.len() > 2 { Some(offered.choices[2].clone()) } else { None }; if let Some(chosen_card) = choice_made { sound_event_writer.send(PlaySoundEvent(SoundEffect::OmenAccepted)); upgrade_chosen_event.send(UpgradeChosenEvent(chosen_card)); next_app_state.set(AppState::InGame); } } }
+fn handle_upgrade_choice_interaction(mut interaction_query: Query< (&Interaction, &UpgradeButton, &mut BackgroundColor), (Changed<Interaction>, With<Button>), >, mut upgrade_chosen_event: EventWriter<UpgradeChosenEvent>, mut next_app_state: ResMut<NextState<AppState>>, keyboard_input: Res<Input<KeyCode>>, level_up_ui_query: Query<&OfferedUpgrades, With<LevelUpUI>>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (interaction, upgrade_button_data, mut bg_color) in interaction_query.iter_mut() { match *interaction { Interaction::Pressed => { sound_event_writer.send(PlaySoundEvent(SoundEffect::OmenAccepted)); upgrade_chosen_event.send(UpgradeChosenEvent(upgrade_button_data.0.clone())); next_app_state.set(AppState::InGame); return; } Interaction::Hovered => { *bg_color = Color::DARK_GREEN.into(); } Interaction::None => { *bg_color = Color::GRAY.into(); } } } if let Ok(offered) = level_up_ui_query.get_single() { let choice_made = if keyboard_input.just_pressed(KeyCode::Key1) && offered.choices.len() > 0 { Some(offered.choices[0].clone()) } else if keyboard_input.just_pressed(KeyCode::Key2) && offered.choices.len() > 1 { Some(offered.choices[1].clone()) } else if keyboard_input.just_pressed(KeyCode::Key3) && offered.choices.len() > 2 { Some(offered.choices[2].clone()) } else { None }; if let Some(chosen_card) = choice_made { sound_event_writer.send(PlaySoundEvent(SoundEffect::OmenAccepted)); upgrade_chosen_event.send(UpgradeChosenEvent(chosen_card)); next_app_state.set(AppState::InGame); } } }
 
 fn apply_chosen_upgrade(
     mut events: EventReader<UpgradeChosenEvent>,
@@ -1114,8 +1134,13 @@ fn apply_chosen_upgrade(
         }
     }
 }
-fn setup_game_over_ui(mut commands: Commands, game_state: Res<GameState>, asset_server: Res<AssetServer>) { commands.spawn(( NodeBundle { style: Style { width: Val::Percent(100.0), height: Val::Percent(100.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, flex_direction: FlexDirection::Column, row_gap: Val::Px(20.0), ..default() }, ..default() }, GameOverUI, )).with_children(|parent| { parent.spawn( TextBundle::from_section( "Consumed by Madness!", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 80.0, color: Color::RED, }, ).with_text_justify(JustifyText::Center) ); parent.spawn( TextBundle::from_section( format!("Score: {}", game_state.score), TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 50.0, color: Color::WHITE, }, ).with_text_justify(JustifyText::Center) ); parent.spawn( TextBundle::from_section( "Succumb Again? (R)", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 40.0, color: Color::rgba(0.8,0.8,0.8,1.0), }, ).with_text_justify(JustifyText::Center) ); }); }
-fn game_over_input_system(mut commands: Commands, keyboard_input: Res<ButtonInput<KeyCode>>, mut next_app_state: ResMut<NextState<AppState>>, game_state: ResMut<GameState>, horror_spawn_timer: ResMut<HorrorSpawnTimer>, max_horrors: ResMut<MaxHorrors>, player_entity_query: Query<Entity, With<Survivor>>,) { if keyboard_input.just_pressed(KeyCode::KeyR) { for entity in player_entity_query.iter() { commands.entity(entity).despawn_recursive(); } reset_for_new_game_session(game_state, horror_spawn_timer, max_horrors); next_app_state.set(AppState::MainMenu); } }
+fn setup_game_over_ui(mut commands: Commands, game_state: Res<GameState>, asset_server: Res<AssetServer>) { commands.spawn(( NodeBundle { style: Style { width: Val::Percent(100.0), height: Val::Percent(100.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, flex_direction: FlexDirection::Column, row_gap: Val::Px(20.0), ..default() }, ..default() }, GameOverUI, )).with_children(|parent| { 
+        parent.spawn( TextBundle { text: Text { sections: vec![TextSection::new("Consumed by Madness!", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 80.0, color: Color::RED, })], alignment: TextAlignment::Center, ..default() }, ..default() }); 
+        parent.spawn( TextBundle { text: Text { sections: vec![TextSection::new(format!("Score: {}", game_state.score), TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 50.0, color: Color::WHITE, })], alignment: TextAlignment::Center, ..default() }, ..default() }); 
+        parent.spawn( TextBundle { text: Text { sections: vec![TextSection::new("Succumb Again? (R)", TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 40.0, color: Color::rgba(0.8,0.8,0.8,1.0), })], alignment: TextAlignment::Center, ..default() }, ..default() }); 
+    }); 
+}
+fn game_over_input_system(mut commands: Commands, keyboard_input: Res<Input<KeyCode>>, mut next_app_state: ResMut<NextState<AppState>>, game_state: ResMut<GameState>, horror_spawn_timer: ResMut<HorrorSpawnTimer>, max_horrors: ResMut<MaxHorrors>, player_entity_query: Query<Entity, With<Survivor>>,) { if keyboard_input.just_pressed(KeyCode::R) { for entity in player_entity_query.iter() { commands.entity(entity).despawn_recursive(); } reset_for_new_game_session(game_state, horror_spawn_timer, max_horrors); next_app_state.set(AppState::MainMenu); } }
 
 fn cleanup_session_entities(
     mut commands: Commands,

@@ -1360,7 +1360,7 @@ impl UpgradePool {
     pub fn get_random_upgrades(&self, count: usize) -> Vec<UpgradeCard> { let mut rng = rand::thread_rng(); self.available_upgrades.choose_multiple(&mut rng, count).cloned().collect() }
 }
 
-#[derive(Component, Debug, Clone, Reflect)] // Added Reflect
+#[derive(Component, Debug, Clone, Reflect, Default)] // Added Default
 #[reflect(Component)] // Added reflect attribute
 pub struct OfferedUpgrades { pub choices: Vec<UpgradeCard>, }
 

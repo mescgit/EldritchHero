@@ -384,11 +384,10 @@ impl Default for PlayerWaitingTetherActivationComponent {
     }
 }
 
-#[derive(Component, Debug, Reflect)]
-#[reflect(Component)]
-pub struct HorrorLatchedByTetherComponent {
-    pub player_who_latched: Entity,
-}
+// HorrorLatchedByTetherComponent is defined in src/components.rs
+// pub struct HorrorLatchedByTetherComponent {
+//    pub player_who_latched: Entity,
+// }
 
 fn apply_tether_reposition_effect(
     // Removed Commands from here as it's not directly used for spawning, only for component removal by caller
@@ -848,10 +847,10 @@ pub fn manage_player_orbs_system(
     let Ok((player_entity, player_transform, mut player_stats, opt_orb_controller)) = player_query.get_single_mut() else { return; };
 
     let mut shadow_orb_params_opt: Option<crate::items::OrbitingPetParams> = None;
-    if let Some(active_weapon_id) = player_stats.active_automatic_weapon_id {
-        if let Some(weapon_def) = weapon_library.get_weapon_definition(active_weapon_id) {
-            if let crate::items::AttackTypeData::OrbitingPet(params) = &weapon_def.attack_data {
-                shadow_orb_params_opt = Some(params.clone());
+    let active_weapon_id = player_stats.inherent_weapon_id; // Changed: No longer Option
+    if let Some(weapon_def) = weapon_library.get_weapon_definition(active_weapon_id) {
+        if let AttackTypeData::OrbitingPet(params) = &weapon_def.attack_data {
+            shadow_orb_params_opt = Some(params.clone());
             }
         }
     }
@@ -891,7 +890,7 @@ pub fn manage_player_orbs_system(
             commands.entity(player_entity).remove::<PlayerOrbControllerComponent>();
         }
     }
-}
+
 
 
 pub fn orbiting_pet_behavior_system(
@@ -1347,10 +1346,10 @@ pub fn ground_targeting_reticule_system(
     let mut should_have_reticule = false;
     let mut current_reticule_params_opt: Option<crate::items::GroundTargetedAoEParams> = None;
 
-    if let Some(active_weapon_id) = player_stats.active_automatic_weapon_id {
-        if let Some(weapon_def) = weapon_library.get_weapon_definition(active_weapon_id) {
-            if let crate::items::AttackTypeData::GroundTargetedAoE(params) = &weapon_def.attack_data {
-                should_have_reticule = true;
+    let active_weapon_id = player_stats.inherent_weapon_id; // Changed: No longer Option
+    if let Some(weapon_def) = weapon_library.get_weapon_definition(active_weapon_id) {
+        if let AttackTypeData::GroundTargetedAoE(params) = &weapon_def.attack_data {
+            should_have_reticule = true;
                 current_reticule_params_opt = Some(params.clone());
             }
         }
@@ -1403,7 +1402,7 @@ pub fn ground_targeting_reticule_system(
             commands.entity(ret_entity).despawn_recursive();
         }
     }
-}
+
 
 
 pub fn spawn_pending_ground_aoe_attack(
@@ -1954,10 +1953,10 @@ pub fn manage_persistent_aura_system(
     let mut current_aura_params_opt: Option<crate::items::PersistentAuraParams> = None;
     let mut current_weapon_id_opt: Option<AutomaticWeaponId> = None;
 
-    if let Some(active_weapon_id) = player_stats.active_automatic_weapon_id {
-        if let Some(weapon_def) = weapon_library.get_weapon_definition(active_weapon_id) {
-            if let crate::items::AttackTypeData::PersistentAura(params) = &weapon_def.attack_data {
-                should_have_aura = true;
+    let active_weapon_id = player_stats.inherent_weapon_id; // Changed: No longer Option
+    if let Some(weapon_def) = weapon_library.get_weapon_definition(active_weapon_id) {
+        if let AttackTypeData::PersistentAura(params) = &weapon_def.attack_data {
+            should_have_aura = true;
                 current_aura_params_opt = Some(params.clone());
                 current_weapon_id_opt = Some(active_weapon_id);
             }
@@ -2055,7 +2054,7 @@ pub fn manage_persistent_aura_system(
         _ => {
         }
     }
-}
+
 
 // --- Point-Blank Nova Systems ---
 
