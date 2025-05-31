@@ -65,6 +65,120 @@ impl Default for ChanneledBeamComponent {
     }
 }
 
+pub fn lobbed_weapon_targeting_reticule_system(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
+    player_query: Query<(Entity, &GlobalTransform, &Survivor)>,
+    mut reticule_query: Query<(Entity, &mut Transform, &mut LobbedWeaponTargetReticuleComponent, &Parent), With<LobbedWeaponTargetReticuleComponent>>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    camera_q: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+) {
+    let Ok((player_entity, player_gtransform, player_stats)) = player_query.get_single() else {
+        // If no player, despawn all lobbed reticles (they shouldn't exist anyway if parented)
+        for (ret_entity, _, _, _) in reticule_query.iter_mut() {
+            commands.entity(ret_entity).despawn_recursive();
+        }
+        return;
+    };
+    let player_pos_2d = player_gtransform.translation().truncate();
+
+    let mut should_have_reticule = false;
+    let mut current_lobbed_params_opt: Option<crate::items::LobbedAoEPoolParams> = None;
+
+    let active_weapon_id = player_stats.inherent_weapon_id;
+    if let Some(weapon_def) = weapon_library.get_weapon_definition(active_weapon_id) {
+        if let AttackTypeData::LobbedAoEPool(params) = &weapon_def.attack_data {
+            should_have_reticule = true;
+            current_lobbed_params_opt = Some(params.clone());
+        }
+        // Future: Extend for other lobbed types by adding more `else if let` branches
+        // else if let AttackTypeData::LobbedBouncingMagma(params) = &weapon_def.attack_data {
+        //     should_have_reticule = true;
+        //     // current_lobbed_params_opt = Some(params.clone_into_generic_lobbed_params()); // If needed
+        //     // For now, we'll assume LobbedAoEPoolParams is the only one this reticle handles
+        // }
+    }
+
+    if should_have_reticule {
+        let params = current_lobbed_params_opt.expect("Lobbed params should be present if should_have_reticule is true");
+        let window = windows.single();
+        let (camera, camera_gtransform) = camera_q.single();
+
+        let max_targeting_range = params.projectile_speed * 1.5; // Placeholder calculation
+        let reticle_visual_size = Vec2::new(50.0, 50.0);
+        let reticle_z_offset = 0.2; // Relative to player, ensure it's rendered above player/ground
+
+        let mut cursor_world_pos_2d = player_pos_2d + player_stats.aim_direction.normalize_or_zero() * max_targeting_range * 0.5; // Default to half range
+        if let Some(cursor_pos_screen) = window.cursor_position() {
+            if let Some(cursor_world) = camera.viewport_to_world(camera_gtransform, cursor_pos_screen) {
+                cursor_world_pos_2d = cursor_world.origin.truncate();
+            }
+        }
+
+        let player_to_cursor_vector = cursor_world_pos_2d - player_pos_2d;
+        let distance_to_cursor = player_to_cursor_vector.length();
+        
+        let clamped_distance = distance_to_cursor.min(max_targeting_range);
+
+        let mut direction_to_cursor = player_to_cursor_vector.normalize_or_zero();
+        if direction_to_cursor == Vec2::ZERO {
+            // Fallback to player's aim direction if cursor is on player
+            direction_to_cursor = player_stats.aim_direction.normalize_or_zero();
+            if direction_to_cursor == Vec2::ZERO {
+                // If player's aim is also zero, fallback to player's local right (X-axis)
+                direction_to_cursor = (player_gtransform.compute_transform().right().truncate()).normalize_or_zero();
+                if direction_to_cursor == Vec2::ZERO {
+                    direction_to_cursor = Vec2::X; // Absolute fallback if all else fails
+                }
+            }
+        }
+        // Now, direction_to_cursor is a unit vector (or a default like Vec2::X)
+        let local_reticle_pos = direction_to_cursor * clamped_distance;
+
+        let mut reticule_updated_or_created = false;
+        for (ret_entity, mut ret_transform, mut ret_component, parent) in reticule_query.iter_mut() {
+            if parent.get() == player_entity {
+                ret_transform.translation = local_reticle_pos.extend(reticle_z_offset);
+                ret_component.max_range = max_targeting_range;
+                // visual_size is fixed for now, but could be updated from params if needed
+                reticule_updated_or_created = true;
+                break;
+            }
+        }
+
+        if !reticule_updated_or_created {
+            commands.entity(player_entity).with_children(|parent| {
+                parent.spawn((
+                    SpriteBundle {
+                        texture: asset_server.load("sprites/lobbed_reticle_placeholder.png"),
+                        sprite: Sprite {
+                            custom_size: Some(reticle_visual_size),
+                            color: Color::rgba(0.8, 0.8, 0.2, 0.5),
+                            ..default()
+                        },
+                        // Transform is local to the parent (player)
+                        transform: Transform::from_translation(local_reticle_pos.extend(reticle_z_offset)),
+                        ..default()
+                    },
+                    LobbedWeaponTargetReticuleComponent {
+                        max_range: max_targeting_range,
+                        visual_size: reticle_visual_size,
+                    },
+                    Name::new("LobbedTargetReticule"),
+                ));
+            });
+        }
+    } else {
+        // If should_not_have_reticule, despawn any existing reticle parented to this player
+        for (ret_entity, _, _, parent) in reticule_query.iter_mut() {
+            if parent.get() == player_entity {
+                commands.entity(ret_entity).despawn_recursive();
+            }
+        }
+    }
+}
+
 
 #[derive(Component, Debug, Reflect, Default)]
 #[reflect(Component)]
@@ -82,6 +196,7 @@ pub struct LobbedProjectileComponent {
     pub speed: f32,
     pub pool_params: crate::items::LobbedAoEPoolParams,
     pub initial_spawn_position: Vec3,
+    pub target_position: Option<Vec3>, // Added field
 }
 
 #[derive(Component, Debug, Reflect, Default)]
@@ -224,6 +339,13 @@ pub struct DebuffOnHitComponent {
 #[derive(Component, Debug, Reflect, Default)]
 #[reflect(Component)]
 pub struct GroundTargetReticuleComponent {
+    pub max_range: f32,
+    pub visual_size: Vec2,
+}
+
+#[derive(Component, Debug, Reflect, Default)]
+#[reflect(Component)]
+pub struct LobbedWeaponTargetReticuleComponent {
     pub max_range: f32,
     pub visual_size: Vec2,
 }
@@ -498,12 +620,113 @@ pub fn homing_projectile_system(mut _commands: Commands) {
     // TODO: Implement system
 }
 
-pub fn lobbed_projectile_system(mut _commands: Commands) {
-    // TODO: Implement system
+// Helper function to spawn pool and despawn projectile
+fn spawn_pool_and_despawn_projectile(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    projectile_entity: Entity,
+    projectile_transform: &Transform,
+    lob_comp: &LobbedProjectileComponent,
+) {
+    commands.spawn((
+        SpriteBundle {
+            texture: asset_server.load(&lob_comp.pool_params.projectile_sprite_path), // Use pool sprite from params
+            sprite: Sprite {
+                custom_size: Some(Vec2::splat(lob_comp.pool_params.pool_radius * 2.0)),
+                color: lob_comp.pool_params.pool_color,
+                ..default()
+            },
+            transform: Transform::from_translation(projectile_transform.translation.truncate().extend(0.01)),
+            ..default()
+        },
+        IchorPoolComponent {
+            damage_per_tick: lob_comp.pool_params.pool_damage_per_tick,
+            radius: lob_comp.pool_params.pool_radius,
+            tick_timer: Timer::from_seconds(lob_comp.pool_params.pool_tick_interval_secs, TimerMode::Repeating),
+            duration_timer: Timer::from_seconds(lob_comp.pool_params.pool_duration_secs, TimerMode::Once),
+            color: lob_comp.pool_params.pool_color,
+            already_hit_this_tick: Vec::new(),
+        },
+        Name::new("IchorPoolInstance (Targeted)"),
+    ));
+    commands.entity(projectile_entity).despawn_recursive();
 }
 
-pub fn ichor_pool_system(mut _commands: Commands) {
-    // TODO: Implement system
+pub fn lobbed_projectile_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    asset_server: Res<AssetServer>, // For the helper function
+    // Query for Lifetime as it's now the primary landing trigger
+    mut query: Query<(Entity, &mut Transform, &mut Velocity, &LobbedProjectileComponent, &mut Lifetime)>,
+) {
+    let g = 980.0; // pixels/sec^2, matches spawn function
+
+    for (entity, mut transform, mut velocity, lob_comp, mut lifetime) in query.iter_mut() {
+        // 1. Apply gravity
+        velocity.0.y -= g * time.delta_seconds(); // Assuming positive g is downward, so subtract
+
+        // 2. Update position based on velocity
+        transform.translation.x += velocity.0.x * time.delta_seconds();
+        transform.translation.y += velocity.0.y * time.delta_seconds();
+
+        // 3. Update rotation to match current velocity vector
+        if velocity.0.length_squared() > 0.0 {
+            transform.rotation = Quat::from_rotation_z(velocity.0.y.atan2(velocity.0.x));
+        }
+
+        // 4. Tick lifetime and check for landing
+        lifetime.timer.tick(time.delta());
+        if lifetime.timer.finished() {
+            // Call the existing helper function to spawn pool and despawn projectile
+            spawn_pool_and_despawn_projectile(&mut commands, &asset_server, entity, &transform, lob_comp);
+            // The entity is despawned by the helper, so loop will not process it further.
+        }
+    }
+}
+
+pub fn ichor_pool_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    asset_server: Res<AssetServer>, // For damage text
+    mut pool_query: Query<(Entity, &mut IchorPoolComponent, &GlobalTransform)>,
+    mut horror_query: Query<(Entity, &Transform, &mut crate::components::Health), With<crate::horror::Horror>>,
+) {
+    for (pool_entity, mut pool_comp, pool_gtransform) in pool_query.iter_mut() {
+        // Tick duration timer and despawn if finished
+        pool_comp.duration_timer.tick(time.delta());
+        if pool_comp.duration_timer.finished() {
+            commands.entity(pool_entity).despawn_recursive();
+            continue;
+        }
+
+        // Tick damage timer
+        pool_comp.tick_timer.tick(time.delta());
+        if pool_comp.tick_timer.just_finished() {
+            pool_comp.already_hit_this_tick.clear();
+            let pool_center_pos = pool_gtransform.translation().truncate(); // Get pool's world position
+            let pool_radius_sq = pool_comp.radius.powi(2);
+
+            for (horror_entity, horror_transform, mut horror_health) in horror_query.iter_mut() {
+                if pool_comp.already_hit_this_tick.contains(&horror_entity) {
+                    continue;
+                }
+                
+                let horror_pos = horror_transform.translation.truncate(); // Horror's world position
+                if horror_pos.distance_squared(pool_center_pos) < pool_radius_sq {
+                    horror_health.0 -= pool_comp.damage_per_tick;
+                    // Spawn damage text visual effect
+                    crate::visual_effects::spawn_damage_text(
+                        &mut commands,
+                        &asset_server,
+                        horror_transform.translation, // Position for damage text
+                        pool_comp.damage_per_tick,
+                        &time
+                    );
+                    pool_comp.already_hit_this_tick.push(horror_entity);
+                }
+            }
+        }
+    }
 }
 
 pub fn channeled_beam_update_system(mut _commands: Commands) {
@@ -569,6 +792,7 @@ impl Plugin for WeaponSystemsPlugin {
             .register_type::<DebuffOnHitComponent>()
             .register_type::<GroundTargetReticuleComponent>()
             .register_type::<PendingGroundAoEComponent>()
+            .register_type::<LobbedWeaponTargetReticuleComponent>() 
             .register_type::<EruptionVisualComponent>()
             .register_type::<PlayerDashingComponent>()
             .register_type::<PlayerInvulnerableComponent>()
@@ -587,6 +811,7 @@ impl Plugin for WeaponSystemsPlugin {
                 player_is_channeling_effect_system,
                 channeled_beam_damage_system,
                 ground_targeting_reticule_system,
+                lobbed_weapon_targeting_reticule_system, // Added system to schedule
             ).run_if(in_state(AppState::InGame)))
             .add_systems(Update, pending_ground_aoe_system.run_if(in_state(AppState::InGame)))
             .add_systems(Update, eruption_visual_system.run_if(in_state(AppState::InGame)))
@@ -647,76 +872,77 @@ pub fn repositioning_tether_firing_system(
         }
     }
 
-    for (player_entity, aim_direction, params, weapon_id, player_transform_copy) in player_fire_requests {
-        // Now we can pass parts of the ParamSet.
-        // Note: spawn_repositioning_tether_attack will need to be refactored to accept these
-        // or we query within it using the entity IDs.
-        // For now, let's assume spawn_repositioning_tether_attack will be adapted.
-        // We pass player_transform_copy directly.
-        
-        // The direct passing of p1 and p2 queries like this is problematic if spawn_repositioning_tether_attack
-        // also tries to use ParamSet or expects full Query objects.
-        // We will need to refactor spawn_repositioning_tether_attack significantly.
-        // For now, this is a placeholder for how the call *might* look after spawn_repositioning_tether_attack is refactored.
-        // The critical part is that we are not holding a borrow on set.p0() when we might need mutable access to set.p1() or set.p2().
+    // The variable `params` from the loop is now `fire_params` to avoid collision with `effect_params`.
+    for (player_entity, aim_direction, fire_params, weapon_id, player_transform_copy) in player_fire_requests {
+        let mut tether_activated_this_iteration = false;
 
-        // Let's modify spawn_repositioning_tether_attack to take what it needs directly,
-        // rather than entire Query objects.
-        spawn_repositioning_tether_attack(
-            &mut commands,
-            &asset_server,
-            player_entity,
-            aim_direction,
-            &params, // Cloned earlier, so this is fine
-            weapon_id,
-            &mut set.p2(), // PlayerWaitingTetherActivationComponent query
-            &mut set.p1(), // Horror transform query
-            &player_transform_copy, // Pass the copied transform
-        );
+        // Use a block to limit the borrow scope of set.p2()
+        // Correctly get PlayerWaitingTetherActivationComponent using p2 from ParamSet
+        if let Ok(waiting_comp) = set.p2().get_mut(player_entity) {
+            let hit_horror_entity = waiting_comp.hit_horror_entity; // Copy data
+            let effect_params = waiting_comp.params.clone(); // Clone: component data for effect
+            let next_effect_mode = waiting_comp.next_effect_mode;
+            let timer_finished = waiting_comp.reactivation_window_timer.finished();
+
+            if !timer_finished {
+                // Timer has not finished, try to activate
+                // Borrow from set.p1() now that borrow from set.p2() for waiting_comp is effectively done (data copied)
+                // Correctly get Horror's Transform using p1 from ParamSet
+                if let Ok(mut horror_transform) = set.p1().get_mut(hit_horror_entity) {
+                    apply_tether_reposition_effect(
+                        &mut horror_transform,
+                        &player_transform_copy,
+                        &effect_params, // Use the cloned params from the component
+                        next_effect_mode,
+                    );
+                }
+                // After effect, remove components using commands
+                commands.entity(hit_horror_entity).remove::<HorrorLatchedByTetherComponent>();
+                commands.entity(player_entity).remove::<PlayerWaitingTetherActivationComponent>();
+                tether_activated_this_iteration = true;
+            } else {
+                // Timer has finished, just clean up components
+                // Check if entity still exists before trying to remove component from it
+                if commands.get_entity(hit_horror_entity).is_some() {
+                    commands.entity(hit_horror_entity).remove::<HorrorLatchedByTetherComponent>();
+                }
+                commands.entity(player_entity).remove::<PlayerWaitingTetherActivationComponent>();
+                // tether_activated_this_iteration remains false, so a new projectile will be fired.
+            }
+        }
+        // Scopes of borrows from set.p1() and set.p2() must have ended before this point if they occurred.
+
+        if !tether_activated_this_iteration {
+            // Call the new function for spawning projectile
+            // fire_params are the weapon definition params from the player_fire_requests loop
+            spawn_actual_tether_projectile(
+                &mut commands,
+                &asset_server,
+                player_entity,
+                aim_direction,
+                &fire_params, // These are the weapon's definition RepositioningTetherParams
+                weapon_id,
+                &player_transform_copy,
+            );
+        }
     }
 }
 
-pub fn spawn_repositioning_tether_attack(
+pub fn spawn_actual_tether_projectile(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     player_entity: Entity,
     aim_direction: Vec2,
-    weapon_params: &crate::items::RepositioningTetherParams,
+    weapon_params: &crate::items::RepositioningTetherParams, // This is the definition params
     weapon_id: crate::items::AutomaticWeaponId,
-    player_waiting_query: &mut Query<&mut PlayerWaitingTetherActivationComponent>,
-    horror_query: &mut Query<&mut Transform, With<Horror>>,
-    player_transform: &Transform, // Changed from Query to direct &Transform
+    player_transform: &Transform,
 ) {
-    if let Ok(waiting_comp) = player_waiting_query.get_mut(player_entity) { // Removed mut here
-        if !waiting_comp.reactivation_window_timer.finished() {
-            // No need to query player_transform again, it's passed directly
-            if let Ok(mut horror_tform) = horror_query.get_mut(waiting_comp.hit_horror_entity) {
-                apply_tether_reposition_effect(
-                    &mut horror_tform,
-                    player_transform, // Use the passed player_transform
-                    &waiting_comp.params,
-                    waiting_comp.next_effect_mode,
-                );
-            }
-            if commands.get_entity(waiting_comp.hit_horror_entity).is_some() {
-                 commands.entity(waiting_comp.hit_horror_entity).remove::<HorrorLatchedByTetherComponent>();
-            }
-            commands.entity(player_entity).remove::<PlayerWaitingTetherActivationComponent>();
-            return;
-        } else {
-             if commands.get_entity(waiting_comp.hit_horror_entity).is_some() {
-                commands.entity(waiting_comp.hit_horror_entity).remove::<HorrorLatchedByTetherComponent>();
-            }
-            commands.entity(player_entity).remove::<PlayerWaitingTetherActivationComponent>();
-        }
-    }
-
-    // No need to query player_transform again, it's passed directly
+    // Spawns a new tether projectile
     let _projectile_entity = crate::automatic_projectiles::spawn_automatic_projectile(
         commands,
         asset_server,
         player_entity,
-        player_transform.translation, // Use the passed player_transform
+        player_transform.translation,
         aim_direction,
         0, // Damage for tether projectile is 0
         weapon_params.tether_projectile_speed,
@@ -731,9 +957,77 @@ pub fn spawn_repositioning_tether_attack(
         None, // No bounce params
         None, // No explosion params
         None, // No trail params
-        Some(weapon_params.clone()), // Tether params
+        Some(weapon_params.clone()), // Tether params (cloned from definition)
         None, // No blink strike params
     );
+}
+
+pub fn spawn_lobbed_aoe_pool_attack(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    _owner_entity: Entity, // The player entity
+    player_transform: &Transform, // Player's current transform for initial position
+    _aim_direction: Vec2, // May become unused if trajectory is solely based on target_world_pos
+    weapon_params: &crate::items::LobbedAoEPoolParams,
+    _weapon_id: crate::items::AutomaticWeaponId, // For potential tracking or specific logic, marked unused for now
+    target_world_pos: Vec3, // New parameter
+) {
+    let g = 980.0; // pixels/sec^2, positive for downward influence
+    let start_pos = player_transform.translation;
+
+    let horizontal_distance = start_pos.truncate().distance(target_world_pos.truncate());
+
+    let mut time_to_target = if weapon_params.projectile_speed > 0.01 {
+        horizontal_distance / weapon_params.projectile_speed // projectile_speed is horizontal speed
+    } else {
+        1.0 // Default time if speed is effectively zero to avoid division by zero
+    };
+
+    // Refined handling for very short horizontal distances
+    if horizontal_distance < 1.0 { // Target is (almost) directly above or below
+        // Estimate time based on Y distance and some minimum speed, or fixed short time for lob
+        let vertical_distance = (target_world_pos.y - start_pos.y).abs();
+        // Use projectile_speed as a reference for how fast it *could* go vertically, capped by a reasonable minimum speed.
+        // This attempts to make very vertical lobs take a sensible amount of time.
+        time_to_target = (vertical_distance / weapon_params.projectile_speed.max(100.0)).max(0.1); // Ensure some time for arc
+        time_to_target = time_to_target.max(0.05); // Absolute minimum time
+    } else if time_to_target < 0.05 { // General minimum time for stability if target is very close
+        time_to_target = 0.05;
+    }
+    
+    let vx = (target_world_pos.x - start_pos.x) / time_to_target;
+    // vy_initial = (delta_y / T) + (2*h_arc / T) + (g*T / 4)
+    // This formula aims for h_arc above the chord midpoint.
+    let vy = (target_world_pos.y - start_pos.y) / time_to_target +
+             (2.0 * weapon_params.projectile_arc_height) / time_to_target +
+             (0.25 * g * time_to_target);
+
+    let initial_velocity = Vec2::new(vx, vy);
+
+    commands.spawn((
+        SpriteBundle {
+            texture: asset_server.load(&weapon_params.projectile_sprite_path),
+            sprite: Sprite {
+                custom_size: Some(weapon_params.projectile_size),
+                color: weapon_params.projectile_color,
+                ..default()
+            },
+            transform: Transform::from_translation(start_pos)
+                .with_rotation(Quat::from_rotation_z(initial_velocity.y.atan2(initial_velocity.x))), // Rotate to initial launch vector
+            ..default()
+        },
+        LobbedProjectileComponent {
+            arc_height: weapon_params.projectile_arc_height, // Still stored for reference
+            speed: weapon_params.projectile_speed, // Horizontal speed reference
+            pool_params: weapon_params.clone(),
+            initial_spawn_position: start_pos,
+            target_position: Some(target_world_pos),
+        },
+        Velocity(initial_velocity),
+        Damage(weapon_params.base_damage_on_impact),
+        Lifetime { timer: Timer::from_seconds(time_to_target * 1.1, TimerMode::Once) }, // Lifetime slightly > time_to_target as failsafe
+        Name::new("LobbedAoEPoolProjectile (Targeted)"),
+    ));
 }
 
 pub fn spawn_orbiting_pet_attack(

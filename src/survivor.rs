@@ -327,11 +327,12 @@ fn survivor_casting_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
-    mut query: Query<(Entity, &Transform, &Survivor, &mut SanityStrain, Option<&SurvivorBuffEffect>)>, // Changed MindAffliction to SanityStrain
+    mut query: Query<(Entity, &Transform, &Survivor, &mut SanityStrain, Option<&SurvivorBuffEffect>)>,
+    reticule_query: Query<(&GlobalTransform, &Parent), With<crate::weapon_systems::LobbedWeaponTargetReticuleComponent>>, // Added reticle query
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
     weapon_library: Res<AutomaticWeaponLibrary>,
 ) {
-    for (survivor_entity, survivor_transform, survivor_stats, mut sanity_strain, buff_effect_opt) in query.iter_mut() { // Changed mind_affliction to sanity_strain
+    for (survivor_entity, survivor_transform, survivor_stats, mut sanity_strain, buff_effect_opt) in query.iter_mut() {
         let weapon_def = match weapon_library.get_weapon_definition(survivor_stats.inherent_weapon_id) {
             Some(def) => def,
             None => {
@@ -356,50 +357,167 @@ fn survivor_casting_system(
             if survivor_stats.aim_direction != Vec2::ZERO {
                 sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast)); // Changed from PlayerShoot
 
-                if let AttackTypeData::StandardProjectile(params) = &weapon_def.attack_data {
-                    let current_damage = params.base_damage + survivor_stats.auto_weapon_damage_bonus;
-                    let effective_projectile_lifetime_secs = params.projectile_lifetime_secs * survivor_stats.auto_attack_projectile_duration_multiplier;
-                    let current_speed = params.base_projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier;
-                    let current_piercing = params.base_piercing + survivor_stats.auto_weapon_piercing_bonus;
-                    let total_projectiles = 1 + params.additional_projectiles + survivor_stats.auto_weapon_additional_projectiles_bonus;
+                match &weapon_def.attack_data {
+                    AttackTypeData::StandardProjectile(params) => {
+                        // Existing logic for StandardProjectile
+                        let current_damage = params.base_damage + survivor_stats.auto_weapon_damage_bonus;
+                        let effective_projectile_lifetime_secs = params.projectile_lifetime_secs * survivor_stats.auto_attack_projectile_duration_multiplier;
+                        let current_speed = params.base_projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier;
+                        let current_piercing = params.base_piercing + survivor_stats.auto_weapon_piercing_bonus;
+                        let total_projectiles = 1 + params.additional_projectiles + survivor_stats.auto_weapon_additional_projectiles_bonus;
 
-                    let base_angle = survivor_stats.aim_direction.y.atan2(survivor_stats.aim_direction.x);
-                    let spread_arc_degrees = PROJECTILE_SPREAD_ANGLE_DEGREES * (total_projectiles.saturating_sub(1)) as f32;
-                    let start_angle_offset_rad = if total_projectiles > 1 { -spread_arc_degrees.to_radians() / 2.0 } else { 0.0 };
+                        let base_angle = survivor_stats.aim_direction.y.atan2(survivor_stats.aim_direction.x);
+                        let spread_arc_degrees = PROJECTILE_SPREAD_ANGLE_DEGREES * (total_projectiles.saturating_sub(1)) as f32;
+                        let start_angle_offset_rad = if total_projectiles > 1 { -spread_arc_degrees.to_radians() / 2.0 } else { 0.0 };
 
-                    for i in 0..total_projectiles {
-                        let angle_offset_rad = if total_projectiles > 1 {
-                            let step = if total_projectiles > 1 { spread_arc_degrees.to_radians() / (total_projectiles - 1) as f32 } else { 0.0 };
-                            start_angle_offset_rad + (i as f32 * step)
-                        } else {
-                            0.0
-                        };
-                        let projectile_direction = Vec2::from_angle(base_angle + angle_offset_rad);
+                        for i in 0..total_projectiles {
+                            let angle_offset_rad = if total_projectiles > 1 {
+                                let step = if total_projectiles > 1 { spread_arc_degrees.to_radians() / (total_projectiles - 1) as f32 } else { 0.0 };
+                                start_angle_offset_rad + (i as f32 * step)
+                            } else {
+                                0.0
+                            };
+                            let projectile_direction = Vec2::from_angle(base_angle + angle_offset_rad);
 
-                        spawn_automatic_projectile(
+                            spawn_automatic_projectile( // This is crate::automatic_projectiles::spawn_automatic_projectile
+                                &mut commands,
+                                &asset_server,
+                                survivor_entity,
+                                survivor_transform.translation,
+                                projectile_direction,
+                                current_damage,
+                                current_speed,
+                                current_piercing,
+                                weapon_def.id,
+                                &params.projectile_sprite_path,
+                                params.projectile_size,
+                                params.projectile_color,
+                                effective_projectile_lifetime_secs,
+                                None, 
+                                None, 
+                                None, 
+                                None, 
+                                None, 
+                                None, 
+                            );
+                        }
+                    }
+                    AttackTypeData::RepositioningTether(params) => {
+                        crate::weapon_systems::spawn_actual_tether_projectile(
                             &mut commands,
                             &asset_server,
                             survivor_entity,
-                            survivor_transform.translation,
-                            projectile_direction,
-                            current_damage,
-                            current_speed,
-                            current_piercing,
+                            survivor_stats.aim_direction,
+                            params, // These are &crate::items::RepositioningTetherParams
                             weapon_def.id,
-                            &params.projectile_sprite_path, // Pass as &str
-                            params.projectile_size,
-                            params.projectile_color,
-                            effective_projectile_lifetime_secs,
-                            None, 
-                            None, 
-                            None, 
-                            None, 
-                            None, 
-                            None, 
+                            survivor_transform,
                         );
                     }
-                } else {
-                    error!("Weapon {:?} (ID: {}) does not have StandardProjectile attack data! Cannot fire.", weapon_def.name, weapon_def.id.0);
+                    AttackTypeData::PersistentAura(_params) => { // params might be unused here
+                        // Log an info message, as persistent auras are typically managed by their own systems.
+                        // The survivor_casting_system doesn't "fire" them on each timer tick.
+                        // Their presence is usually detected by a dedicated aura management system.
+                        info!(
+                            "PersistentAura weapon type ({:?}) equipped. Actual aura management is handled by a dedicated system.",
+                            weapon_def.name
+                        );
+                        // No action taken by survivor_casting_system for this type.
+                    }
+                    AttackTypeData::OrbitingPet(_params) => {
+                        // Orbiting pets are managed by manage_player_orbs_system and orbiting_pet_behavior_system.
+                        // survivor_casting_system doesn't "fire" them on each timer tick in the traditional sense.
+                        info!(
+                            "OrbitingPet weapon type ({:?}) equipped. Actual pet management is handled by dedicated systems.",
+                            weapon_def.name
+                        );
+                        // No action taken by survivor_casting_system for this type.
+                    }
+                    AttackTypeData::LobbedAoEPool(params) => {
+                        let mut final_target_pos = survivor_transform.translation + survivor_stats.aim_direction.extend(0.0) * (params.projectile_speed * 1.5); // Default/fallback
+
+                        for (reticule_g_transform, parent) in reticule_query.iter() {
+                            if parent.get() == survivor_entity {
+                                final_target_pos = reticule_g_transform.translation();
+                                break;
+                            }
+                        }
+
+                        crate::weapon_systems::spawn_lobbed_aoe_pool_attack(
+                            &mut commands,
+                            &asset_server,
+                            survivor_entity,
+                            survivor_transform,
+                            survivor_stats.aim_direction, // Pass original aim_direction, spawn func might ignore it or use for fallback
+                            params, // This is &LobbedAoEPoolParams
+                            weapon_def.id,
+                            final_target_pos, // Pass the determined target position
+                        );
+                    }
+                    AttackTypeData::LifestealProjectile(params) => {
+                        let current_damage = params.base_damage + survivor_stats.auto_weapon_damage_bonus;
+                        let effective_projectile_lifetime_secs = params.projectile_lifetime_secs * survivor_stats.auto_attack_projectile_duration_multiplier;
+                        let current_speed = params.projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier;
+                        let current_piercing = params.piercing + survivor_stats.auto_weapon_piercing_bonus;
+                        
+                        // Assume base additional_projectiles for Lifesteal is 0, but player can have bonus
+                        let total_projectiles = 1 + survivor_stats.auto_weapon_additional_projectiles_bonus;
+
+                        let base_angle = survivor_stats.aim_direction.y.atan2(survivor_stats.aim_direction.x);
+                        let spread_arc_degrees = PROJECTILE_SPREAD_ANGLE_DEGREES * (total_projectiles.saturating_sub(1)) as f32;
+                        let start_angle_offset_rad = if total_projectiles > 1 { -spread_arc_degrees.to_radians() / 2.0 } else { 0.0 };
+
+                        for i in 0..total_projectiles {
+                            let angle_offset_rad = if total_projectiles > 1 {
+                                let step = if total_projectiles > 1 { spread_arc_degrees.to_radians() / (total_projectiles - 1) as f32 } else { 0.0 };
+                                start_angle_offset_rad + (i as f32 * step)
+                            } else {
+                                0.0
+                            };
+                            let projectile_direction = Vec2::from_angle(base_angle + angle_offset_rad);
+
+                            spawn_automatic_projectile(
+                                &mut commands,
+                                &asset_server,
+                                survivor_entity,
+                                survivor_transform.translation,
+                                projectile_direction,
+                                current_damage,
+                                current_speed,
+                                current_piercing,
+                                weapon_def.id,
+                                &params.projectile_sprite_path,
+                                params.projectile_size,
+                                params.projectile_color,
+                                effective_projectile_lifetime_secs,
+                                // Corrected order for optional arguments:
+                                None,                              // opt_max_bounces (LifestealProjectiles don't have inherent bounce stats)
+                                None,                              // opt_dmg_loss_mult
+                                None,                              // opt_speed_loss_mult
+                                Some(params.lifesteal_percentage), // opt_lifesteal_percentage
+                                None,                              // opt_tether_params
+                                None,                              // opt_blink_params
+                            );
+                        }
+                    }
+                    AttackTypeData::BlinkStrikeProjectile(params) => {
+                        crate::weapon_systems::spawn_blink_strike_projectile_attack(
+                            &mut commands,
+                            &asset_server,
+                            survivor_entity,
+                            params, // These are &crate::items::BlinkStrikeProjectileParams
+                            survivor_transform,
+                            survivor_stats.aim_direction,
+                            weapon_def.id,
+                        );
+                    }
+                    _ => {
+                        error!(
+                            "Weapon {:?} (ID: {}) has AttackTypeData variant {:?} which is not yet handled by survivor_casting_system.",
+                            weapon_def.name,
+                            weapon_def.id.0,
+                            weapon_def.attack_data // This will print the variant type
+                        );
+                    }
                 }
             }
         }

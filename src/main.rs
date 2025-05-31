@@ -51,6 +51,7 @@ fn main() {
         .register_type::<AutomaticWeaponId>()
         .register_type::<AutomaticWeaponDefinition>()
         .register_type::<AutomaticWeaponLibrary>()
+        .add_event::<crate::components::PlayerBlinkEvent>()
         .add_plugins((
             GamePlugin,
             SurvivorPlugin,

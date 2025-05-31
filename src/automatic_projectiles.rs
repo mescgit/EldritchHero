@@ -224,7 +224,7 @@ fn automatic_projectile_collision_system(
     asset_server: Res<AssetServer>,
     time: Res<Time>,
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
-    player_blink_event_writer: EventWriter<crate::components::PlayerBlinkEvent>, // Not mutated
+    _player_blink_event_writer: EventWriter<crate::components::PlayerBlinkEvent>, // Not mutated
 ) {
     // Stage 1: Collect relevant information from projectiles and horrors
     let mut projectile_info_list = Vec::new();
