@@ -1,4 +1,5 @@
 // mescgit/eldritchhero/EldritchHero-c197490fa863f6ebd3e83365f89cc741bfb8b804/src/weapon_systems.rs
+use bevy::ecs::system::ParamSet;
 use bevy::prelude::*;
 use bevy::prelude::in_state;
 use bevy::prelude::Name;
@@ -416,67 +417,6 @@ fn apply_tether_reposition_effect(
     }
 }
 
-pub fn spawn_repositioning_tether_attack(
-    commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
-    player_entity: Entity,
-    aim_direction: Vec2,
-    weapon_params: &crate::items::RepositioningTetherParams,
-    weapon_id: crate::items::AutomaticWeaponId,
-    player_waiting_query: &mut Query<&mut PlayerWaitingTetherActivationComponent>, 
-    horror_query: &mut Query<&mut Transform, With<Horror>>,                   
-    player_transform_query: &Query<&Transform, With<Survivor>>,               
-) {
-    if let Ok(waiting_comp) = player_waiting_query.get_mut(player_entity) {
-        if !waiting_comp.reactivation_window_timer.finished() {
-            if let Ok(player_tform) = player_transform_query.get(player_entity) {
-                if let Ok(mut horror_tform) = horror_query.get_mut(waiting_comp.hit_horror_entity) {
-                    apply_tether_reposition_effect(
-                        &mut horror_tform,
-                        player_tform,
-                        &waiting_comp.params,
-                        waiting_comp.next_effect_mode,
-                    );
-                }
-            }
-            if commands.get_entity(waiting_comp.hit_horror_entity).is_some() {
-                 commands.entity(waiting_comp.hit_horror_entity).remove::<HorrorLatchedByTetherComponent>();
-            }
-            commands.entity(player_entity).remove::<PlayerWaitingTetherActivationComponent>();
-            return;
-        } else {
-             if commands.get_entity(waiting_comp.hit_horror_entity).is_some() {
-                commands.entity(waiting_comp.hit_horror_entity).remove::<HorrorLatchedByTetherComponent>();
-            }
-            commands.entity(player_entity).remove::<PlayerWaitingTetherActivationComponent>();
-        }
-    }
-
-    if let Ok(player_transform) = player_transform_query.get(player_entity) {
-        let _projectile_entity = crate::automatic_projectiles::spawn_automatic_projectile(
-            commands,
-            asset_server,
-            player_entity,
-            player_transform.translation,
-            aim_direction,
-            0,
-            weapon_params.tether_projectile_speed,
-            0,
-            weapon_id,
-            &weapon_params.tether_sprite_path,
-            weapon_params.tether_size,
-            weapon_params.tether_color,
-            weapon_params.tether_range / weapon_params.tether_projectile_speed,
-            None,
-            None,
-            None,
-            None,
-            Some(weapon_params.clone()),
-            None,
-        );
-    }
-}
-
 pub fn tether_reactivation_window_system(
     mut commands: Commands,
     time: Res<Time>,
@@ -676,32 +616,124 @@ impl Plugin for WeaponSystemsPlugin {
 pub fn repositioning_tether_firing_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    player_query: Query<(Entity, &Transform, &Survivor, &SurvivorSanityStrain)>, // Corrected type
     weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
-    mut player_waiting_query: Query<&mut PlayerWaitingTetherActivationComponent>,
-    mut horror_query: Query<&mut Transform, With<Horror>>,
-    player_transform_query: Query<&Transform, With<Survivor>>,
+    mut set: ParamSet<(
+        Query<(Entity, &Transform, &Survivor, &SurvivorSanityStrain)>, // p0: Player data query
+        Query<&mut Transform, With<Horror>>,                         // p1: Horror mutable transform query
+        Query<&mut PlayerWaitingTetherActivationComponent>,          // p2: Player waiting component query
+    )>,
 ) {
-    for (player_entity, _player_transform, player_stats, sanity_strain) in player_query.iter() {
+    // It's tricky to iterate player_query (p0) and pass horror_query (p1) and player_waiting_query (p2) mutably
+    // to spawn_repositioning_tether_attack due to ParamSet limitations.
+    // We need to avoid holding a borrow on set.p0() while trying to get mutable borrows for set.p1() or set.p2().
+    // So, we collect the necessary player data first.
+
+    let mut player_fire_requests: Vec<(Entity, Vec2, crate::items::RepositioningTetherParams, crate::items::AutomaticWeaponId, Transform)> = Vec::new();
+
+    for (player_entity, player_transform, player_stats, sanity_strain) in set.p0().iter() {
         let weapon_id = player_stats.inherent_weapon_id;
         if let Some(weapon_def) = weapon_library.get_weapon_definition(weapon_id) {
             if let crate::items::AttackTypeData::RepositioningTether(ref params) = weapon_def.attack_data {
                 if sanity_strain.fire_timer.just_finished() {
-                    spawn_repositioning_tether_attack(
-                        &mut commands,
-                        &asset_server,
+                    player_fire_requests.push((
                         player_entity,
                         player_stats.aim_direction,
-                        params,
+                        params.clone(),
                         weapon_id,
-                        &mut player_waiting_query,
-                        &mut horror_query,
-                        &player_transform_query,
-                    );
+                        *player_transform, // Store a copy of the transform
+                    ));
                 }
             }
         }
     }
+
+    for (player_entity, aim_direction, params, weapon_id, player_transform_copy) in player_fire_requests {
+        // Now we can pass parts of the ParamSet.
+        // Note: spawn_repositioning_tether_attack will need to be refactored to accept these
+        // or we query within it using the entity IDs.
+        // For now, let's assume spawn_repositioning_tether_attack will be adapted.
+        // We pass player_transform_copy directly.
+        
+        // The direct passing of p1 and p2 queries like this is problematic if spawn_repositioning_tether_attack
+        // also tries to use ParamSet or expects full Query objects.
+        // We will need to refactor spawn_repositioning_tether_attack significantly.
+        // For now, this is a placeholder for how the call *might* look after spawn_repositioning_tether_attack is refactored.
+        // The critical part is that we are not holding a borrow on set.p0() when we might need mutable access to set.p1() or set.p2().
+
+        // Let's modify spawn_repositioning_tether_attack to take what it needs directly,
+        // rather than entire Query objects.
+        spawn_repositioning_tether_attack(
+            &mut commands,
+            &asset_server,
+            player_entity,
+            aim_direction,
+            &params, // Cloned earlier, so this is fine
+            weapon_id,
+            &mut set.p2(), // PlayerWaitingTetherActivationComponent query
+            &mut set.p1(), // Horror transform query
+            &player_transform_copy, // Pass the copied transform
+        );
+    }
+}
+
+pub fn spawn_repositioning_tether_attack(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    player_entity: Entity,
+    aim_direction: Vec2,
+    weapon_params: &crate::items::RepositioningTetherParams,
+    weapon_id: crate::items::AutomaticWeaponId,
+    player_waiting_query: &mut Query<&mut PlayerWaitingTetherActivationComponent>,
+    horror_query: &mut Query<&mut Transform, With<Horror>>,
+    player_transform: &Transform, // Changed from Query to direct &Transform
+) {
+    if let Ok(waiting_comp) = player_waiting_query.get_mut(player_entity) { // Removed mut here
+        if !waiting_comp.reactivation_window_timer.finished() {
+            // No need to query player_transform again, it's passed directly
+            if let Ok(mut horror_tform) = horror_query.get_mut(waiting_comp.hit_horror_entity) {
+                apply_tether_reposition_effect(
+                    &mut horror_tform,
+                    player_transform, // Use the passed player_transform
+                    &waiting_comp.params,
+                    waiting_comp.next_effect_mode,
+                );
+            }
+            if commands.get_entity(waiting_comp.hit_horror_entity).is_some() {
+                 commands.entity(waiting_comp.hit_horror_entity).remove::<HorrorLatchedByTetherComponent>();
+            }
+            commands.entity(player_entity).remove::<PlayerWaitingTetherActivationComponent>();
+            return;
+        } else {
+             if commands.get_entity(waiting_comp.hit_horror_entity).is_some() {
+                commands.entity(waiting_comp.hit_horror_entity).remove::<HorrorLatchedByTetherComponent>();
+            }
+            commands.entity(player_entity).remove::<PlayerWaitingTetherActivationComponent>();
+        }
+    }
+
+    // No need to query player_transform again, it's passed directly
+    let _projectile_entity = crate::automatic_projectiles::spawn_automatic_projectile(
+        commands,
+        asset_server,
+        player_entity,
+        player_transform.translation, // Use the passed player_transform
+        aim_direction,
+        0, // Damage for tether projectile is 0
+        weapon_params.tether_projectile_speed,
+        0, // Piercing for tether projectile is 0
+        weapon_id,
+        &weapon_params.tether_sprite_path,
+        weapon_params.tether_size,
+        weapon_params.tether_color,
+        // Lifetime: range / speed
+        weapon_params.tether_range / weapon_params.tether_projectile_speed,
+        None, // No lifesteal
+        None, // No bounce params
+        None, // No explosion params
+        None, // No trail params
+        Some(weapon_params.clone()), // Tether params
+        None, // No blink strike params
+    );
 }
 
 pub fn spawn_orbiting_pet_attack(
