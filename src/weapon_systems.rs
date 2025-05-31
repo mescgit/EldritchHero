@@ -417,67 +417,6 @@ fn apply_tether_reposition_effect(
     }
 }
 
-pub fn spawn_repositioning_tether_attack(
-    commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
-    player_entity: Entity,
-    aim_direction: Vec2,
-    weapon_params: &crate::items::RepositioningTetherParams,
-    weapon_id: crate::items::AutomaticWeaponId,
-    player_waiting_query: &mut Query<&mut PlayerWaitingTetherActivationComponent>, 
-    horror_query: &mut Query<&mut Transform, With<Horror>>,                   
-    player_transform_query: &Query<&Transform, With<Survivor>>,               
-) {
-    if let Ok(waiting_comp) = player_waiting_query.get_mut(player_entity) {
-        if !waiting_comp.reactivation_window_timer.finished() {
-            if let Ok(player_tform) = player_transform_query.get(player_entity) {
-                if let Ok(mut horror_tform) = horror_query.get_mut(waiting_comp.hit_horror_entity) {
-                    apply_tether_reposition_effect(
-                        &mut horror_tform,
-                        player_tform,
-                        &waiting_comp.params,
-                        waiting_comp.next_effect_mode,
-                    );
-                }
-            }
-            if commands.get_entity(waiting_comp.hit_horror_entity).is_some() {
-                 commands.entity(waiting_comp.hit_horror_entity).remove::<HorrorLatchedByTetherComponent>();
-            }
-            commands.entity(player_entity).remove::<PlayerWaitingTetherActivationComponent>();
-            return;
-        } else {
-             if commands.get_entity(waiting_comp.hit_horror_entity).is_some() {
-                commands.entity(waiting_comp.hit_horror_entity).remove::<HorrorLatchedByTetherComponent>();
-            }
-            commands.entity(player_entity).remove::<PlayerWaitingTetherActivationComponent>();
-        }
-    }
-
-    if let Ok(player_transform) = player_transform_query.get(player_entity) {
-        let _projectile_entity = crate::automatic_projectiles::spawn_automatic_projectile(
-            commands,
-            asset_server,
-            player_entity,
-            player_transform.translation,
-            aim_direction,
-            0,
-            weapon_params.tether_projectile_speed,
-            0,
-            weapon_id,
-            &weapon_params.tether_sprite_path,
-            weapon_params.tether_size,
-            weapon_params.tether_color,
-            weapon_params.tether_range / weapon_params.tether_projectile_speed,
-            None,
-            None,
-            None,
-            None,
-            Some(weapon_params.clone()),
-            None,
-        );
-    }
-}
-
 pub fn tether_reactivation_window_system(
     mut commands: Commands,
     time: Res<Time>,
@@ -748,7 +687,7 @@ pub fn spawn_repositioning_tether_attack(
     horror_query: &mut Query<&mut Transform, With<Horror>>,
     player_transform: &Transform, // Changed from Query to direct &Transform
 ) {
-    if let Ok(mut waiting_comp) = player_waiting_query.get_mut(player_entity) { // Add mut here
+    if let Ok(waiting_comp) = player_waiting_query.get_mut(player_entity) { // Removed mut here
         if !waiting_comp.reactivation_window_timer.finished() {
             // No need to query player_transform again, it's passed directly
             if let Ok(mut horror_tform) = horror_query.get_mut(waiting_comp.hit_horror_entity) {

@@ -1,14 +1,14 @@
 // src/automatic_projectiles.rs
 use bevy::prelude::*;
 use bevy::prelude::in_state; 
-use rand::Rng;
+// use rand::Rng; // Unused
 use crate::{
     components::{Velocity, Damage, Lifetime, Health, HorrorLatchedByTetherComponent},
     visual_effects, 
     audio::{PlaySoundEvent, SoundEffect},
     horror::Horror,
     survivor::Survivor,
-    items::{ItemLibrary, ItemEffect, ExplosionEffect, AutomaticWeaponId},
+    items::{ItemLibrary, /*ItemEffect, ExplosionEffect,*/ AutomaticWeaponId}, // ItemEffect, ExplosionEffect unused
     game::AppState,
 };
 
@@ -213,18 +213,18 @@ fn automatic_projectile_collision_system(
             &Transform, // Horror Transform (immutable)
             &mut Health,
             &crate::horror::Horror,
-            Option<&mut crate::components::DamageAmpDebuffComponent>,
+            Option<&crate::components::DamageAmpDebuffComponent>,
             Option<&mut HorrorLatchedByTetherComponent>,
         )>,
         Query<(&mut Transform, &mut Health, &Survivor), (With<Survivor>, Without<Horror>, Without<AutomaticProjectile>)>, // p2: Player Effects Query
         Query<(Entity, Option<&mut crate::components::PlayerTetherState>), With<Survivor>> // p3: Player Tether Setup Query
     )>,
-    item_library: Res<ItemLibrary>,
+    _item_library: Res<ItemLibrary>, // Unused
     weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
-    mut player_blink_event_writer: EventWriter<crate::components::PlayerBlinkEvent>,
+    player_blink_event_writer: EventWriter<crate::components::PlayerBlinkEvent>, // Not mutated
 ) {
     // Stage 1: Collect relevant information from projectiles and horrors
     let mut projectile_info_list = Vec::new();
@@ -262,7 +262,7 @@ fn automatic_projectile_collision_system(
         transform, 
         health,
         horror_stats,
-        _damage_amp_debuff, 
+            _damage_amp_debuff_comp, // Renamed, was _damage_amp_debuff
         _latched_by_tether  
     ) in p1_binding.iter() { 
         horror_info_list.push((
@@ -360,7 +360,7 @@ fn automatic_projectile_collision_system(
         let mut projectile_should_despawn = false;
         let mut bounce_occurred_this_hit = false;
 
-        if let Ok((_, _, _, mut horror_health, _, mut opt_damage_amp_debuff, _)) = query_set.p1().get_mut(action.horror_entity) {
+        if let Ok((_, _, _, mut horror_health, _, _opt_damage_amp_debuff, _)) = query_set.p1().get_mut(action.horror_entity) { // opt_damage_amp_debuff not mutated, prefixed with _
             sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit));
             let actual_damage_dealt = action.damage_to_apply.min(action.horror_health_at_collision);
             horror_health.0 = horror_health.0.saturating_sub(action.damage_to_apply);
@@ -374,13 +374,13 @@ fn automatic_projectile_collision_system(
                     }
                 }
             }
-            if let Some(weapon_def) = weapon_library.get_weapon_definition(action.original_projectile_stats.weapon_id) { /* Blink from weapon */ }
-            if let Some(ref blink_p_on_projectile) = action.original_projectile_stats.blink_params_on_hit {  /* Blink from projectile */ }
-            if let Ok((_player_transform, _player_h, player_survivor_stats_for_items)) = query_set.p2().get_single() { /* Item effects */ }
-            if let Some(debuff_data) = action.projectile_debuff_params { /* Debuff application */ }
+            if let Some(_weapon_def) = weapon_library.get_weapon_definition(action.original_projectile_stats.weapon_id) { /* Blink from weapon */ } // Prefixed
+            if let Some(ref _blink_p_on_projectile) = action.original_projectile_stats.blink_params_on_hit {  /* Blink from projectile */ } // Prefixed
+            if let Ok((_player_transform, _player_h, _player_survivor_stats_for_items)) = query_set.p2().get_single() { /* Item effects */ } // Prefixed
+            if let Some(_debuff_data) = action.projectile_debuff_params { /* Debuff application */ } // Prefixed
         }
 
-        if let Ok((_proj_e, proj_gt, mut proj_dmg, mut proj_stats, mut proj_vel, _proj_sprite, mut proj_tf, _, _, _)) = query_set.p0().get_mut(action.projectile_entity) {
+        if let Ok((_proj_e, _proj_gt, _proj_dmg, mut proj_stats, _proj_vel, _proj_sprite, _proj_tf, _, _, _)) = query_set.p0().get_mut(action.projectile_entity) { // Prefixed several unused here
             // Simplified for brace checking
             if !processed_projectiles_this_frame.contains(&action.projectile_entity) {
                 if proj_stats.bounces_left.is_some() && proj_stats.bounces_left.unwrap_or(0) > 0 && !proj_stats.has_bounced_this_frame {
@@ -403,7 +403,7 @@ fn automatic_projectile_collision_system(
         // Removed the extra brace that was here, which incorrectly tried to close p1 block again.
     
         if projectile_should_despawn {
-            if let Some(explosion_data_val) = action.projectile_explodes_params { /* Spawn explosion */ }
+            if let Some(_explosion_data_val) = action.projectile_explodes_params { /* Spawn explosion */ } // Prefixed
             commands.entity(action.projectile_entity).despawn_recursive();
         }
     }
