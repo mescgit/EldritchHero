@@ -91,12 +91,18 @@ pub struct ChanneledBeamParams {
     pub beam_width: f32,
     pub beam_color: Color,
     pub movement_penalty_multiplier: f32,
+    pub max_duration_secs: Option<f32>,
+    pub cooldown_secs: Option<f32>,
+    pub is_automatic: bool,
 }
 impl Default for ChanneledBeamParams {
     fn default() -> Self {
         Self {
             base_damage_per_tick: 1, tick_rate_secs: 0.1, range: 300.0, beam_width: 10.0,
             beam_color: Color::WHITE, movement_penalty_multiplier: 0.5,
+            max_duration_secs: None,
+            cooldown_secs: None,
+            is_automatic: false,
         }
     }
 }
@@ -480,7 +486,9 @@ pub struct LobbedBouncingMagmaParams {
     pub fire_pool_duration_secs: f32,
     pub fire_pool_tick_interval_secs: f32,
     pub fire_pool_color: Color,
-    pub projectile_lifetime_secs: f32, // Added field
+    pub projectile_lifetime_secs: f32, 
+    pub explosion_radius_on_final_bounce: f32, // New field
+    pub explosion_damage_on_final_bounce: i32, // New field
 }
 
 impl Default for LobbedBouncingMagmaParams {
@@ -501,7 +509,9 @@ impl Default for LobbedBouncingMagmaParams {
             fire_pool_duration_secs: 2.5,
             fire_pool_tick_interval_secs: 0.4,
             fire_pool_color: Color::rgba(1.0, 0.4, 0.0, 0.6),
-            projectile_lifetime_secs: 3.0, // Added default value
+            projectile_lifetime_secs: 10.0, 
+            explosion_radius_on_final_bounce: 75.0, // Example default value
+            explosion_damage_on_final_bounce: 40,   // Example default value
         }
     }
 }
@@ -650,6 +660,9 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             beam_width: 15.0,
             beam_color: Color::rgb(0.3, 0.9, 0.4),
             movement_penalty_multiplier: 0.7,
+            max_duration_secs: None,
+            cooldown_secs: None,
+            is_automatic: false,
         }),
     });
 
@@ -753,16 +766,16 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
     library.weapons.push(AutomaticWeaponDefinition {
         id: AutomaticWeaponId(6),
         name: "Arcane Ray".to_string(),
-        attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
-            base_damage: 40,
-            base_fire_rate_secs: 1.5,
-            base_projectile_speed: 900.0,
-            base_piercing: 0,
-            additional_projectiles: 0,
-            projectile_sprite_path: "sprites/auto_arcane_ray.png".to_string(),
-            projectile_size: Vec2::new(50.0, 50.0),
-            projectile_color: Color::rgb(0.7, 0.2, 0.9),
-            projectile_lifetime_secs: 0.8,
+        attack_data: AttackTypeData::ChanneledBeam(ChanneledBeamParams {
+            base_damage_per_tick: 5,
+            tick_rate_secs: 0.15,
+            range: 225.0, // Halved from original 450.0
+            beam_width: 20.0,
+            beam_color: Color::rgb(0.7, 0.2, 0.9), // Original projectile color
+            movement_penalty_multiplier: 0.6,
+            max_duration_secs: Some(3.0), 
+            cooldown_secs: Some(5.0),
+            is_automatic: true,
         }),
     });
 

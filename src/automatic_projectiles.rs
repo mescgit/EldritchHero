@@ -11,6 +11,8 @@ use crate::{
     items::{ItemLibrary, /*ItemEffect, ExplosionEffect,*/ AutomaticWeaponId}, // ItemEffect, ExplosionEffect unused
     game::AppState,
 };
+use crate::camera_systems::MainCamera;
+use bevy::render::camera::OrthographicProjection;
 
 // Define the CollisionAction struct here
 #[derive(Debug, Clone)] // AutomaticProjectile will also need Clone
@@ -403,7 +405,53 @@ fn automatic_projectile_collision_system(
         // Removed the extra brace that was here, which incorrectly tried to close p1 block again.
     
         if projectile_should_despawn {
-            if let Some(_explosion_data_val) = action.projectile_explodes_params { /* Spawn explosion */ } // Prefixed
+            if let Some(explosion_data_val) = action.projectile_explodes_params {
+                // Call spawn_explosion_effect
+                crate::weapon_systems::spawn_explosion_effect(
+                    &mut commands,
+                    &asset_server,
+                    action.horror_gtransform.translation(), // Position of the horror hit
+                    explosion_data_val.explosion_damage,
+                    explosion_data_val.explosion_radius,
+                    Color::ORANGE_RED, // Example color
+                    String::from("sprites/explosion_placeholder.png"), // Changed to String::from()
+                    0.3, // Example duration
+                );
+
+                // Apply damage to horrors in radius
+                // The horror_info_list contains GlobalTransforms of horrors
+                let explosion_center = action.horror_gtransform.translation();
+                for (horror_entity_to_check, horror_gtransform_to_check, _, current_health_val, _) in &horror_info_list {
+                    if *current_health_val <= 0 { continue; } // Skip already dead or pending despawn
+
+                    if horror_gtransform_to_check.translation().distance_squared(explosion_center) < explosion_data_val.explosion_radius.powi(2) {
+                        // It's tricky to mutate horrors directly here due to query_set borrowing.
+                        // A common pattern is to send damage events or collect damage requests.
+                        // For simplicity, we'll try to get mutable access if possible, but this might require restructuring
+                        // or deferring damage application.
+                        // However, the current structure of collision_actions processing after collection
+                        // might allow for mutable access to p1 *after* iterating p0.
+                        // Let's assume for now we can apply damage if we re-query or pass Health mutably.
+                        // The current `action` struct doesn't hold mutable health.
+                        // This part will need careful handling of mutable access.
+                        // For this iteration, we will focus on spawning the visual and assume damage application
+                        // might need a separate event or a refactor if direct mutation isn't feasible here.
+                        // The most direct way if query_set.p1().get_mut(horror_entity) works here:
+                        if let Ok(mut horror_health_comp) = query_set.p1().get_component_mut::<Health>(*horror_entity_to_check) {
+                             if horror_health_comp.0 > 0 { // Check health again before applying
+                                horror_health_comp.0 = horror_health_comp.0.saturating_sub(explosion_data_val.explosion_damage);
+                                visual_effects::spawn_damage_text(
+                                    &mut commands,
+                                    &asset_server,
+                                    horror_gtransform_to_check.translation(),
+                                    explosion_data_val.explosion_damage,
+                                    &time,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
             commands.entity(action.projectile_entity).despawn_recursive();
         }
     }
@@ -413,11 +461,15 @@ fn projectile_screen_bounce_system(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Velocity, &GlobalTransform, &mut AutomaticProjectile, &mut Damage, &Sprite, &mut Transform)>,
     explosion_query: Query<&crate::weapon_systems::ExplodesOnFinalImpact>,
+    camera_query: Query<(&Camera, &GlobalTransform, &OrthographicProjection), With<MainCamera>>,
 ) {
-    const SCREEN_MIN_X: f32 = -600.0;
-    const SCREEN_MAX_X: f32 = 600.0;
-    const SCREEN_MIN_Y: f32 = -320.0;
-    const SCREEN_MAX_Y: f32 = 320.0;
+    let Ok((_camera, camera_gtransform, _projection)) = camera_query.get_single() else { return; };
+    let camera_translation = camera_gtransform.translation();
+
+    let world_min_x = -600.0 + camera_translation.x;
+    let world_max_x = 600.0 + camera_translation.x;
+    let world_min_y = -320.0 + camera_translation.y;
+    let world_max_y = 320.0 + camera_translation.y;
 
     for (entity, mut velocity_comp, g_transform, mut proj_stats, mut damage_comp, sprite, mut transform_comp) in query.iter_mut() {
         if proj_stats.has_bounced_this_frame {
@@ -432,8 +484,8 @@ fn projectile_screen_bounce_system(
         if bounces_left == 0 {
             let proj_pos = g_transform.translation();
             let radius = sprite.custom_size.map_or(1.0, |s| s.x.max(s.y) / 2.0);
-            if proj_pos.x - radius < SCREEN_MIN_X || proj_pos.x + radius > SCREEN_MAX_X ||
-               proj_pos.y - radius < SCREEN_MIN_Y || proj_pos.y + radius > SCREEN_MAX_Y {
+            if proj_pos.x - radius < world_min_x || proj_pos.x + radius > world_max_x ||
+               proj_pos.y - radius < world_min_y || proj_pos.y + radius > world_max_y {
                 if explosion_query.get(entity).is_ok() {
                  }
                 commands.entity(entity).despawn_recursive();
@@ -445,11 +497,11 @@ fn projectile_screen_bounce_system(
         let radius = sprite.custom_size.map_or(1.0, |s| s.x.max(s.y) / 2.0);
 
         let mut bounced = false;
-        if (proj_pos.x - radius < SCREEN_MIN_X && velocity_comp.0.x < 0.0) || (proj_pos.x + radius > SCREEN_MAX_X && velocity_comp.0.x > 0.0) {
+        if (proj_pos.x - radius < world_min_x && velocity_comp.0.x < 0.0) || (proj_pos.x + radius > world_max_x && velocity_comp.0.x > 0.0) {
             velocity_comp.0.x *= -1.0;
             bounced = true;
         }
-        if (proj_pos.y - radius < SCREEN_MIN_Y && velocity_comp.0.y < 0.0) || (proj_pos.y + radius > SCREEN_MAX_Y && velocity_comp.0.y > 0.0) {
+        if (proj_pos.y - radius < world_min_y && velocity_comp.0.y < 0.0) || (proj_pos.y + radius > world_max_y && velocity_comp.0.y > 0.0) {
             velocity_comp.0.y *= -1.0;
             bounced = true;
         }

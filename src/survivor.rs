@@ -327,12 +327,15 @@ fn survivor_casting_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
-    mut query: Query<(Entity, &Transform, &Survivor, &mut SanityStrain, Option<&SurvivorBuffEffect>)>,
-    reticule_query: Query<(&GlobalTransform, &Parent), With<crate::weapon_systems::LobbedWeaponTargetReticuleComponent>>, // Added reticle query
+    mut player_query: Query<(Entity, &Transform, &Survivor, &mut SanityStrain, Option<&SurvivorBuffEffect>)>,
+    mut channeling_status_query: Query<&mut crate::weapon_systems::IsChannelingComponent>, // Now mutable
+    charging_comp_query: Query<&crate::weapon_systems::ChargingWeaponComponent>,
+    reticule_query: Query<(&GlobalTransform, &Parent), With<crate::weapon_systems::LobbedWeaponTargetReticuleComponent>>, 
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
     weapon_library: Res<AutomaticWeaponLibrary>,
+    mouse_button_input: Res<Input<MouseButton>>,
 ) {
-    for (survivor_entity, survivor_transform, survivor_stats, mut sanity_strain, buff_effect_opt) in query.iter_mut() {
+    for (survivor_entity, survivor_transform, survivor_stats, mut sanity_strain, buff_effect_opt) in player_query.iter_mut() {
         let weapon_def = match weapon_library.get_weapon_definition(survivor_stats.inherent_weapon_id) {
             Some(def) => def,
             None => {
@@ -341,8 +344,302 @@ fn survivor_casting_system(
             }
         };
 
-        let mut effective_fire_rate_secs = sanity_strain.base_fire_rate_secs;
+        // --- Channeled Beam Logic ---
+        if let AttackTypeData::ChanneledBeam(ref params) = weapon_def.attack_data {
+            if params.is_automatic {
+                // AUTOMATIC LOGIC
+                if let Ok(mut channeling_comp) = channeling_status_query.get_mut(survivor_entity) {
+                    // Player has IsChannelingComponent
+                    if let Some(ref mut cd_timer) = channeling_comp.cooldown_timer {
+                        cd_timer.tick(time.delta());
+                        if !cd_timer.finished() { 
+                            continue; // Still on cooldown
+                        } else { 
+                            channeling_comp.cooldown_timer = None; // Cooldown finished, ready to potentially start
+                        }
+                    }
 
+                    if channeling_comp.beam_entity.is_some() { // Beam is active
+                        if let Some(ref mut duration_timer) = channeling_comp.active_duration_timer {
+                            duration_timer.tick(time.delta());
+                            if duration_timer.finished() { // Duration ended
+                                if let Some(beam_e) = channeling_comp.beam_entity.take() { commands.entity(beam_e).despawn_recursive(); }
+                                if let Some(cd_secs) = params.cooldown_secs { // Must have cooldown for automatic cycle
+                                    channeling_comp.cooldown_timer = Some(Timer::from_seconds(cd_secs, TimerMode::Once));
+                                } else { 
+                                    // Should not happen for automatic; error or default cooldown. For now, remove component.
+                                    error!("Automatic Channeled Beam (ID: {:?}) ended duration but has no cooldown_secs defined. Removing IsChannelingComponent.", weapon_def.id);
+                                    commands.entity(survivor_entity).remove::<crate::weapon_systems::IsChannelingComponent>(); 
+                                }
+                            }
+                        } else { 
+                            // No duration, implies continuous until externally stopped (should not happen for automatic)
+                            error!("Automatic Channeled Beam (ID: {:?}) is active but has no active_duration_timer. This should not happen for automatic beams.", weapon_def.id);
+                        }
+                    } else { // Beam is NOT active (beam_entity is None), and cooldown is NOT active (or just finished)
+                        // Spawn beam and set up timers (this is the "auto-activate" part)
+                        let beam_aim_direction = survivor_stats.aim_direction;
+                        if beam_aim_direction == Vec2::ZERO { continue; }
+
+                        let beam_spawn_offset = beam_aim_direction * (SURVIVOR_SIZE.y / 2.0 + params.beam_width / 4.0);
+                        let beam_spawn_position = survivor_transform.translation + beam_spawn_offset.extend(survivor_transform.translation.z + 0.1);
+                        
+                        let beam_entity_id = commands.spawn((
+                            SpriteBundle { 
+                                texture: asset_server.load(String::from("sprites/channeled_beam_placeholder.png")), 
+                                sprite: Sprite { 
+                                    custom_size: Some(Vec2::new(params.range, params.beam_width)), 
+                                    color: params.beam_color, 
+                                    anchor: bevy::sprite::Anchor::CenterLeft, 
+                                    ..default() 
+                                }, 
+                                transform: Transform::from_translation(beam_spawn_position)
+                                    .with_rotation(Quat::from_rotation_z(beam_aim_direction.y.atan2(beam_aim_direction.x))), 
+                                ..default() 
+                            },
+                            crate::weapon_systems::ChanneledBeamComponent {
+                                damage_per_tick: params.base_damage_per_tick + survivor_stats.auto_weapon_damage_bonus,
+                                tick_timer: Timer::from_seconds(params.tick_rate_secs, TimerMode::Repeating),
+                                range: params.range, 
+                                width: params.beam_width, 
+                                color: params.beam_color,
+                                owner: survivor_entity,
+                            },
+                            Name::new("ChanneledBeamWeaponInstance (Automatic)"),
+                        )).id();
+                        channeling_comp.beam_entity = Some(beam_entity_id);
+                        if let Some(max_duration) = params.max_duration_secs { // Must have duration for automatic cycle
+                            channeling_comp.active_duration_timer = Some(Timer::from_seconds(max_duration, TimerMode::Once));
+                        } else { 
+                            // Should not happen for automatic; error or default duration
+                            error!("Automatic Channeled Beam (ID: {:?}) started but has no max_duration_secs defined. Beam may not stop automatically.", weapon_def.id);
+                        }
+                        sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast));
+                    }
+                } else { // Player does NOT have IsChannelingComponent (first activation for this weapon)
+                    // Spawn beam and ADD IsChannelingComponent
+                    let beam_aim_direction = survivor_stats.aim_direction;
+                    if beam_aim_direction == Vec2::ZERO { continue; }
+                    
+                    let beam_spawn_offset = beam_aim_direction * (SURVIVOR_SIZE.y / 2.0 + params.beam_width / 4.0);
+                    let beam_spawn_position = survivor_transform.translation + beam_spawn_offset.extend(survivor_transform.translation.z + 0.1);
+
+                    let beam_entity_id = commands.spawn((
+                        SpriteBundle { 
+                            texture: asset_server.load(String::from("sprites/channeled_beam_placeholder.png")), 
+                            sprite: Sprite { 
+                                custom_size: Some(Vec2::new(params.range, params.beam_width)), 
+                                color: params.beam_color, 
+                                anchor: bevy::sprite::Anchor::CenterLeft, 
+                                ..default() 
+                            }, 
+                            transform: Transform::from_translation(beam_spawn_position)
+                                .with_rotation(Quat::from_rotation_z(beam_aim_direction.y.atan2(beam_aim_direction.x))), 
+                            ..default() 
+                        },
+                        crate::weapon_systems::ChanneledBeamComponent {
+                            damage_per_tick: params.base_damage_per_tick + survivor_stats.auto_weapon_damage_bonus,
+                            tick_timer: Timer::from_seconds(params.tick_rate_secs, TimerMode::Repeating),
+                            range: params.range, 
+                            width: params.beam_width, 
+                            color: params.beam_color,
+                            owner: survivor_entity,
+                        },
+                        Name::new("ChanneledBeamWeaponInstance (Automatic)"),
+                    )).id();
+                    let mut new_channeling_comp = crate::weapon_systems::IsChannelingComponent {
+                        beam_entity: Some(beam_entity_id), 
+                        beam_params: params.clone(), 
+                        active_duration_timer: None, 
+                        cooldown_timer: None,
+                    };
+                    if let Some(max_duration) = params.max_duration_secs { 
+                        new_channeling_comp.active_duration_timer = Some(Timer::from_seconds(max_duration, TimerMode::Once)); 
+                    } else {
+                        error!("Automatic Channeled Beam (ID: {:?}) first activation has no max_duration_secs defined. Beam may not stop automatically.", weapon_def.id);
+                    }
+                    commands.entity(survivor_entity).insert(new_channeling_comp);
+                    sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast));
+                }
+            } else {
+                // MANUAL LOGIC (Existing press-and-hold logic)
+                if let Ok(mut channeling_comp) = channeling_status_query.get_mut(survivor_entity) {
+                    // 1. Tick and check Cooldown Timer
+                    if let Some(ref mut cd_timer) = channeling_comp.cooldown_timer {
+                        cd_timer.tick(time.delta());
+                        if !cd_timer.finished() {
+                            continue; // Still on cooldown, skip rest of beam logic for this player
+                        } else {
+                            channeling_comp.cooldown_timer = None; // Cooldown finished
+                        }
+                    }
+
+                    // 2. Handle Active Beam (mouse pressed, beam exists)
+                    if mouse_button_input.pressed(MouseButton::Left) {
+                        if channeling_comp.beam_entity.is_some() { // Player is actively beaming
+                            if let Some(ref mut duration_timer) = channeling_comp.active_duration_timer {
+                                duration_timer.tick(time.delta());
+                                if duration_timer.finished() {
+                                    // Duration ended: Stop beam, start cooldown
+                                    if let Some(beam_e) = channeling_comp.beam_entity.take() { // take() sets beam_entity to None
+                                        commands.entity(beam_e).despawn_recursive();
+                                    }
+                                    if let Some(cd_secs) = params.cooldown_secs {
+                                        channeling_comp.cooldown_timer = Some(Timer::from_seconds(cd_secs, TimerMode::Once));
+                                    } else {
+                                        // No cooldown defined, remove component if no beam and no cooldown
+                                        commands.entity(survivor_entity).remove::<crate::weapon_systems::IsChannelingComponent>();
+                                    }
+                                    // sound_event_writer.send(PlaySoundEvent(SoundEffect::BeamEnd)); // Optional
+                                    continue; // End processing for this player this frame
+                                }
+                            }
+                            // If no duration_timer or it's not finished, beam continues.
+                            continue; // Already beaming and button held, skip trying to start a new one.
+                        }
+                        // If mouse is pressed, but beam_entity is None (it means cooldown just finished)
+                        // Fall through to "Start Channeling" logic below (for manual).
+                    } else { // Mouse button is NOT pressed
+                        if channeling_comp.beam_entity.is_some() {
+                            // Button released: Stop beam, start cooldown
+                            if let Some(beam_e) = channeling_comp.beam_entity.take() {
+                                commands.entity(beam_e).despawn_recursive();
+                            }
+                            if let Some(cd_secs) = params.cooldown_secs {
+                                channeling_comp.cooldown_timer = Some(Timer::from_seconds(cd_secs, TimerMode::Once));
+                            } else {
+                                // No cooldown defined, remove component
+                                commands.entity(survivor_entity).remove::<crate::weapon_systems::IsChannelingComponent>();
+                            }
+                            // sound_event_writer.send(PlaySoundEvent(SoundEffect::BeamEnd)); // Optional
+                        }
+                        // If beam_entity is already None (already stopped or just finished cooldown and mouse not pressed), do nothing more here.
+                        continue; // End processing for this player
+                    }
+                } // End of: if let Ok(mut channeling_comp) for manual
+
+                // Start Channeling (manual: mouse pressed, no active beam, not on cooldown from above check)
+                if mouse_button_input.pressed(MouseButton::Left) {
+                    if channeling_status_query.get(survivor_entity).map_or(true, |comp| comp.beam_entity.is_none() && comp.cooldown_timer.is_none()) {
+                        let beam_aim_direction = survivor_stats.aim_direction;
+                        if beam_aim_direction == Vec2::ZERO { continue; }
+
+                        let beam_spawn_offset = beam_aim_direction * (SURVIVOR_SIZE.y / 2.0 + params.beam_width / 4.0);
+                        let beam_spawn_position = survivor_transform.translation + beam_spawn_offset.extend(survivor_transform.translation.z + 0.1);
+                        
+                        let beam_entity_id = commands.spawn((
+                            SpriteBundle { 
+                                texture: asset_server.load(String::from("sprites/channeled_beam_placeholder.png")), 
+                                sprite: Sprite { 
+                                    custom_size: Some(Vec2::new(params.range, params.beam_width)), 
+                                    color: params.beam_color, 
+                                    anchor: bevy::sprite::Anchor::CenterLeft, 
+                                    ..default() 
+                                }, 
+                                transform: Transform::from_translation(beam_spawn_position)
+                                    .with_rotation(Quat::from_rotation_z(beam_aim_direction.y.atan2(beam_aim_direction.x))), 
+                                ..default() 
+                            },
+                            crate::weapon_systems::ChanneledBeamComponent {
+                                damage_per_tick: params.base_damage_per_tick + survivor_stats.auto_weapon_damage_bonus,
+                                tick_timer: Timer::from_seconds(params.tick_rate_secs, TimerMode::Repeating),
+                                range: params.range, 
+                                width: params.beam_width, 
+                                color: params.beam_color,
+                                owner: survivor_entity,
+                            },
+                            Name::new("ChanneledBeamWeaponInstance (Manual)"),
+                        )).id();
+
+                        let mut new_channeling_comp = crate::weapon_systems::IsChannelingComponent {
+                            beam_entity: Some(beam_entity_id),
+                            beam_params: params.clone(),
+                            active_duration_timer: None,
+                            cooldown_timer: None,
+                        };
+                        if let Some(max_duration) = params.max_duration_secs {
+                            new_channeling_comp.active_duration_timer = Some(Timer::from_seconds(max_duration, TimerMode::Once));
+                        }
+                        commands.entity(survivor_entity).insert(new_channeling_comp);
+                        sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast));
+                    }
+                }
+            }
+            continue; // IMPORTANT: Skip the rest of the timed weapon logic
+        }
+        // --- End of Channeled Beam Logic ---
+
+        // --- Handle ChargeUpEnergyShot ---
+        if let AttackTypeData::ChargeUpEnergyShot(ref shot_params) = weapon_def.attack_data {
+            let already_charging = charging_comp_query.get(survivor_entity).is_ok();
+            info!(
+                "ChargeUp: Attempting. FireTimerFinished: {}, Remaining: {:.2}s, AlreadyCharging: {}",
+                sanity_strain.fire_timer.finished(),
+                sanity_strain.fire_timer.remaining_secs(),
+                already_charging
+            );
+
+            if mouse_button_input.just_pressed(MouseButton::Left) {
+                info!("ChargeUp: Mouse Just Pressed.");
+                let is_fire_timer_finished = sanity_strain.fire_timer.finished();
+                // is_already_charging is 'already_charging' from above
+                
+                if !is_fire_timer_finished {
+                    info!("ChargeUp: Blocked - Fire timer not finished (Remaining: {:.2}s).", sanity_strain.fire_timer.remaining_secs());
+                }
+                if already_charging { // Use the variable captured before the if block
+                    info!("ChargeUp: Blocked - Already has ChargingWeaponComponent.");
+                }
+
+                if is_fire_timer_finished && !already_charging { // Use the variable
+                    if shot_params.charge_levels.is_empty() {
+                        info!("ChargeUp: Blocked - No charge levels defined for this weapon.");
+                        continue; 
+                    }
+                    info!("ChargeUp: SUCCESS - Adding ChargingWeaponComponent.");
+                    commands.entity(survivor_entity).insert(crate::weapon_systems::ChargingWeaponComponent {
+                        weapon_id: weapon_def.id, // Store the actual weapon_id
+                        charge_timer: Timer::from_seconds(shot_params.charge_levels[0].charge_time_secs.max(0.01), TimerMode::Once), // Ensure non-zero duration
+                        current_charge_level_index: 0,
+                        is_actively_charging: true,
+                    });
+                    // Reset and tick sanity_strain.fire_timer using shot_params.base_fire_rate_secs to start the "post-shot cooldown".
+                    sanity_strain.fire_timer.set_duration(Duration::from_secs_f32(shot_params.base_fire_rate_secs));
+                    sanity_strain.fire_timer.reset(); 
+                    // (Optional: Play charge start sound)
+                }
+            }
+
+            if mouse_button_input.just_released(MouseButton::Left) {
+                if let Ok(charging_comp) = charging_comp_query.get(survivor_entity) {
+                    if charging_comp.is_actively_charging { // Field exists on ChargingWeaponComponent
+                        let current_level_index = charging_comp.current_charge_level_index;
+                        if current_level_index < shot_params.charge_levels.len() {
+                            let level_params = &shot_params.charge_levels[current_level_index];
+                            let projectile_damage = level_params.projectile_damage + survivor_stats.auto_weapon_damage_bonus;
+                            let projectile_speed = level_params.projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier;
+                            let projectile_piercing = level_params.piercing + survivor_stats.auto_weapon_piercing_bonus;
+                            let sprite_path = level_params.projectile_sprite_path_override.as_deref().unwrap_or(&shot_params.base_projectile_sprite_path);
+                            
+                            crate::automatic_projectiles::spawn_automatic_projectile(
+                                &mut commands, &asset_server, survivor_entity, survivor_transform.translation, survivor_stats.aim_direction,
+                                projectile_damage, projectile_speed, projectile_piercing, weapon_def.id,
+                                sprite_path, level_params.projectile_size, shot_params.base_projectile_color, shot_params.projectile_lifetime_secs,
+                                None, None, None, None, None, None // No special params like bounce, lifesteal, tether for basic version
+                            );
+                            // Explosion logic deferred as per subtask instructions.
+                        }
+                        commands.entity(survivor_entity).remove::<crate::weapon_systems::ChargingWeaponComponent>();
+                        sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast)); // Or a specific shot fire sound
+                    }
+                }
+            }
+            continue; // Important: prevent falling into other weapon logic
+        }
+        // --- End of ChargeUpEnergyShot ---
+
+        // --- Standard Timed Weapon Logic ---
+        let mut effective_fire_rate_secs = sanity_strain.base_fire_rate_secs;
         if let Some(buff) = buff_effect_opt {
             effective_fire_rate_secs /= 1.0 + buff.fire_rate_multiplier_bonus;
         }
@@ -350,16 +647,16 @@ fn survivor_casting_system(
         let new_duration = Duration::from_secs_f32(effective_fire_rate_secs.max(0.05));
         if sanity_strain.fire_timer.duration() != new_duration {
             sanity_strain.fire_timer.set_duration(new_duration);
+            sanity_strain.fire_timer.reset(); // Reset the timer so it's fresh for the new duration/weapon
         }
         sanity_strain.fire_timer.tick(time.delta());
 
         if sanity_strain.fire_timer.just_finished() {
             if survivor_stats.aim_direction != Vec2::ZERO {
-                sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast)); // Changed from PlayerShoot
+                sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast));
 
                 match &weapon_def.attack_data {
                     AttackTypeData::StandardProjectile(params) => {
-                        // Existing logic for StandardProjectile
                         let current_damage = params.base_damage + survivor_stats.auto_weapon_damage_bonus;
                         let effective_projectile_lifetime_secs = params.projectile_lifetime_secs * survivor_stats.auto_attack_projectile_duration_multiplier;
                         let current_speed = params.base_projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier;
@@ -510,17 +807,30 @@ fn survivor_casting_system(
                             weapon_def.id,
                         );
                     }
+                    AttackTypeData::LobbedBouncingMagma(params) => {
+                        crate::weapon_systems::spawn_magma_ball_attack(
+                            &mut commands,
+                            &asset_server,
+                            params,
+                            survivor_transform,
+                            survivor_stats.aim_direction,
+                            weapon_def.id,
+                            survivor_entity,
+                            survivor_stats,
+                        );
+                    }
                     _ => {
                         error!(
-                            "Weapon {:?} (ID: {}) has AttackTypeData variant {:?} which is not yet handled by survivor_casting_system.",
+                            "Weapon {:?} (ID: {}) has AttackTypeData variant {:?} which is not yet handled by survivor_casting_system's timed logic.",
                             weapon_def.name,
                             weapon_def.id.0,
-                            weapon_def.attack_data // This will print the variant type
+                            weapon_def.attack_data 
                         );
                     }
                 }
             }
         }
+        // --- End of Standard Timed Weapon Logic ---
     }
 }
 fn survivor_horror_collision_system(

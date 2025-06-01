@@ -137,7 +137,7 @@ pub fn lobbed_weapon_targeting_reticule_system(
         let local_reticle_pos = direction_to_cursor * clamped_distance;
 
         let mut reticule_updated_or_created = false;
-        for (ret_entity, mut ret_transform, mut ret_component, parent) in reticule_query.iter_mut() {
+        for (_ret_entity, mut ret_transform, mut ret_component, parent) in reticule_query.iter_mut() { // Changed ret_entity to _ret_entity
             if parent.get() == player_entity {
                 ret_transform.translation = local_reticle_pos.extend(reticle_z_offset);
                 ret_component.max_range = max_targeting_range;
@@ -185,6 +185,8 @@ pub fn lobbed_weapon_targeting_reticule_system(
 pub struct IsChannelingComponent {
     pub beam_entity: Option<Entity>,
     pub beam_params: ChanneledBeamParams,
+    pub active_duration_timer: Option<Timer>,
+    pub cooldown_timer: Option<Timer>,
 }
 
 // --- Lobbed AoE Pool Definitions ---
@@ -584,8 +586,57 @@ pub struct MagmaPoolComponent {
 
 // --- Orbiting Pet Definitions (New Implementation) ---
 
-pub fn charge_weapon_system(mut _commands: Commands) {
-    // TODO: Implement system
+pub fn charge_weapon_system(
+    mut player_charging_query: Query<(Entity, &mut ChargingWeaponComponent, &Survivor)>,
+    weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
+    mouse_button_input: Res<Input<MouseButton>>,
+    time: Res<Time>,
+    mut sound_event_writer: EventWriter<crate::audio::PlaySoundEvent>, // Optional
+) {
+    for (_player_entity, mut charging_comp, _survivor_stats) in player_charging_query.iter_mut() {
+        if !charging_comp.is_actively_charging {
+            continue;
+        }
+
+        if mouse_button_input.pressed(MouseButton::Left) {
+            // Player is holding the charge button
+            charging_comp.charge_timer.tick(time.delta());
+
+            if charging_comp.charge_timer.finished() {
+                // Current charge level timer has completed
+                if let Some(weapon_def) = weapon_library.get_weapon_definition(charging_comp.weapon_id) {
+                    if let AttackTypeData::ChargeUpEnergyShot(ref shot_params) = weapon_def.attack_data {
+                        let num_charge_levels = shot_params.charge_levels.len();
+                        if num_charge_levels == 0 {
+                            charging_comp.is_actively_charging = false; // Should not happen with valid params
+                            continue;
+                        }
+
+                        if charging_comp.current_charge_level_index < num_charge_levels - 1 {
+                            // Advance to the next charge level
+                            charging_comp.current_charge_level_index += 1;
+                            let next_level_params = &shot_params.charge_levels[charging_comp.current_charge_level_index];
+                            charging_comp.charge_timer = Timer::from_seconds(next_level_params.charge_time_secs.max(0.01), TimerMode::Once); // Ensure non-zero
+                            // Optional: Play charge level up sound
+                            sound_event_writer.send(crate::audio::PlaySoundEvent(crate::audio::SoundEffect::RitualCast)); // Placeholder sound
+                        } else {
+                            // Already at max charge level. Timer can stay finished/paused.
+                            // charging_comp.charge_timer.pause(); // Or just let it be finished.
+                        }
+                    } else {
+                        charging_comp.is_actively_charging = false; // Should not happen if weapon_id is correct
+                    }
+                } else {
+                    charging_comp.is_actively_charging = false; // Weapon def not found
+                }
+            }
+        } else {
+            // Mouse button is NOT pressed, but ChargingWeaponComponent still exists and is_actively_charging.
+            // This state should ideally be handled by survivor_casting_system to fire the shot and remove the component.
+            // As a safeguard, or if survivor_casting_system's release logic somehow missed it: 
+            charging_comp.is_actively_charging = false;
+        }
+    }
 }
 
 pub fn trail_spawning_projectile_system(mut _commands: Commands) {
@@ -729,8 +780,35 @@ pub fn ichor_pool_system(
     }
 }
 
-pub fn channeled_beam_update_system(mut _commands: Commands) {
-    // TODO: Implement system
+pub fn channeled_beam_update_system(
+    player_query: Query<(&Survivor, &Transform, &IsChannelingComponent)>, 
+    mut beam_query: Query<&mut Transform, (With<ChanneledBeamComponent>, Without<Survivor>)>,
+) {
+    for (survivor_stats, player_transform, channeling_comp) in player_query.iter() {
+        if let Some(beam_entity_id) = channeling_comp.beam_entity {
+            if let Ok(mut beam_transform) = beam_query.get_mut(beam_entity_id) {
+                let current_aim_direction = survivor_stats.aim_direction;
+
+                if current_aim_direction == Vec2::ZERO {
+                    // Optionally, keep last rotation or use a default if aim is zero.
+                    // For now, we'll let it update, which might mean it points along X-axis if aim is zero.
+                    // Or, we could skip updates if aim is zero:
+                    // continue; 
+                }
+
+                let beam_width = channeling_comp.beam_params.beam_width;
+                // Offset from survivor center, to edge, then half of beam width to align beam edge with survivor sprite edge
+                let beam_spawn_offset = current_aim_direction * (crate::survivor::SURVIVOR_SIZE.y / 2.0 + beam_width / 4.0); 
+                
+                // Update beam position to follow player, applying offset
+                beam_transform.translation = (player_transform.translation.truncate() + beam_spawn_offset)
+                                             .extend(player_transform.translation.z + 0.1); // Ensure consistent Z-ordering
+
+                // Update beam rotation to match player's aim
+                beam_transform.rotation = Quat::from_rotation_z(current_aim_direction.y.atan2(current_aim_direction.x));
+            }
+        }
+    }
 }
 
 #[derive(Component, Debug, Reflect)]
@@ -817,6 +895,8 @@ impl Plugin for WeaponSystemsPlugin {
             .add_systems(Update, eruption_visual_system.run_if(in_state(AppState::InGame)))
             .add_systems(Update, player_dashing_system.run_if(in_state(AppState::InGame)))
             .add_systems(Update, (
+                explode_on_lifetime_end_system, // Added new system
+                generic_lifetime_system, // Existing system, now filtered
                 lobbed_bouncing_projectile_system,
                 magma_pool_system,
                 repositioning_tether_firing_system,
@@ -835,6 +915,69 @@ impl Plugin for WeaponSystemsPlugin {
                 ichor_pool_system,
                 channeled_beam_update_system,
             ).run_if(in_state(AppState::InGame)));
+    }
+}
+
+// --- Generic Lifetime System ---
+
+pub fn generic_lifetime_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut Lifetime), Without<ExplodesOnFinalImpact>>, // MODIFIED query
+) {
+    for (entity, mut lifetime) in query.iter_mut() {
+        lifetime.timer.tick(time.delta());
+        if lifetime.timer.just_finished() {
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
+// --- New system for handling explosions on lifetime end ---
+pub fn explode_on_lifetime_end_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    asset_server: Res<AssetServer>,
+    // Query for entities that have a lifetime, can explode, and optionally have damage for color reference
+    mut query: Query<(Entity, &mut Lifetime, &GlobalTransform, &ExplodesOnFinalImpact, Option<&Damage>)>, 
+    mut horror_query: Query<(&GlobalTransform, &mut Health), With<Horror>>, // For applying damage
+) {
+    for (entity, mut lifetime, g_transform, explodes_comp, _opt_damage_comp) in query.iter_mut() { // Changed opt_damage_comp to _opt_damage_comp
+        // Important: We tick the timer here. If generic_lifetime_system also ticks it, it might double tick or cause issues.
+        // This system now takes responsibility for ticking and acting for ExplodesOnFinalImpact entities.
+        lifetime.timer.tick(time.delta()); 
+        if lifetime.timer.just_finished() {
+            // The opt_damage_comp is not used to determine color, Color::ORANGE_RED is hardcoded or could be from explodes_comp if it had a color field.
+            let explosion_color = Color::ORANGE_RED; 
+
+            spawn_explosion_effect(
+                &mut commands,
+                &asset_server,
+                g_transform.translation(),
+                explodes_comp.explosion_damage,
+                explodes_comp.explosion_radius,
+                explosion_color,
+                String::from("sprites/explosion_placeholder.png"), // Placeholder sprite
+                0.5,                                 // Duration
+            );
+
+            // Apply damage to horrors in radius
+            let explosion_center = g_transform.translation();
+            for (horror_gtransform, mut horror_health) in horror_query.iter_mut() {
+                if horror_gtransform.translation().distance_squared(explosion_center) < explodes_comp.explosion_radius.powi(2) {
+                    horror_health.0 = horror_health.0.saturating_sub(explodes_comp.explosion_damage);
+                    visual_effects::spawn_damage_text(
+                        &mut commands,
+                        &asset_server,
+                        horror_gtransform.translation(),
+                        explodes_comp.explosion_damage,
+                        &time,
+                    );
+                }
+            }
+            // Despawn the projectile entity since its lifetime is up and it has exploded.
+            commands.entity(entity).despawn_recursive();
+        }
     }
 }
 
@@ -1256,6 +1399,8 @@ pub fn spawn_magma_ball_attack(
     player_transform: &Transform,
     aim_direction: Vec2,
     weapon_id: AutomaticWeaponId,
+    owner_entity: Entity, // New parameter
+    survivor_stats: &Survivor // New parameter
 ) {
     let initial_pos = player_transform.translation;
     let projectile_velocity = aim_direction.normalize_or_zero() * params.projectile_speed;
@@ -1279,20 +1424,24 @@ pub fn spawn_magma_ball_attack(
             initial_spawn_position: initial_pos,
         },
         Velocity(projectile_velocity),
-        Damage(params.damage_per_bounce_impact),
+        Damage(params.damage_per_bounce_impact + survivor_stats.auto_weapon_damage_bonus),
         Lifetime { timer: Timer::from_seconds(params.projectile_lifetime_secs, TimerMode::Once) },
         crate::automatic_projectiles::AutomaticProjectile {
-            owner: Entity::PLACEHOLDER, // FIXME: Pass actual owner
+            owner: owner_entity,
             piercing_left: 0,
             weapon_id,
             bounces_left: Some(params.num_bounces),
-            damage_on_hit: params.damage_per_bounce_impact,
+            damage_on_hit: params.damage_per_bounce_impact + survivor_stats.auto_weapon_damage_bonus,
             current_speed: params.projectile_speed,
             damage_loss_per_bounce_multiplier: Some(1.0),
             speed_loss_per_bounce_multiplier: Some(1.0),
             has_bounced_this_frame: false,
             lifesteal_percentage: None,
             blink_params_on_hit: None,
+        },
+        ExplodesOnFinalImpact { // Added component
+            explosion_radius: params.explosion_radius_on_final_bounce,
+            explosion_damage: params.explosion_damage_on_final_bounce,
         },
         Name::new("MagmaBallProjectile"),
     ));
@@ -1305,28 +1454,31 @@ pub fn lobbed_bouncing_projectile_system(
     mut projectile_query: Query<(
         Entity,
         &mut LobbedBouncingProjectileComponent,
-        &mut Velocity, // Keep as it might be used by other systems or future logic
-        &mut Damage,   // Keep for same reason
-        &Transform,
+        &mut Velocity, 
+        &mut Damage,   
+        &Transform,    // Local transform
+        &GlobalTransform, // Added for world-space explosion position
         &mut Lifetime,
-        & crate::automatic_projectiles::AutomaticProjectile,
+        &crate::automatic_projectiles::AutomaticProjectile,
+        Option<&ExplodesOnFinalImpact>, // To check for explosion data
     )>,
+    mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>, // For applying damage
 ) {
     for (
         entity,
         mut bouncing_comp,
-        _velocity, // Explicitly unused for now
-        _damage,   // Explicitly unused for now
-        transform,
+        _velocity, 
+        _damage,   
+        transform,      // Local transform for existing logic (like pool spawning)
+        g_transform,    // Global transform for explosion
         mut lifetime,
         auto_proj_comp,
+        explodes_comp_opt,
     ) in projectile_query.iter_mut()
     {
         lifetime.timer.tick(time.delta());
-        if lifetime.timer.finished() && bouncing_comp.bounces_left == 0 {
-            commands.entity(entity).despawn_recursive();
-            continue;
-        }
+        // This system primarily handles bounce logic. Lifetime despawn with explosion is now handled by explode_on_lifetime_end_system.
+        // However, if a bounce *results* in bounces_left == 0, it should explode *then*.
 
         if auto_proj_comp.bounces_left.is_some() && auto_proj_comp.bounces_left.unwrap() < bouncing_comp.bounces_left {
             bouncing_comp.bounces_left = auto_proj_comp.bounces_left.unwrap();
@@ -1335,14 +1487,33 @@ pub fn lobbed_bouncing_projectile_system(
                 spawn_magma_pool(
                     &mut commands,
                     &asset_server,
-                    transform.translation,
+                    transform.translation, // Pool uses local transform as before
                     &bouncing_comp.params,
                 );
             }
 
             if bouncing_comp.bounces_left == 0 {
-                commands.entity(entity).despawn_recursive();
-                continue;
+                if let Some(explodes_comp) = explodes_comp_opt {
+                    spawn_explosion_effect(
+                        &mut commands,
+                        &asset_server,
+                        g_transform.translation(), // Explosion at global position
+                        explodes_comp.explosion_damage,
+                        explodes_comp.explosion_radius,
+                        bouncing_comp.params.projectile_color, // Use projectile color for now
+                        String::from("sprites/explosion_placeholder.png"),   // Placeholder sprite
+                        0.5,                                   // Duration
+                    );
+                    // Apply damage to horrors in radius
+                    for (_horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() {
+                        if horror_gtransform.translation().distance_squared(g_transform.translation()) < explodes_comp.explosion_radius.powi(2) {
+                            horror_health.0 = horror_health.0.saturating_sub(explodes_comp.explosion_damage);
+                            visual_effects::spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), explodes_comp.explosion_damage, &time);
+                        }
+                    }
+                }
+                commands.entity(entity).despawn_recursive(); // Despawn after explosion
+                continue; 
             }
         }
     }
@@ -1410,6 +1581,40 @@ pub fn magma_pool_system(
             }
         }
     }
+}
+
+// --- Explosion Effect Spawning ---
+
+pub fn spawn_explosion_effect(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    position: Vec3,
+    _damage: i32, // Damage application will be handled by the calling system
+    radius: f32,
+    color: Color,
+    visual_sprite_path: String, // Changed to String
+    duration_secs: f32,
+) {
+    commands.spawn((
+        SpriteBundle {
+            texture: asset_server.load(visual_sprite_path), // Handles String correctly
+            sprite: Sprite {
+                custom_size: Some(Vec2::splat(radius * 0.2)), // Initial small size
+                color: color,
+                ..default()
+            },
+            transform: Transform::from_translation(position.truncate().extend(0.3)), // Ensure Z-level is appropriate
+            ..default()
+        },
+        NovaVisualComponent {
+            initial_radius: radius * 0.1,
+            max_radius: radius,
+            duration_timer: Timer::from_seconds(duration_secs, TimerMode::Once),
+            color: color, // Use the main color for nova, or could be different
+        },
+        Lifetime { timer: Timer::from_seconds(duration_secs, TimerMode::Once) },
+        Name::new("ExplosionEffectVisual"),
+    ));
 }
 
 // --- Line Dash Attack Systems ---
