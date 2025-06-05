@@ -571,6 +571,10 @@ fn survivor_casting_system(
 
         // --- Handle ChargeUpEnergyShot ---
         if let AttackTypeData::ChargeUpEnergyShot(ref shot_params) = weapon_def.attack_data {
+            // Manually tick the cooldown timer since we skip the generic logic below
+            if !sanity_strain.fire_timer.finished() {
+                sanity_strain.fire_timer.tick(time.delta());
+            }
             let already_charging = charging_comp_query.get(survivor_entity).is_ok();
             info!(
                 "ChargeUp: Attempting. FireTimerFinished: {}, Remaining: {:.2}s, AlreadyCharging: {}",
@@ -603,9 +607,6 @@ fn survivor_casting_system(
                         current_charge_level_index: 0,
                         is_actively_charging: true,
                     });
-                    // Reset and tick sanity_strain.fire_timer using shot_params.base_fire_rate_secs to start the "post-shot cooldown".
-                    sanity_strain.fire_timer.set_duration(Duration::from_secs_f32(shot_params.base_fire_rate_secs));
-                    sanity_strain.fire_timer.reset(); 
                     // (Optional: Play charge start sound)
                 }
             }
@@ -631,6 +632,11 @@ fn survivor_casting_system(
                         }
                         commands.entity(survivor_entity).remove::<crate::weapon_systems::ChargingWeaponComponent>();
                         sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast)); // Or a specific shot fire sound
+                        // Start the cooldown now that the shot has been fired
+                        sanity_strain
+                            .fire_timer
+                            .set_duration(Duration::from_secs_f32(shot_params.base_fire_rate_secs));
+                        sanity_strain.fire_timer.reset();
                     }
                 }
             }
