@@ -634,6 +634,7 @@ fn survivor_casting_system(
                     }
                 }
             }
+            sanity_strain.fire_timer.tick(time.delta());
             continue; // Important: prevent falling into other weapon logic
         }
         // --- End of ChargeUpEnergyShot ---
