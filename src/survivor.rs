@@ -222,6 +222,7 @@ fn spawn_survivor(
     let chosen_inherent_weapon_id = selected_character.0;
     let mut initial_fire_rate = 0.5;
     let mut survivor_name = "Survivor (Unknown Class)".to_string();
+    let mut fire_timer_mode = TimerMode::Repeating;
 
     if let Some(weapon_def) = weapon_library.get_weapon_definition(chosen_inherent_weapon_id) {
         // Extract base_fire_rate_secs based on AttackTypeData
@@ -231,7 +232,10 @@ fn spawn_survivor(
             AttackTypeData::ChanneledBeam(params) => initial_fire_rate = params.tick_rate_secs, // Or a different logic for channeled
             AttackTypeData::ConeAttack(params) => initial_fire_rate = params.base_fire_rate_secs,
             AttackTypeData::LobbedAoEPool(params) => initial_fire_rate = params.base_fire_rate_secs,
-            AttackTypeData::ChargeUpEnergyShot(params) => initial_fire_rate = params.base_fire_rate_secs,
+            AttackTypeData::ChargeUpEnergyShot(params) => {
+                initial_fire_rate = params.base_fire_rate_secs;
+                fire_timer_mode = TimerMode::Once;
+            }
             AttackTypeData::TrailOfFire(params) => initial_fire_rate = params.base_fire_rate_secs,
             AttackTypeData::ChainZap(params) => initial_fire_rate = params.base_fire_rate_secs,
             AttackTypeData::PointBlankNova(params) => initial_fire_rate = params.base_fire_rate_secs,
@@ -270,7 +274,7 @@ fn spawn_survivor(
         Velocity(Vec2::ZERO),
         SanityStrain { // Changed from MindAffliction
             base_fire_rate_secs: initial_fire_rate,
-            fire_timer: Timer::from_seconds(initial_fire_rate, TimerMode::Repeating),
+            fire_timer: Timer::from_seconds(initial_fire_rate, fire_timer_mode),
         },
         CircleOfWarding::default(),
         SwarmOfNightmares::default(),
@@ -571,6 +575,10 @@ fn survivor_casting_system(
 
         // --- Handle ChargeUpEnergyShot ---
         if let AttackTypeData::ChargeUpEnergyShot(ref shot_params) = weapon_def.attack_data {
+            // Manually tick the cooldown timer since we skip the generic logic below
+            if !sanity_strain.fire_timer.finished() {
+                sanity_strain.fire_timer.tick(time.delta());
+            }
             let already_charging = charging_comp_query.get(survivor_entity).is_ok();
             info!(
                 "ChargeUp: Attempting. FireTimerFinished: {}, Remaining: {:.2}s, AlreadyCharging: {}",
@@ -603,9 +611,6 @@ fn survivor_casting_system(
                         current_charge_level_index: 0,
                         is_actively_charging: true,
                     });
-                    // Reset and tick sanity_strain.fire_timer using shot_params.base_fire_rate_secs to start the "post-shot cooldown".
-                    sanity_strain.fire_timer.set_duration(Duration::from_secs_f32(shot_params.base_fire_rate_secs));
-                    sanity_strain.fire_timer.reset(); 
                     // (Optional: Play charge start sound)
                 }
             }
@@ -631,6 +636,12 @@ fn survivor_casting_system(
                         }
                         commands.entity(survivor_entity).remove::<crate::weapon_systems::ChargingWeaponComponent>();
                         sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast)); // Or a specific shot fire sound
+                        // Start the cooldown now that the shot has been fired
+                        sanity_strain
+                            .fire_timer
+                            .set_duration(Duration::from_secs_f32(shot_params.base_fire_rate_secs));
+                        sanity_strain.fire_timer.set_mode(TimerMode::Once);
+                        sanity_strain.fire_timer.reset();
                     }
                 }
             }
@@ -639,6 +650,7 @@ fn survivor_casting_system(
         // --- End of ChargeUpEnergyShot ---
 
         // --- Standard Timed Weapon Logic ---
+        sanity_strain.fire_timer.set_mode(TimerMode::Repeating);
         let mut effective_fire_rate_secs = sanity_strain.base_fire_rate_secs;
         if let Some(buff) = buff_effect_opt {
             effective_fire_rate_secs /= 1.0 + buff.fire_rate_multiplier_bonus;
@@ -648,6 +660,7 @@ fn survivor_casting_system(
         if sanity_strain.fire_timer.duration() != new_duration {
             sanity_strain.fire_timer.set_duration(new_duration);
             sanity_strain.fire_timer.reset(); // Reset the timer so it's fresh for the new duration/weapon
+            sanity_strain.fire_timer.set_mode(TimerMode::Repeating);
         }
         sanity_strain.fire_timer.tick(time.delta());
 
