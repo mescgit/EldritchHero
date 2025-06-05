@@ -572,9 +572,13 @@ fn survivor_casting_system(
         // --- Handle ChargeUpEnergyShot ---
         if let AttackTypeData::ChargeUpEnergyShot(ref shot_params) = weapon_def.attack_data {
             // Manually tick the cooldown timer since we skip the generic logic below
+//<<<<<<< 6azvhc-codex/fix-void-cannon-cooldown-loop
             if !sanity_strain.fire_timer.finished() {
                 sanity_strain.fire_timer.tick(time.delta());
             }
+//=======
+            sanity_strain.fire_timer.tick(time.delta());
+//>>>>>>> main
             let already_charging = charging_comp_query.get(survivor_entity).is_ok();
             info!(
                 "ChargeUp: Attempting. FireTimerFinished: {}, Remaining: {:.2}s, AlreadyCharging: {}",
@@ -640,6 +644,7 @@ fn survivor_casting_system(
                     }
                 }
             }
+            sanity_strain.fire_timer.tick(time.delta());
             continue; // Important: prevent falling into other weapon logic
         }
         // --- End of ChargeUpEnergyShot ---
