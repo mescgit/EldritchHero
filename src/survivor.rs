@@ -571,6 +571,8 @@ fn survivor_casting_system(
 
         // --- Handle ChargeUpEnergyShot ---
         if let AttackTypeData::ChargeUpEnergyShot(ref shot_params) = weapon_def.attack_data {
+            // Manually tick the cooldown timer since we skip the generic logic below
+            sanity_strain.fire_timer.tick(time.delta());
             let already_charging = charging_comp_query.get(survivor_entity).is_ok();
             info!(
                 "ChargeUp: Attempting. FireTimerFinished: {}, Remaining: {:.2}s, AlreadyCharging: {}",
