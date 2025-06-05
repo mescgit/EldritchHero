@@ -222,6 +222,7 @@ fn spawn_survivor(
     let chosen_inherent_weapon_id = selected_character.0;
     let mut initial_fire_rate = 0.5;
     let mut survivor_name = "Survivor (Unknown Class)".to_string();
+    let mut fire_timer_mode = TimerMode::Repeating;
 
     if let Some(weapon_def) = weapon_library.get_weapon_definition(chosen_inherent_weapon_id) {
         // Extract base_fire_rate_secs based on AttackTypeData
@@ -231,7 +232,10 @@ fn spawn_survivor(
             AttackTypeData::ChanneledBeam(params) => initial_fire_rate = params.tick_rate_secs, // Or a different logic for channeled
             AttackTypeData::ConeAttack(params) => initial_fire_rate = params.base_fire_rate_secs,
             AttackTypeData::LobbedAoEPool(params) => initial_fire_rate = params.base_fire_rate_secs,
-            AttackTypeData::ChargeUpEnergyShot(params) => initial_fire_rate = params.base_fire_rate_secs,
+            AttackTypeData::ChargeUpEnergyShot(params) => {
+                initial_fire_rate = params.base_fire_rate_secs;
+                fire_timer_mode = TimerMode::Once;
+            }
             AttackTypeData::TrailOfFire(params) => initial_fire_rate = params.base_fire_rate_secs,
             AttackTypeData::ChainZap(params) => initial_fire_rate = params.base_fire_rate_secs,
             AttackTypeData::PointBlankNova(params) => initial_fire_rate = params.base_fire_rate_secs,
@@ -270,7 +274,7 @@ fn spawn_survivor(
         Velocity(Vec2::ZERO),
         SanityStrain { // Changed from MindAffliction
             base_fire_rate_secs: initial_fire_rate,
-            fire_timer: Timer::from_seconds(initial_fire_rate, TimerMode::Repeating),
+            fire_timer: Timer::from_seconds(initial_fire_rate, fire_timer_mode),
         },
         CircleOfWarding::default(),
         SwarmOfNightmares::default(),
@@ -611,6 +615,9 @@ fn survivor_casting_system(
                         current_charge_level_index: 0,
                         is_actively_charging: true,
                     });
+                        sanity_strain.fire_timer.set_mode(TimerMode::Once);
+        sanity_strain.fire_timer.set_mode(TimerMode::Repeating);
+            sanity_strain.fire_timer.set_mode(TimerMode::Repeating);
                     // (Optional: Play charge start sound)
                 }
             }
