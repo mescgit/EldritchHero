@@ -4,7 +4,7 @@ use std::time::Duration;
 use rand::Rng;
 // Removed duplicated Bevy prelude, duration, and Rng imports
 use crate::{
-    components::{Velocity, Health as ComponentHealth},
+    components::{Velocity, Health as ComponentHealth, BurnStatusEffect, Lifetime}, // Added BurnStatusEffect and Lifetime
     game::{AppState, ItemCollectedEvent, SelectedCharacter},
     automatic_projectiles::{spawn_automatic_projectile},
     items::AutomaticWeaponDefinition, // This was already correctly added
@@ -12,8 +12,10 @@ use crate::{
     weapons::{CircleOfWarding, SwarmOfNightmares},
     audio::{PlaySoundEvent, SoundEffect},
     skills::{ActiveSkillInstance, SkillLibrary, SkillId, SurvivorBuffEffect, ActiveShield},
-    items::{ItemId, ItemDrop, ItemLibrary, ItemEffect, RetaliationNovaEffect, AutomaticWeaponId, AutomaticWeaponLibrary, AttackTypeData},
+    items::{ItemId, ItemDrop, ItemLibrary, ItemEffect, RetaliationNovaEffect, AutomaticWeaponId, AutomaticWeaponLibrary, AttackTypeData, ConeAttackParams}, // Removed ItemConeAttackParams alias
+    visual_effects::spawn_damage_text, // Added for damage text
 };
+use bevy::sprite::Anchor; // Added for visual effect anchor
 
 pub const SURVIVOR_SIZE: Vec2 = Vec2::new(50.0, 50.0);
 const XP_FOR_LEVEL: [u32; 10] = [100, 150, 250, 400, 600, 850, 1100, 1400, 1800, 2500];
@@ -352,7 +354,8 @@ fn survivor_casting_system(
     mut player_query: Query<(Entity, &Transform, &Survivor, &mut SanityStrain, Option<&SurvivorBuffEffect>)>,
     mut channeling_status_query: Query<&mut crate::weapon_systems::IsChannelingComponent>, // Now mutable
     charging_comp_query: Query<&crate::weapon_systems::ChargingWeaponComponent>,
-    reticule_query: Query<(&GlobalTransform, &Parent), With<crate::weapon_systems::LobbedWeaponTargetReticuleComponent>>, 
+    reticule_query: Query<(&GlobalTransform, &Parent), With<crate::weapon_systems::LobbedWeaponTargetReticuleComponent>>,
+    mut horror_query: Query<(Entity, &Transform, &mut ComponentHealth, &Horror), With<Horror>>, // Added horror_query
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
     weapon_library: Res<AutomaticWeaponLibrary>,
     mouse_button_input: Res<Input<MouseButton>>,
@@ -850,6 +853,82 @@ fn survivor_casting_system(
                             survivor_transform,
                             survivor_stats.aim_direction,
                         );
+                    }
+                    AttackTypeData::ConeAttack(params) => {
+                        let survivor_pos = survivor_transform.translation.truncate();
+                        // Spawn visual effect for the cone
+                        if let Some(sprite_path_str) = &params.visual_sprite_path {
+                            let mut cone_visual_transform = *survivor_transform;
+                            cone_visual_transform.rotation = Quat::from_rotation_z(survivor_stats.aim_direction.y.atan2(survivor_stats.aim_direction.x));
+
+                            // Adjust anchor: Assuming the sprite is designed to originate from the center-left
+                            // The offset can be used to further adjust the visual start point relative to player center
+                            let visual_anchor = params.visual_anchor_offset.map_or(Anchor::CenterLeft, |offset| Anchor::Custom(offset / params.cone_radius * 2.0)); // Approximation for custom anchor
+
+                            let (radius_scale, angle_scale) = params.visual_size_scale_with_radius_angle.unwrap_or((1.0, 1.0));
+                            let visual_size = Vec2::new(
+                                params.cone_radius * radius_scale,
+                                params.cone_radius * angle_scale * (params.cone_angle_degrees.to_radians() / (std::f32::consts::PI / 2.0)) // Assuming sprite is for a 90deg cone
+                            );
+
+
+                            commands.spawn((
+                                SpriteBundle {
+                                    texture: asset_server.load(sprite_path_str),
+                                    sprite: Sprite {
+                                        color: params.color,
+                                        custom_size: Some(visual_size),
+                                        anchor: visual_anchor,
+                                        ..default()
+                                    },
+                                    transform: cone_visual_transform,
+                                    ..default()
+                                },
+                                Lifetime { timer: Timer::from_seconds(0.25, TimerMode::Once) }, // Short lifetime for visual
+                                Name::new("ConeAttackVisual"),
+                            ));
+                        }
+
+                        for (horror_entity, horror_transform, mut horror_health, _horror_tag) in horror_query.iter_mut() {
+                            let enemy_pos = horror_transform.translation.truncate();
+                            let direction_to_enemy = (enemy_pos - survivor_pos).normalize_or_zero();
+
+                            if direction_to_enemy == Vec2::ZERO {
+                                continue;
+                            }
+
+                            let distance_to_enemy_sq = survivor_pos.distance_squared(enemy_pos);
+                            if distance_to_enemy_sq < params.cone_radius * params.cone_radius {
+                                let angle_diff_rad = survivor_stats.aim_direction.angle_between(direction_to_enemy);
+                                if angle_diff_rad.abs() <= params.cone_angle_degrees.to_radians() / 2.0 {
+                                    // Enemy is hit
+                                    horror_health.0 = horror_health.0.saturating_sub(params.base_damage + survivor_stats.auto_weapon_damage_bonus);
+                                    let total_damage = params.base_damage + survivor_stats.auto_weapon_damage_bonus;
+                                    horror_health.0 = horror_health.0.saturating_sub(total_damage);
+                                    spawn_damage_text(
+                                        &mut commands,
+                                        &asset_server,
+                                        horror_transform.translation,
+                                        total_damage,
+                                        // crate::visual_effects::DamageTextType::Standard, // This argument is removed
+                                    );
+
+                                    if params.applies_burn == Some(true) {
+                                        if let (Some(burn_dmg), Some(burn_dur), Some(burn_tick_interval)) =
+                                            (params.burn_damage_per_tick, params.burn_duration_secs, params.burn_tick_interval_secs)
+                                        {
+                                            commands.entity(horror_entity).insert(BurnStatusEffect {
+                                                damage_per_tick: burn_dmg,
+                                                tick_interval_secs: burn_tick_interval,
+                                                duration_timer: Timer::from_seconds(burn_dur, TimerMode::Once),
+                                                tick_timer: Timer::from_seconds(burn_tick_interval, TimerMode::Repeating),
+                                                source_weapon_id: Some(weapon_def.id.0),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                     _ => {
                         error!(

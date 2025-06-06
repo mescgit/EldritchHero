@@ -2,9 +2,10 @@ use bevy::prelude::*;
 use rand::{Rng, seq::SliceRandom};
 use std::time::Duration; // Ensured Duration is imported
 use crate::{
-    components::{Velocity, Health, Damage, Lifetime},
+    components::{Velocity, Health, Damage, Lifetime, BurnStatusEffect}, // Added BurnStatusEffect
     player::Player,
     game::{AppState, GameState},
+    visual_effects, // Added for damage text
     audio::{PlaySoundEvent, SoundEffect},
     items::{ItemDrop, ItemLibrary, ITEM_DROP_SIZE, ItemEffect, PlayerTemporaryBuff, TemporaryHealthRegenBuff},
     experience::{spawn_experience_orb, EXP_ORB_VALUE},
@@ -136,6 +137,7 @@ impl Plugin for EnemyPlugin {
                 enemy_spawn_system,
                 enemy_movement_system,
                 frozen_effect_tick_system, // System for Frozen effect
+                apply_burn_damage_system, // Added new system
                 ranged_attacker_logic,
                 phase_ripper_ai_system,
                 summoner_ai_system,
@@ -339,6 +341,48 @@ fn enemy_movement_system( mut query: Query<(&mut Transform, &mut Velocity, &Enem
 }
 
 fn frozen_effect_tick_system( mut commands: Commands, time: Res<Time>, mut frozen_query: Query<(Entity, &mut Frozen)>,) { for (entity, mut frozen_effect) in frozen_query.iter_mut() { frozen_effect.timer.tick(time.delta()); if frozen_effect.timer.finished() { commands.entity(entity).remove::<Frozen>(); } } }
+
+fn apply_burn_damage_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut burn_query: Query<(Entity, &mut Health, &mut BurnStatusEffect, &Transform), With<Enemy>>,
+    asset_server: Res<AssetServer>,
+    // Potentially add EventWriter<PlaySoundEvent> here if burn ticks should make sound
+) {
+    for (enemy_entity, mut health, mut burn_effect, enemy_transform) in burn_query.iter_mut() {
+        // Tick duration timer
+        burn_effect.duration_timer.tick(time.delta());
+        if burn_effect.duration_timer.finished() {
+            commands.entity(enemy_entity).remove::<BurnStatusEffect>();
+            continue; // Move to the next enemy
+        }
+
+        // Tick interval timer
+        burn_effect.tick_timer.tick(time.delta());
+        if burn_effect.tick_timer.just_finished() {
+            // Apply damage
+            health.0 = health.0.saturating_sub(burn_effect.damage_per_tick); // Use saturating_sub to prevent going below 0
+
+            // Spawn damage text
+            visual_effects::spawn_damage_text(
+                &mut commands,
+                &asset_server,
+                enemy_transform.translation,
+                burn_effect.damage_per_tick,
+                visual_effects::DamageTextType::Burn, // Or a more generic type if preferred
+            );
+
+            // If the tick_timer is not repeating, it needs to be reset.
+            // Assuming it's set to TimerMode::Repeating when the BurnStatusEffect is applied.
+            // If not, uncomment the line below:
+            // burn_effect.tick_timer.reset();
+
+            // Optional: Play burn sound effect
+            // sound_event_writer.send(PlaySoundEvent(SoundEffect::BurnTick)); // Example
+        }
+    }
+}
+
 fn ranged_attacker_logic(mut commands: Commands, time: Res<Time>, asset_server: Res<AssetServer>, mut attacker_query: Query<(&mut Transform, &mut RangedAttackerBehavior, &GlobalTransform, &Enemy)>, player_query: Query<&Transform, (With<Player>, Without<Enemy>)>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { let Ok(player_transform) = player_query.get_single() else { return; }; let player_position = player_transform.translation.truncate(); let mut rng = rand::thread_rng(); for (mut transform, mut behavior, attacker_gtransform, _enemy_data) in attacker_query.iter_mut() { let attacker_position = attacker_gtransform.translation().truncate(); let distance_to_player = player_position.distance(attacker_position); match behavior.state { RangedAttackerState::Idle => { if distance_to_player <= behavior.shooting_range { behavior.state = RangedAttackerState::Attacking; } } RangedAttackerState::Attacking => { if distance_to_player > behavior.shooting_range * 1.1 { behavior.state = RangedAttackerState::Idle; } else { let dir = (player_position - attacker_position).normalize_or_zero(); if dir != Vec2::ZERO { transform.rotation = Quat::from_rotation_z(dir.y.atan2(dir.x)); } behavior.fire_timer.tick(time.delta()); if behavior.fire_timer.just_finished() { sound_event_writer.send(PlaySoundEvent(SoundEffect::EnemyShoot)); spawn_enemy_projectile( &mut commands, &asset_server, attacker_gtransform.translation(), dir, behavior.projectile_speed, behavior.projectile_damage, ); behavior.state = RangedAttackerState::Repositioning; behavior.reposition_timer.reset(); let perp_dir = Vec2::new(-dir.y, dir.x) * (if rng.gen_bool(0.5) { 1.0 } else { -1.0 }); let dist = rng.gen_range(50.0..150.0); behavior.reposition_target = Some(attacker_position + perp_dir * dist); } } } RangedAttackerState::Repositioning => { behavior.reposition_timer.tick(time.delta()); if behavior.reposition_timer.finished() || (behavior.reposition_target.is_some() && attacker_position.distance(behavior.reposition_target.unwrap()) < 10.0) { behavior.state = RangedAttackerState::Idle; behavior.reposition_target = None; } } } } }
 fn phase_ripper_ai_system( _commands: Commands, time: Res<Time>, mut ripper_query: Query<(&mut Transform, &mut PhaseRipperBehavior, &mut Sprite, &mut Visibility), (With<PhaseRipperBehavior>, With<Enemy>, Without<Player>)>, player_query: Query<&Transform, (With<Player>, Without<Enemy>)>,) { let Ok(player_transform) = player_query.get_single() else { return; }; let player_pos = player_transform.translation.truncate(); let mut rng = rand::thread_rng(); for (mut transform, mut behavior, mut sprite, mut visibility) in ripper_query.iter_mut() { behavior.action_timer.tick(time.delta()); match behavior.state { PhaseRipperState::Chasing => { if behavior.action_timer.finished() { behavior.state = PhaseRipperState::PhasingOut; behavior.action_timer.set_duration(Duration::from_secs_f32(PHASE_RIPPER_PHASE_DURATION_SECS)); behavior.action_timer.reset(); let angle = rng.gen_range(0.0..std::f32::consts::PI * 2.0); let distance = rng.gen_range(PHASE_RIPPER_TELEPORT_RANGE_MIN..PHASE_RIPPER_TELEPORT_RANGE_MAX); behavior.next_teleport_destination = Some(player_pos + Vec2::new(angle.cos() * distance, angle.sin() * distance)); sprite.color.set_a(0.5); } } PhaseRipperState::PhasingOut => { sprite.color.set_a(1.0 - behavior.action_timer.fraction()); if behavior.action_timer.just_finished() { *visibility = Visibility::Hidden; behavior.state = PhaseRipperState::PhasedOut; behavior.action_timer.set_duration(Duration::from_millis(50)); behavior.action_timer.reset(); } } PhaseRipperState::PhasedOut => { if behavior.action_timer.just_finished() { if let Some(destination) = behavior.next_teleport_destination.take() { transform.translation = destination.extend(transform.translation.z); } behavior.state = PhaseRipperState::PhasingIn; behavior.action_timer.set_duration(Duration::from_secs_f32(PHASE_RIPPER_PHASE_DURATION_SECS)); behavior.action_timer.reset(); *visibility = Visibility::Visible; sprite.color.set_a(0.0); } } PhaseRipperState::PhasingIn => { sprite.color.set_a(behavior.action_timer.fraction()); if behavior.action_timer.just_finished() { sprite.color.set_a(1.0); behavior.state = PhaseRipperState::Cooldown; behavior.action_timer.set_duration(Duration::from_secs_f32(PHASE_RIPPER_TELEPORT_COOLDOWN_SECS)); behavior.action_timer.reset(); } } PhaseRipperState::Cooldown => { if behavior.action_timer.finished() { behavior.state = PhaseRipperState::Chasing; behavior.action_timer.set_duration(Duration::from_secs_f32(PHASE_RIPPER_TELEPORT_COOLDOWN_SECS)); behavior.action_timer.reset(); } } } } }
 fn summoner_ai_system( mut commands: Commands, time: Res<Time>, mut summoner_query: Query<(&Transform, &mut SummonerBehavior), (With<Enemy>, With<SummonerBehavior>)>, asset_server: Res<AssetServer>, game_state: Res<GameState>,) { let wave_multiplier = 1.0 + (game_state.wave_number as f32 - 1.0) * 0.1; for (summoner_transform, mut summoner_behavior) in summoner_query.iter_mut() { summoner_behavior.summon_timer.tick(time.delta()); summoner_behavior.active_minion_entities.retain(|&minion_e| commands.get_entity(minion_e).is_some()); if summoner_behavior.summon_timer.just_finished() && summoner_behavior.active_minion_entities.len() < summoner_behavior.max_minions as usize { for _ in 0..SUMMONER_MINIONS_TO_SPAWN { if summoner_behavior.active_minion_entities.len() >= summoner_behavior.max_minions as usize { break; } let mut rng = rand::thread_rng(); let offset_angle = rng.gen_range(0.0..std::f32::consts::PI * 2.0); let offset_distance = rng.gen_range(20.0..50.0); let spawn_offset = Vec2::new(offset_angle.cos() * offset_distance, offset_angle.sin() * offset_distance); let minion_spawn_pos = (summoner_transform.translation.truncate() + spawn_offset).extend(0.5); let minion_entity = spawn_and_return_enemy_entity(&mut commands, &asset_server, EnemyType::MindlessSpawn, minion_spawn_pos, wave_multiplier); summoner_behavior.active_minion_entities.push(minion_entity); } } } }

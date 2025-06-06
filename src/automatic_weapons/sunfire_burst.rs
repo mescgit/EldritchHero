@@ -7,14 +7,19 @@ pub fn define_sunfire_burst() -> AutomaticWeaponDefinition {
         id: AutomaticWeaponId(12),
         name: "Sunfire Burst".to_string(),
         attack_data: AttackTypeData::ConeAttack(ConeAttackParams {
-            base_damage: 28,
-            base_fire_rate_secs: 0.7,
-            cone_angle_degrees: 60.0,
-            cone_radius: 150.0,
+            base_damage: 20,
+            base_fire_rate_secs: 0.9,
+            cone_angle_degrees: 80.0,
+            cone_radius: 120.0,
             color: Color::rgb(1.0, 0.8, 0.2),
             visual_sprite_path: Some("sprites/sunfire_burst_effect_placeholder.png".to_string()),
             visual_size_scale_with_radius_angle: Some((1.0, 0.5)),
             visual_anchor_offset: None,
+            // Burn parameters
+            applies_burn: Some(true),
+            burn_damage_per_tick: Some(5),
+            burn_duration_secs: Some(3.0),
+            burn_tick_interval_secs: Some(0.5),
         }),
     }
 }

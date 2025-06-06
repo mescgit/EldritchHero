@@ -119,6 +119,11 @@ pub struct ConeAttackParams {
     pub visual_sprite_path: Option<String>,
     pub visual_size_scale_with_radius_angle: Option<(f32, f32)>,
     pub visual_anchor_offset: Option<Vec2>,
+    // New burn-related fields
+    pub applies_burn: Option<bool>,
+    pub burn_damage_per_tick: Option<i32>,
+    pub burn_duration_secs: Option<f32>,
+    pub burn_tick_interval_secs: Option<f32>,
 }
 
 #[derive(Debug, Clone, Reflect, Default, PartialEq)]
