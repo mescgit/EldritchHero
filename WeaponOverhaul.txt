@@ -366,30 +366,27 @@ Likely Working or Mostly Working:
 
 These weapons appear to have their core mechanics defined and implemented, either in the main survivor_casting_system or through dedicated systems in weapon_systems.rs.
 
-    Void Cannon (ID 2): ChargeUpEnergyShot - We just fixed this one!
-    Primordial Ichor Blast (ID 0): LobbedAoEPool
-    Eldritch Gatling (ID 1): ChanneledBeam (manual activation)
-    Arcane Ray (ID 6): ChanneledBeam (automatic activation)
-    Spectral Blades (ID 3): ReturningProjectile
-    Sunfire Burst (ID 12): ConeAttack
-    Void Tendril (ID 15): ConeAttack
-    Glacial Spike (ID 10): PointBlankNova (damages and slows)
-    Venom Spit (ID 9): StandardProjectile (fires multiple projectiles)
-    Chi Bolt (ID 21): LifestealProjectile
-    EarthShatter Shard (ID 11): GroundTargetedAoE (damages/knocks up)
-    Nature's Wrath (ID 20): GroundTargetedAoE (damages/roots)
-    Shadow Orb (ID 7): OrbitingPet (summons orbiting entities that attack)
-    Holy Lance (ID 8): LineDashAttack (player dashes, damaging enemies)
-    Psionic Lash (ID 22): RepositioningTether (pulls/pushes enemies)
-    Aether Bolt (ID 23): BlinkStrikeProjectile (projectile with player blink potential)
-    Magma Ball (ID 17): LobbedBouncingMagma (bouncing projectile leaving fire pools)
-    Crystal Shard (ID 16): BouncingProjectile (projectiles bounce off walls/enemies)
-
-Partially Working / Minor Issues or Needs Closer Review:
-
-    Moonbeam Dart (ID 13): HomingDebuffProjectile
++    Void Cannon (ID 2): ChargeUpEnergyShot - We just fixed this one!
++    Primordial Ichor Blast (ID 0): LobbedAoEPool
++    Eldritch Gatling (ID 1): ChanneledBeam (manual activation)
++    Arcane Ray (ID 6): ChanneledBeam (automatic activation)
++    Spectral Blades (ID 3): ReturningProjectile
++    Venom Spit (ID 9): StandardProjectile (fires multiple projectiles)
++    Magma Ball (ID 17): LobbedBouncingMagma (bouncing projectile leaving fire pools)
++    Chi Bolt (ID 21): LifestealProjectile
+-    Sunfire Burst (ID 12): ConeAttack
+-    Void Tendril (ID 15): ConeAttack
+-    Glacial Spike (ID 10): PointBlankNova (damages and slows)
+-    EarthShatter Shard (ID 11): GroundTargetedAoE (damages/knocks up)
+-    Nature's Wrath (ID 20): GroundTargetedAoE (damages/roots)
+-+    Shadow Orb (ID 7): OrbitingPet (summons orbiting entities that attack)
+-    Holy Lance (ID 8): LineDashAttack (player dashes, damaging enemies)
+-    Psionic Lash (ID 22): RepositioningTether (pulls/pushes enemies)
+-    Aether Bolt (ID 23): BlinkStrikeProjectile (projectile with player blink potential)
+-    Crystal Shard (ID 16): BouncingProjectile (projectiles bounce off walls/enemies)
+-    Moonbeam Dart (ID 13): HomingDebuffProjectile
         The projectiles should fire and apply debuffs, but the actual homing behavior might be missing as its dedicated system (homing_projectile_system) is a placeholder.
-    Chain Lightning (ID 5): ChainZap
+-    Chain Lightning (ID 5): ChainZap
         The zap and chaining damage logic should be functional, but its specific visual effect system (chain_lightning_visual_system) is a placeholder, so it might not look as intended.
 
 Likely NOT Fully Working (Core Systems are Placeholders):

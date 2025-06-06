@@ -723,7 +723,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
             projectile_color: Color::rgb(0.6, 0.9, 1.0),
             projectile_speed: 400.0,
             travel_distance: 300.0,
-            piercing: 0,
+            piercing: 999, // Changed from 0
         }),
     });
 

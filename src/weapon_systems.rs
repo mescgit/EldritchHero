@@ -634,10 +634,10 @@ pub fn charge_weapon_system(
                 }
             }
         } else {
-            // Mouse button is NOT pressed, but ChargingWeaponComponent still exists and is_actively_charging.
-            // This state should ideally be handled by survivor_casting_system to fire the shot and remove the component.
-            // As a safeguard, or if survivor_casting_system's release logic somehow missed it: 
-            charging_comp.is_actively_charging = false;
+            // Mouse button is NOT pressed.
+            // Set is_actively_charging to false so survivor_casting_system can detect this state change
+            // and then fire the shot and manage component removal.
+            charging_comp.is_actively_charging = false; 
         }
     }
 }
@@ -1928,12 +1928,20 @@ pub fn returning_projectile_system(
     mut commands: Commands,
     game_time: Res<Time>, 
     asset_server: Res<AssetServer>,
-    mut query: Query<(Entity, &mut ReturningProjectileComponent, &mut Velocity, &Transform)>,
+    mut query: Query<(Entity, &mut ReturningProjectileComponent, &mut Velocity, &mut Transform)>,
     projectile_damage_query: Query<&Damage, With<ReturningProjectileComponent>>,
     mut horror_query: Query<(Entity, &Transform, &mut Health, &Horror), (With<Horror>, Without<ReturningProjectileComponent>)>,
     mut sound_event_writer: EventWriter<crate::audio::PlaySoundEvent>,
 ) {
-    for (entity, mut projectile_comp, mut velocity, transform) in query.iter_mut() {
+    for (entity, mut projectile_comp, mut velocity, mut transform) in query.iter_mut() {
+        // Apply movement based on velocity
+        transform.translation.x += velocity.0.x * game_time.delta_seconds();
+        transform.translation.y += velocity.0.y * game_time.delta_seconds();
+        // Rotate projectile to face direction of movement
+        if velocity.0.length_squared() > 0.0 {
+            transform.rotation = Quat::from_rotation_z(velocity.0.y.atan2(velocity.0.x));
+        }
+
         let projectile_world_transform = *transform;
 
         if let Ok(projectile_damage) = projectile_damage_query.get(entity) {
