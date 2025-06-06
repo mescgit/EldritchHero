@@ -10,11 +10,12 @@ use crate::items::{
 use crate::components::{
     Velocity, Damage, Lifetime, Health, RootedComponent, HorrorLatchedByTetherComponent
 };
-use crate::survivor::{BASE_SURVIVOR_SPEED as BASE_PLAYER_SPEED, Survivor, SanityStrain as SurvivorSanityStrain};
+use crate::survivor::{BASE_SURVIVOR_SPEED as BASE_PLAYER_SPEED, Survivor, SanityStrain as SurvivorSanityStrain, SURVIVOR_SIZE};
 use crate::camera_systems::MainCamera;
 use crate::horror::Horror;
 use crate::game::AppState;
 use crate::visual_effects;
+use crate::audio::{PlaySoundEvent, SoundEffect}; // Added
 
 // --- Returning Projectile Definitions ---
 
@@ -37,6 +38,8 @@ pub struct ReturningProjectileComponent {
     pub max_travel_distance: f32,
     pub speed: f32,
     pub piercing_left: u32,
+    pub hit_enemies_this_pass: Vec<Entity>, // Added
+    pub projectile_size: Vec2,             // Added
 }
 
 // --- Channeled Beam Definitions ---
@@ -1923,16 +1926,61 @@ pub fn channeled_beam_damage_system(
 
 pub fn returning_projectile_system(
     mut commands: Commands,
-    _time: Res<Time>,
+    game_time: Res<Time>, 
+    asset_server: Res<AssetServer>,
     mut query: Query<(Entity, &mut ReturningProjectileComponent, &mut Velocity, &Transform)>,
+    projectile_damage_query: Query<&Damage, With<ReturningProjectileComponent>>,
+    mut horror_query: Query<(Entity, &Transform, &mut Health, &Horror), (With<Horror>, Without<ReturningProjectileComponent>)>,
+    mut sound_event_writer: EventWriter<crate::audio::PlaySoundEvent>,
 ) {
     for (entity, mut projectile_comp, mut velocity, transform) in query.iter_mut() {
+        let projectile_world_transform = *transform;
+
+        if let Ok(projectile_damage) = projectile_damage_query.get(entity) {
+            let projectile_radius = projectile_comp.projectile_size.x / 2.0;
+
+            for (horror_entity, horror_transform, mut horror_health, horror_stats) in horror_query.iter_mut() {
+                if projectile_comp.hit_enemies_this_pass.contains(&horror_entity) {
+                    continue; 
+                }
+
+                let distance = projectile_world_transform.translation.distance(horror_transform.translation);
+                let horror_radius = horror_stats.size.x / 2.0; // Assuming Horror struct has 'size: Vec2'
+
+                if distance < projectile_radius + horror_radius {
+                    horror_health.0 = horror_health.0.saturating_sub(projectile_damage.0);
+                    crate::visual_effects::spawn_damage_text(
+                        &mut commands,
+                        &asset_server,
+                        horror_transform.translation,
+                        projectile_damage.0,
+                        &game_time,
+                    );
+                    sound_event_writer.send(crate::audio::PlaySoundEvent(crate::audio::SoundEffect::HorrorHit));
+
+                    projectile_comp.hit_enemies_this_pass.push(horror_entity);
+                    projectile_comp.piercing_left = projectile_comp.piercing_left.saturating_sub(1);
+
+                    if projectile_comp.piercing_left == 0 {
+                        commands.entity(entity).despawn_recursive();
+                        break; 
+                    }
+                }
+            }
+        } else {
+            error!("Returning projectile {:?} has no Damage component!", entity);
+        }
+
+        if commands.get_entity(entity).is_none() { // Check if despawned by piercing
+            continue;
+        }
+
         match projectile_comp.state {
             ReturningProjectileState::Outgoing => {
                 let distance_traveled = transform.translation.distance(projectile_comp.start_position);
                 if distance_traveled >= projectile_comp.max_travel_distance {
                     projectile_comp.state = ReturningProjectileState::Returning;
-
+                    projectile_comp.hit_enemies_this_pass.clear(); // Add this line
                     let direction_to_start = (projectile_comp.start_position - transform.translation).truncate().normalize_or_zero();
                     velocity.0 = direction_to_start * projectile_comp.speed;
                 }
@@ -1965,7 +2013,14 @@ pub fn spawn_returning_projectile_attack(
     player_transform: &Transform,
     aim_direction: Vec2,
 ) {
-    let start_pos = player_transform.translation;
+    let spawn_offset_distance = SURVIVOR_SIZE.x / 2.0 + params.projectile_size.x / 4.0; // Spawn slightly ahead of player's edge + projectile's own radius
+    let offset_vector = aim_direction.normalize_or_zero() * spawn_offset_distance;
+
+    let mut start_pos = player_transform.translation;
+    start_pos.x += offset_vector.x;
+    start_pos.y += offset_vector.y;
+    start_pos.z += 0.1; // Ensure it's slightly above the player/other sprites on the same plane
+
     let projectile_velocity = aim_direction.normalize_or_zero() * params.projectile_speed;
 
     commands.spawn((
@@ -1986,6 +2041,8 @@ pub fn spawn_returning_projectile_attack(
             max_travel_distance: params.travel_distance,
             speed: params.projectile_speed,
             piercing_left: params.piercing,
+            hit_enemies_this_pass: Vec::new(), // Initialize
+            projectile_size: params.projectile_size, // Initialize
         },
         Velocity(projectile_velocity),
         Damage(params.base_damage),
