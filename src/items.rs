@@ -706,7 +706,7 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
                     explodes_on_impact: true,
                     explosion_radius: 75.0,
                     explosion_damage: 30,
-                    projectile_sprite_path_override: Some("sprites/void_cannon_charged_placeholder.png".to_string()),
+                    projectile_sprite_path_override: Some("sprites/void_cannon_projectile_placeholder.png".to_string()),
                 },
             ],
         }),

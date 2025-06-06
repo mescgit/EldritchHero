@@ -222,7 +222,6 @@ fn spawn_survivor(
     let chosen_inherent_weapon_id = selected_character.0;
     let mut initial_fire_rate = 0.5;
     let mut survivor_name = "Survivor (Unknown Class)".to_string();
-    let mut fire_timer_mode = TimerMode::Repeating;
 
     if let Some(weapon_def) = weapon_library.get_weapon_definition(chosen_inherent_weapon_id) {
         // Extract base_fire_rate_secs based on AttackTypeData
@@ -232,10 +231,7 @@ fn spawn_survivor(
             AttackTypeData::ChanneledBeam(params) => initial_fire_rate = params.tick_rate_secs, // Or a different logic for channeled
             AttackTypeData::ConeAttack(params) => initial_fire_rate = params.base_fire_rate_secs,
             AttackTypeData::LobbedAoEPool(params) => initial_fire_rate = params.base_fire_rate_secs,
-            AttackTypeData::ChargeUpEnergyShot(params) => {
-                initial_fire_rate = params.base_fire_rate_secs;
-                fire_timer_mode = TimerMode::Once;
-            }
+            AttackTypeData::ChargeUpEnergyShot(params) => initial_fire_rate = params.base_fire_rate_secs,
             AttackTypeData::TrailOfFire(params) => initial_fire_rate = params.base_fire_rate_secs,
             AttackTypeData::ChainZap(params) => initial_fire_rate = params.base_fire_rate_secs,
             AttackTypeData::PointBlankNova(params) => initial_fire_rate = params.base_fire_rate_secs,
@@ -256,6 +252,12 @@ fn spawn_survivor(
         survivor_name = format!("Survivor ({})", weapon_def.name);
     }
 
+    let is_charge_up_shot = if let Some(weapon_def) = weapon_library.get_weapon_definition(chosen_inherent_weapon_id) {
+        matches!(weapon_def.attack_data, AttackTypeData::ChargeUpEnergyShot(_))
+    } else {
+        false // Default to false if weapon def not found
+    };
+    let timer_mode = if is_charge_up_shot { TimerMode::Once } else { TimerMode::Repeating };
 
     commands.spawn((
         SpriteBundle {
@@ -274,7 +276,7 @@ fn spawn_survivor(
         Velocity(Vec2::ZERO),
         SanityStrain { // Changed from MindAffliction
             base_fire_rate_secs: initial_fire_rate,
-            fire_timer: Timer::from_seconds(initial_fire_rate, fire_timer_mode),
+            fire_timer: Timer::from_seconds(initial_fire_rate, timer_mode), // Use the determined timer_mode
         },
         CircleOfWarding::default(),
         SwarmOfNightmares::default(),
@@ -575,14 +577,6 @@ fn survivor_casting_system(
 
         // --- Handle ChargeUpEnergyShot ---
         if let AttackTypeData::ChargeUpEnergyShot(ref shot_params) = weapon_def.attack_data {
-            // Manually tick the cooldown timer since we skip the generic logic below
-//<<<<<<< 6azvhc-codex/fix-void-cannon-cooldown-loop
-            if !sanity_strain.fire_timer.finished() {
-                sanity_strain.fire_timer.tick(time.delta());
-            }
-//=======
-            sanity_strain.fire_timer.tick(time.delta());
-//>>>>>>> main
             let already_charging = charging_comp_query.get(survivor_entity).is_ok();
             info!(
                 "ChargeUp: Attempting. FireTimerFinished: {}, Remaining: {:.2}s, AlreadyCharging: {}",
@@ -615,40 +609,42 @@ fn survivor_casting_system(
                         current_charge_level_index: 0,
                         is_actively_charging: true,
                     });
-                        sanity_strain.fire_timer.set_mode(TimerMode::Once);
-        sanity_strain.fire_timer.set_mode(TimerMode::Repeating);
-            sanity_strain.fire_timer.set_mode(TimerMode::Repeating);
+                    // Reset and tick sanity_strain.fire_timer using shot_params.base_fire_rate_secs to start the "post-shot cooldown".
+                    sanity_strain.fire_timer.set_duration(Duration::from_secs_f32(shot_params.base_fire_rate_secs));
+                    sanity_strain.fire_timer.reset(); 
                     // (Optional: Play charge start sound)
                 }
             }
 
             if mouse_button_input.just_released(MouseButton::Left) {
                 if let Ok(charging_comp) = charging_comp_query.get(survivor_entity) {
-                    if charging_comp.is_actively_charging { // Field exists on ChargingWeaponComponent
-                        let current_level_index = charging_comp.current_charge_level_index;
-                        if current_level_index < shot_params.charge_levels.len() {
-                            let level_params = &shot_params.charge_levels[current_level_index];
-                            let projectile_damage = level_params.projectile_damage + survivor_stats.auto_weapon_damage_bonus;
-                            let projectile_speed = level_params.projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier;
-                            let projectile_piercing = level_params.piercing + survivor_stats.auto_weapon_piercing_bonus;
-                            let sprite_path = level_params.projectile_sprite_path_override.as_deref().unwrap_or(&shot_params.base_projectile_sprite_path);
-                            
-                            crate::automatic_projectiles::spawn_automatic_projectile(
-                                &mut commands, &asset_server, survivor_entity, survivor_transform.translation, survivor_stats.aim_direction,
-                                projectile_damage, projectile_speed, projectile_piercing, weapon_def.id,
-                                sprite_path, level_params.projectile_size, shot_params.base_projectile_color, shot_params.projectile_lifetime_secs,
-                                None, None, None, None, None, None // No special params like bounce, lifesteal, tether for basic version
-                            );
-                            // Explosion logic deferred as per subtask instructions.
-                        }
-                        commands.entity(survivor_entity).remove::<crate::weapon_systems::ChargingWeaponComponent>();
-                        sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast)); // Or a specific shot fire sound
-                        // Start the cooldown now that the shot has been fired
-                        sanity_strain
-                            .fire_timer
-                            .set_duration(Duration::from_secs_f32(shot_params.base_fire_rate_secs));
-                        sanity_strain.fire_timer.reset();
+                    // Decision to fire is now based on component's existence and its stored charge level.
+                    // The is_actively_charging flag is no longer the gatekeeper for firing here.
+                    
+                    let current_level_index = charging_comp.current_charge_level_index;
+                    // Ensure charge_levels is not empty and index is valid before accessing
+                    if !shot_params.charge_levels.is_empty() && current_level_index < shot_params.charge_levels.len() {
+                        let level_params = &shot_params.charge_levels[current_level_index];
+                        let projectile_damage = level_params.projectile_damage + survivor_stats.auto_weapon_damage_bonus;
+                        let projectile_speed = level_params.projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier;
+                        let projectile_piercing = level_params.piercing + survivor_stats.auto_weapon_piercing_bonus;
+                        let sprite_path = level_params.projectile_sprite_path_override.as_deref().unwrap_or(&shot_params.base_projectile_sprite_path);
+                        
+                        crate::automatic_projectiles::spawn_automatic_projectile(
+                            &mut commands, &asset_server, survivor_entity, survivor_transform.translation, survivor_stats.aim_direction,
+                            projectile_damage, projectile_speed, projectile_piercing, weapon_def.id,
+                            sprite_path, level_params.projectile_size, shot_params.base_projectile_color, shot_params.projectile_lifetime_secs,
+                            None, None, None, None, None, None 
+                        );
+                        sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast));
+                        info!("ChargeUp: Fired projectile based on charge level {}.", current_level_index);
+                    } else {
+                        info!("ChargeUp: Mouse released. Attempted to fire, but charge_levels problematic or index out of bounds. Index: {}, Count: {}", current_level_index, shot_params.charge_levels.len());
                     }
+                    
+                    // Unconditionally remove the component if it exists and mouse was released
+                    commands.entity(survivor_entity).remove::<crate::weapon_systems::ChargingWeaponComponent>();
+                    info!("ChargeUp: ChargingWeaponComponent removed due to mouse release.");
                 }
             }
             sanity_strain.fire_timer.tick(time.delta());

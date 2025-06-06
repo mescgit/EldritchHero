@@ -133,15 +133,21 @@ pub fn spawn_automatic_projectile(
     opt_blink_params: Option<crate::items::BlinkStrikeProjectileParams>,
 ) {
     let normalized_direction = direction.normalize_or_zero();
+    
+    let mut spawn_pos = position;
+    spawn_pos.z += 0.1; // Increment Z
+
     let mut projectile_commands = commands.spawn((
         SpriteBundle {
-            texture: asset_server.load(sprite_path.to_string()), // Changed to .to_string()
+            texture: asset_server.load(sprite_path.to_string()),
             sprite: Sprite {
                 custom_size: Some(size),
                 color,
                 ..default()
             },
-            transform: Transform::from_translation(position).with_rotation(Quat::from_rotation_z(normalized_direction.y.atan2(normalized_direction.x))),
+            transform: Transform::from_translation(spawn_pos) // Use modified spawn_pos
+                .with_rotation(Quat::from_rotation_z(normalized_direction.y.atan2(normalized_direction.x))),
+            visibility: Visibility::Visible, // Explicitly set visibility
             ..default()
         },
         AutomaticProjectile {
@@ -168,6 +174,15 @@ pub fn spawn_automatic_projectile(
             params_snapshot: tether_params.clone(),
         });
     }
+
+    // New Log
+    info!(
+        "Spawning projectile -- Path: '{}', Size: {:?}, Color (RGBA): ({},{},{},{}), SpawnXYZ: ({},{},{})",
+        sprite_path,
+        size,
+        color.r(), color.g(), color.b(), color.a(),
+        spawn_pos.x, spawn_pos.y, spawn_pos.z
+    );
 }
 
 fn projectile_movement_system(
