@@ -2,10 +2,12 @@
 use bevy::{prelude::*, window::PrimaryWindow};
 use std::time::Duration;
 use rand::Rng;
+// Removed duplicated Bevy prelude, duration, and Rng imports
 use crate::{
     components::{Velocity, Health as ComponentHealth},
     game::{AppState, ItemCollectedEvent, SelectedCharacter},
     automatic_projectiles::{spawn_automatic_projectile},
+    items::AutomaticWeaponDefinition, // This was already correctly added
     horror::Horror,
     weapons::{CircleOfWarding, SwarmOfNightmares},
     audio::{PlaySoundEvent, SoundEffect},
@@ -101,6 +103,7 @@ pub struct Survivor {
     pub orbiter_explode_on_kill_chance: f32,
     pub orbiter_explosion_damage: u32,
     pub aura_debuff_enemies_damage_increase_percent: f32,
+    pub equipped_weapon_definition: Option<AutomaticWeaponDefinition>,
 }
 
 impl Survivor {
@@ -181,6 +184,21 @@ impl Survivor {
             orbiter_explode_on_kill_chance: 0.0,
             orbiter_explosion_damage: 0,
             aura_debuff_enemies_damage_increase_percent: 0.0,
+            equipped_weapon_definition: None,
+        }
+    }
+}
+
+pub fn initialize_player_weapon_system(
+    mut player_query: Query<&mut Survivor>,
+    weapon_library: Res<AutomaticWeaponLibrary>,
+) {
+    for mut survivor in player_query.iter_mut() {
+        if survivor.equipped_weapon_definition.is_none() { // Only initialize if not already set
+            if let Some(base_weapon_def) = weapon_library.get_weapon_definition(survivor.inherent_weapon_id) {
+                survivor.equipped_weapon_definition = Some(base_weapon_def.clone());
+                // info!("Initialized player weapon: {:?}", survivor.inherent_weapon_id);
+            }
         }
     }
 }

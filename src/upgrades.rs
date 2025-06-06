@@ -3,9 +3,75 @@ use bevy::prelude::*;
 use rand::seq::SliceRandom;
 use crate::{
     skills::SkillId,
+    automatic_weapons, // Added this line
 };
 
+use crate::items::AutomaticWeaponId;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Default)]
+pub enum LobbedAoEPoolField {
+    BaseDamageOnImpact,
+    PoolDamagePerTick,
+    BaseFireRateSecs,
+    ProjectileSpeed,
+    ProjectileArcHeight,
+    PoolRadius,
+    PoolDurationSecs,
+    PoolTickIntervalSecs,
+    MaxActivePools,
+}
+impl Default for LobbedAoEPoolField { fn default() -> Self { LobbedAoEPoolField::PoolRadius } }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Default)]
+pub enum ChanneledBeamField {
+    BaseDamagePerTick,
+    TickRateSecs,
+    Range,
+    BeamWidth,
+    MovementPenaltyMultiplier,
+    MaxDurationSecs,
+    CooldownSecs,
+}
+impl Default for ChanneledBeamField { fn default() -> Self { ChanneledBeamField::Range } }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Default)]
+pub enum ReturningProjectileField {
+    BaseDamage,
+    BaseFireRateSecs,
+    ProjectileSpeed,
+    TravelDistance,
+    Piercing,
+}
+impl Default for ReturningProjectileField { fn default() -> Self { ReturningProjectileField::TravelDistance } }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Default)]
+pub enum StandardProjectileField {
+    BaseDamage,
+    BaseFireRateSecs,
+    BaseProjectileSpeed,
+    BasePiercing,
+    AdditionalProjectiles,
+    ProjectileLifetimeSecs,
+}
+impl Default for StandardProjectileField { fn default() -> Self { StandardProjectileField::BaseDamage } }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Default)]
+pub enum ConeAttackField {
+    BaseDamage,
+    BaseFireRateSecs,
+    ConeAngleDegrees,
+    ConeRadius,
+}
+impl Default for ConeAttackField { fn default() -> Self { ConeAttackField::ConeRadius } }
+
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Default)]
+#[reflect(Default)] // Added Default derive
 pub enum UpgradeRarity {
     #[default]
     Regular,
@@ -110,9 +176,16 @@ pub enum UpgradeType {
     AuraPullEnemiesChance(f32), // Percent chance per tick
     OrbiterExplodeOnKillChance(f32), // Percent chance, value is flat damage for explosion
     AuraDebuffEnemies(f32), // Percent increased damage taken for enemies in aura
+
+    // Weapon-Specific Parameter Modifications
+    ModifyStandardProjectile { weapon_id: AutomaticWeaponId, field: StandardProjectileField, change_value: f32, is_percentage: bool },
+    ModifyReturningProjectile { weapon_id: AutomaticWeaponId, field: ReturningProjectileField, change_value: f32, is_percentage: bool },
+    ModifyChanneledBeam { weapon_id: AutomaticWeaponId, field: ChanneledBeamField, change_value: f32, is_percentage: bool },
+    ModifyConeAttack { weapon_id: AutomaticWeaponId, field: ConeAttackField, change_value: f32, is_percentage: bool },
+    ModifyLobbedAoEPool { weapon_id: AutomaticWeaponId, field: LobbedAoEPoolField, change_value: f32, is_percentage: bool },
 }
 
-#[derive(Debug, Clone, Reflect)] // Added Reflect here
+#[derive(Debug, Clone, Reflect)]
 pub struct UpgradeCard {
     pub id: UpgradeId,
     pub name: String,
@@ -1356,6 +1429,8 @@ impl UpgradePool {
             },
 
         ];
+        let specific_weapon_upgrades = automatic_weapons::get_all_specific_weapon_upgrades();
+        self.available_upgrades.extend(specific_weapon_upgrades);
     }
     pub fn get_random_upgrades(&self, count: usize) -> Vec<UpgradeCard> { let mut rng = rand::thread_rng(); self.available_upgrades.choose_multiple(&mut rng, count).cloned().collect() }
 }
@@ -1376,6 +1451,11 @@ impl Plugin for UpgradePlugin {
             .register_type::<UpgradeId>()
             .register_type::<UpgradePool>()
             .register_type::<OfferedUpgrades>()
-            .register_type::<Vec<UpgradeCard>>(); // Also register Vec<UpgradeCard> if used in reflected components like OfferedUpgrades
+            .register_type::<Vec<UpgradeCard>>() // Also register Vec<UpgradeCard> if used in reflected components like OfferedUpgrades
+            .register_type::<LobbedAoEPoolField>()
+            .register_type::<ChanneledBeamField>()
+            .register_type::<ReturningProjectileField>()
+            .register_type::<StandardProjectileField>()
+            .register_type::<ConeAttackField>();
     }
 }
