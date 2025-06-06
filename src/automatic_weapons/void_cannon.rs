@@ -1,0 +1,50 @@
+use bevy::prelude::*;
+use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, ChargeUpEnergyShotParams, ChargeLevelParams};
+
+pub fn define_void_cannon() -> AutomaticWeaponDefinition {
+    AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(2),
+        name: "Void Cannon".to_string(),
+        attack_data: AttackTypeData::ChargeUpEnergyShot(ChargeUpEnergyShotParams {
+            base_fire_rate_secs: 1.25,
+            base_projectile_sprite_path: "sprites/void_cannon_projectile_placeholder.png".to_string(),
+            base_projectile_color: Color::rgb(0.4, 0.1, 0.7),
+            projectile_lifetime_secs: 2.5,
+            charge_levels: vec![
+                ChargeLevelParams {
+                    charge_time_secs: 0.01,
+                    projectile_damage: 10,
+                    projectile_speed: 500.0,
+                    projectile_size: Vec2::new(25.0, 25.0),
+                    piercing: 0,
+                    explodes_on_impact: false,
+                    explosion_radius: 0.0,
+                    explosion_damage: 0,
+                    projectile_sprite_path_override: None,
+                },
+                ChargeLevelParams {
+                    charge_time_secs: 0.75,
+                    projectile_damage: 25,
+                    projectile_speed: 450.0,
+                    projectile_size: Vec2::new(40.0, 40.0),
+                    piercing: 1,
+                    explodes_on_impact: false,
+                    explosion_radius: 0.0,
+                    explosion_damage: 0,
+                    projectile_sprite_path_override: None,
+                },
+                ChargeLevelParams {
+                    charge_time_secs: 1.5,
+                    projectile_damage: 60,
+                    projectile_speed: 350.0,
+                    projectile_size: Vec2::new(60.0, 60.0),
+                    piercing: 2,
+                    explodes_on_impact: true,
+                    explosion_radius: 75.0,
+                    explosion_damage: 30,
+                    projectile_sprite_path_override: Some("sprites/void_cannon_projectile_placeholder.png".to_string()),
+                },
+            ],
+        }),
+    }
+}

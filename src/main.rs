@@ -20,6 +20,7 @@ mod skills;
 mod items;
 mod glyphs; // Uncommented
 mod weapon_systems; // Added
+pub mod automatic_weapons;
 
 use survivor::SurvivorPlugin;
 use horror::HorrorPlugin;
@@ -68,7 +69,13 @@ fn main() {
             WeaponSystemsPlugin, // Added
             // crate::glyphs::GlyphsPlugin, // Removed as per instruction
         ))
-        .add_systems(Startup, setup_global_camera)
+        .add_systems(Startup,
+            (
+                setup_global_camera,
+                crate::survivor::initialize_player_weapon_system
+                    .after(crate::items::populate_automatic_weapon_library),
+            )
+        )
         .run();
 }
 
