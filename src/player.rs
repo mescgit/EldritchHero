@@ -196,6 +196,35 @@ fn player_shooting_system(
                             );
                         }
                     }
+                    AttackTypeData::TrailOfFire(params) => {
+                        should_stop_channeling = true; // Stop any previous channeling behavior
+                        if mind_affliction.fire_timer.just_finished() && player_stats.aim_direction != Vec2::ZERO {
+                            sound_event_writer.send(PlaySoundEvent(SoundEffect::PlayerShoot)); // Or a more fiery sound
+
+                            crate::automatic_projectiles::spawn_automatic_projectile(
+                                &mut commands,
+                                &asset_server,
+                                player_entity, // owner
+                                player_transform.translation, // position
+                                player_stats.aim_direction, // direction
+                                params.base_damage_on_impact, // initial_damage
+                                params.projectile_speed, // initial_speed
+                                0, // piercing (Inferno Bolt projectile itself might not pierce, the trail does the work)
+                                weapon_def.id, // weapon_id
+                                &params.projectile_sprite_path, // sprite_path
+                                params.projectile_size, // size
+                                params.projectile_color, // color
+                                params.projectile_lifetime_secs, // lifetime_secs
+                                None, // opt_max_bounces
+                                None, // opt_dmg_loss_mult
+                                None, // opt_speed_loss_mult
+                                None, // opt_lifesteal_percentage
+                                None, // opt_tether_params_for_comp
+                                None, // opt_blink_params
+                                Some(params.clone()) // opt_trail_params - THIS IS THE NEW PARAMETER
+                            );
+                        }
+                    }
                     // Ensure all other existing and future AttackTypeData variants are handled or have a default case.
                     _ => { // Default case for other attack types not explicitly handled above
                         should_stop_channeling = true;

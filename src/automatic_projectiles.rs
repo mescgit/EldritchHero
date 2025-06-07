@@ -131,6 +131,7 @@ pub fn spawn_automatic_projectile(
     opt_lifesteal_percentage: Option<f32>,
     opt_tether_params_for_comp: Option<crate::items::RepositioningTetherParams>,
     opt_blink_params: Option<crate::items::BlinkStrikeProjectileParams>,
+    opt_trail_params: Option<crate::items::TrailOfFireParams>,
 ) {
     let normalized_direction = direction.normalize_or_zero();
     
@@ -172,6 +173,13 @@ pub fn spawn_automatic_projectile(
     if let Some(tether_params) = opt_tether_params_for_comp {
         projectile_commands.insert(crate::weapon_systems::TetherProjectileComponent {
             params_snapshot: tether_params.clone(),
+        });
+    }
+
+    if let Some(trail_params) = opt_trail_params {
+        projectile_commands.insert(crate::weapon_systems::TrailSpawningProjectileComponent {
+            trail_params: trail_params.clone(),
+            segment_spawn_timer: Timer::from_seconds(trail_params.trail_segment_spawn_interval_secs.max(0.01), TimerMode::Repeating),
         });
     }
 
