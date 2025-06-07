@@ -9,7 +9,7 @@ pub fn define_sunfire_burst() -> AutomaticWeaponDefinition {
         attack_data: AttackTypeData::ConeAttack(ConeAttackParams {
             base_damage: 20,
             base_fire_rate_secs: 0.9,
-            cone_angle_degrees: 80.0,
+            cone_angle_degrees: 60.0,
             cone_radius: 120.0,
             color: Color::rgb(1.0, 0.8, 0.2),
             visual_sprite_path: Some("sprites/sunfire_burst_effect_placeholder.png".to_string()),
