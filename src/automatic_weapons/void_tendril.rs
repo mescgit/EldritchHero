@@ -14,6 +14,11 @@ pub fn define_void_tendril() -> AutomaticWeaponDefinition {
             visual_sprite_path: Some("sprites/void_tendril_sweep_placeholder.png".to_string()),
             visual_size_scale_with_radius_angle: Some((1.0, 0.8)),
             visual_anchor_offset: Some(Vec2::new(0.0, 20.0)),
+            // New burn-related fields
+            applies_burn: None,
+            burn_damage_per_tick: None,
+            burn_duration_secs: None,
+            burn_tick_interval_secs: None,
         }),
     }
 }

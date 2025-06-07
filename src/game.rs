@@ -1185,10 +1185,10 @@ fn apply_chosen_upgrade(
                         if let AttackTypeData::LobbedAoEPool(ref mut params) = equipped_def.attack_data {
                             match field {
                                 LobbedAoEPoolField::PoolRadius => {
-                                    if *is_percentage { params.pool_radius *= (1.0 + change_value); } else { params.pool_radius += *change_value; }
+                                    if *is_percentage { params.pool_radius *= 1.0 + change_value; } else { params.pool_radius += *change_value; }
                                 }
                                 LobbedAoEPoolField::PoolDurationSecs => {
-                                    if *is_percentage { params.pool_duration_secs *= (1.0 + change_value); } else { params.pool_duration_secs += *change_value; }
+                                    if *is_percentage { params.pool_duration_secs *= 1.0 + change_value; } else { params.pool_duration_secs += *change_value; }
                                 }
                                 LobbedAoEPoolField::BaseDamageOnImpact => {
                                     let current_val = params.base_damage_on_impact as f32;
@@ -1199,16 +1199,16 @@ fn apply_chosen_upgrade(
                                     if *is_percentage { params.pool_damage_per_tick = (current_val * (1.0 + change_value)).round() as i32; } else { params.pool_damage_per_tick = (current_val + change_value).round() as i32; }
                                 }
                                 LobbedAoEPoolField::BaseFireRateSecs => {
-                                    if *is_percentage { params.base_fire_rate_secs /= (1.0 + change_value); } else { params.base_fire_rate_secs = (params.base_fire_rate_secs + change_value).max(0.01); }
+                                    if *is_percentage { params.base_fire_rate_secs /= 1.0 + change_value; } else { params.base_fire_rate_secs = (params.base_fire_rate_secs + change_value).max(0.01); }
                                 }
                                 LobbedAoEPoolField::ProjectileSpeed => {
-                                    if *is_percentage { params.projectile_speed *= (1.0 + change_value); } else { params.projectile_speed += *change_value; }
+                                    if *is_percentage { params.projectile_speed *= 1.0 + change_value; } else { params.projectile_speed += *change_value; }
                                 }
                                 LobbedAoEPoolField::ProjectileArcHeight => {
-                                    if *is_percentage { params.projectile_arc_height *= (1.0 + change_value); } else { params.projectile_arc_height += *change_value; }
+                                    if *is_percentage { params.projectile_arc_height *= 1.0 + change_value; } else { params.projectile_arc_height += *change_value; }
                                 }
                                 LobbedAoEPoolField::PoolTickIntervalSecs => { // Lower is better
-                                    if *is_percentage { params.pool_tick_interval_secs /= (1.0 + change_value); } else { params.pool_tick_interval_secs = (params.pool_tick_interval_secs + change_value).max(0.01); }
+                                    if *is_percentage { params.pool_tick_interval_secs /= 1.0 + change_value; } else { params.pool_tick_interval_secs = (params.pool_tick_interval_secs + change_value).max(0.01); }
                                 }
                                 LobbedAoEPoolField::MaxActivePools => {
                                     let current_val = params.max_active_pools as f32;
@@ -1229,25 +1229,25 @@ fn apply_chosen_upgrade(
                                     if *is_percentage { params.base_damage_per_tick = (current_val * (1.0 + change_value)).round() as i32; } else { params.base_damage_per_tick = (current_val + change_value).round() as i32; }
                                 }
                                 ChanneledBeamField::TickRateSecs => { // Lower is better
-                                    if *is_percentage { params.tick_rate_secs /= (1.0 + change_value); } else { params.tick_rate_secs = (params.tick_rate_secs + change_value).max(0.01); }
+                                    if *is_percentage { params.tick_rate_secs /= 1.0 + change_value; } else { params.tick_rate_secs = (params.tick_rate_secs + change_value).max(0.01); }
                                 }
                                 ChanneledBeamField::Range => {
-                                    if *is_percentage { params.range *= (1.0 + change_value); } else { params.range += *change_value; }
+                                    if *is_percentage { params.range *= 1.0 + change_value; } else { params.range += *change_value; }
                                 }
                                 ChanneledBeamField::BeamWidth => {
-                                    if *is_percentage { params.beam_width *= (1.0 + change_value); } else { params.beam_width += *change_value; }
+                                    if *is_percentage { params.beam_width *= 1.0 + change_value; } else { params.beam_width += *change_value; }
                                 }
                                 ChanneledBeamField::MovementPenaltyMultiplier => { // Lower is better
-                                    if *is_percentage { params.movement_penalty_multiplier *= (1.0 - change_value); } else { params.movement_penalty_multiplier = (params.movement_penalty_multiplier - change_value).max(0.0); }
+                                    if *is_percentage { params.movement_penalty_multiplier *= 1.0 - change_value; } else { params.movement_penalty_multiplier = (params.movement_penalty_multiplier - change_value).max(0.0); }
                                 }
                                 ChanneledBeamField::MaxDurationSecs => {
                                     if let Some(max_duration) = &mut params.max_duration_secs {
-                                        if *is_percentage { *max_duration *= (1.0 + change_value); } else { *max_duration += *change_value; }
+                                        if *is_percentage { *max_duration *= 1.0 + change_value; } else { *max_duration += *change_value; }
                                     } else if !*is_percentage && *change_value > 0.0 { params.max_duration_secs = Some(*change_value); } // Initialize if setting flat value
                                 }
                                 ChanneledBeamField::CooldownSecs => { // Lower is better
                                      if let Some(cooldown) = &mut params.cooldown_secs {
-                                        if *is_percentage { *cooldown /= (1.0 + change_value); } else { *cooldown = (*cooldown + *change_value).max(0.01); }
+                                        if *is_percentage { *cooldown /= 1.0 + change_value; } else { *cooldown = (*cooldown + *change_value).max(0.01); }
                                     } else if !*is_percentage && *change_value > 0.0 { params.cooldown_secs = Some((*change_value).max(0.01)); }
                                 }
                             }
@@ -1265,13 +1265,13 @@ fn apply_chosen_upgrade(
                                     if *is_percentage { params.base_damage = (current_val * (1.0 + change_value)).round() as i32; } else { params.base_damage = (current_val + change_value).round() as i32; }
                                 }
                                 ReturningProjectileField::BaseFireRateSecs => { // Lower is better
-                                    if *is_percentage { params.base_fire_rate_secs /= (1.0 + change_value); } else { params.base_fire_rate_secs = (params.base_fire_rate_secs + change_value).max(0.01); }
+                                    if *is_percentage { params.base_fire_rate_secs /= 1.0 + change_value; } else { params.base_fire_rate_secs = (params.base_fire_rate_secs + change_value).max(0.01); }
                                 }
                                 ReturningProjectileField::ProjectileSpeed => {
-                                    if *is_percentage { params.projectile_speed *= (1.0 + change_value); } else { params.projectile_speed += *change_value; }
+                                    if *is_percentage { params.projectile_speed *= 1.0 + change_value; } else { params.projectile_speed += *change_value; }
                                 }
                                 ReturningProjectileField::TravelDistance => {
-                                    if *is_percentage { params.travel_distance *= (1.0 + change_value); } else { params.travel_distance += *change_value; }
+                                    if *is_percentage { params.travel_distance *= 1.0 + change_value; } else { params.travel_distance += *change_value; }
                                 }
                                 ReturningProjectileField::Piercing => {
                                      let current_val = params.piercing as f32;
@@ -1292,10 +1292,10 @@ fn apply_chosen_upgrade(
                                     if *is_percentage { params.base_damage = (current_val * (1.0 + change_value)).round() as i32; } else { params.base_damage = (current_val + change_value).round() as i32; }
                                 }
                                 StandardProjectileField::BaseFireRateSecs => { // Lower is better
-                                    if *is_percentage { params.base_fire_rate_secs /= (1.0 + change_value); } else { params.base_fire_rate_secs = (params.base_fire_rate_secs + change_value).max(0.01); }
+                                    if *is_percentage { params.base_fire_rate_secs /= 1.0 + change_value; } else { params.base_fire_rate_secs = (params.base_fire_rate_secs + change_value).max(0.01); }
                                 }
                                 StandardProjectileField::BaseProjectileSpeed => {
-                                    if *is_percentage { params.base_projectile_speed *= (1.0 + change_value); } else { params.base_projectile_speed += *change_value; }
+                                    if *is_percentage { params.base_projectile_speed *= 1.0 + change_value; } else { params.base_projectile_speed += *change_value; }
                                 }
                                 StandardProjectileField::BasePiercing => {
                                     let current_val = params.base_piercing as f32;
@@ -1306,7 +1306,7 @@ fn apply_chosen_upgrade(
                                     if *is_percentage { params.additional_projectiles = (current_val * (1.0 + change_value)).round() as u32; } else { params.additional_projectiles = (current_val + change_value).round() as u32; }
                                 }
                                 StandardProjectileField::ProjectileLifetimeSecs => {
-                                     if *is_percentage { params.projectile_lifetime_secs *= (1.0 + change_value); } else { params.projectile_lifetime_secs += *change_value; }
+                                     if *is_percentage { params.projectile_lifetime_secs *= 1.0 + change_value; } else { params.projectile_lifetime_secs += *change_value; }
                                 }
                             }
                         }
@@ -1323,13 +1323,13 @@ fn apply_chosen_upgrade(
                                     if *is_percentage { params.base_damage = (current_val * (1.0 + change_value)).round() as i32; } else { params.base_damage = (current_val + change_value).round() as i32; }
                                 }
                                 ConeAttackField::BaseFireRateSecs => { // Lower is better
-                                    if *is_percentage { params.base_fire_rate_secs /= (1.0 + change_value); } else { params.base_fire_rate_secs = (params.base_fire_rate_secs + change_value).max(0.01); }
+                                    if *is_percentage { params.base_fire_rate_secs /= 1.0 + change_value; } else { params.base_fire_rate_secs = (params.base_fire_rate_secs + change_value).max(0.01); }
                                 }
                                 ConeAttackField::ConeAngleDegrees => {
-                                    if *is_percentage { params.cone_angle_degrees *= (1.0 + change_value); } else { params.cone_angle_degrees += *change_value; }
+                                    if *is_percentage { params.cone_angle_degrees *= 1.0 + change_value; } else { params.cone_angle_degrees += *change_value; }
                                 }
                                 ConeAttackField::ConeRadius => {
-                                    if *is_percentage { params.cone_radius *= (1.0 + change_value); } else { params.cone_radius += *change_value; }
+                                    if *is_percentage { params.cone_radius *= 1.0 + change_value; } else { params.cone_radius += *change_value; }
                                 }
                             }
                         }

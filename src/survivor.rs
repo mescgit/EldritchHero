@@ -4,7 +4,7 @@ use std::time::Duration;
 use rand::Rng;
 // Removed duplicated Bevy prelude, duration, and Rng imports
 use crate::{
-    components::{Velocity, Health as ComponentHealth},
+    components::{Velocity, Health as ComponentHealth, BurnStatusEffect, Lifetime, ExpandingWaveVisual}, // Added ExpandingWaveVisual
     game::{AppState, ItemCollectedEvent, SelectedCharacter},
     automatic_projectiles::{spawn_automatic_projectile},
     items::AutomaticWeaponDefinition, // This was already correctly added
@@ -12,8 +12,10 @@ use crate::{
     weapons::{CircleOfWarding, SwarmOfNightmares},
     audio::{PlaySoundEvent, SoundEffect},
     skills::{ActiveSkillInstance, SkillLibrary, SkillId, SurvivorBuffEffect, ActiveShield},
-    items::{ItemId, ItemDrop, ItemLibrary, ItemEffect, RetaliationNovaEffect, AutomaticWeaponId, AutomaticWeaponLibrary, AttackTypeData},
+    items::{ItemId, ItemDrop, ItemLibrary, ItemEffect, RetaliationNovaEffect, AutomaticWeaponId, AutomaticWeaponLibrary, AttackTypeData}, // Removed ConeAttackParams
+    visual_effects::spawn_damage_text, // Added for damage text
 };
+use bevy::sprite::Anchor; // Added for visual effect anchor
 
 pub const SURVIVOR_SIZE: Vec2 = Vec2::new(50.0, 50.0);
 const XP_FOR_LEVEL: [u32; 10] = [100, 150, 250, 400, 600, 850, 1100, 1400, 1800, 2500];
@@ -352,7 +354,8 @@ fn survivor_casting_system(
     mut player_query: Query<(Entity, &Transform, &Survivor, &mut SanityStrain, Option<&SurvivorBuffEffect>)>,
     mut channeling_status_query: Query<&mut crate::weapon_systems::IsChannelingComponent>, // Now mutable
     charging_comp_query: Query<&crate::weapon_systems::ChargingWeaponComponent>,
-    reticule_query: Query<(&GlobalTransform, &Parent), With<crate::weapon_systems::LobbedWeaponTargetReticuleComponent>>, 
+    reticule_query: Query<(&GlobalTransform, &Parent), With<crate::weapon_systems::LobbedWeaponTargetReticuleComponent>>,
+    mut horror_query: Query<(Entity, &Transform, &mut ComponentHealth, &Horror), With<Horror>>, // Added horror_query
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
     weapon_library: Res<AutomaticWeaponLibrary>,
     mouse_button_input: Res<Input<MouseButton>>,
@@ -850,6 +853,109 @@ fn survivor_casting_system(
                             survivor_transform,
                             survivor_stats.aim_direction,
                         );
+                    }
+                    AttackTypeData::ConeAttack(params) => {
+                        let survivor_pos = survivor_transform.translation.truncate();
+
+                        // Spawn visual effect for the cone (fan of sprites)
+                        if let Some(sprite_path_str) = &params.visual_sprite_path {
+                            let num_visual_sprites = 5;
+                            let total_fan_angle_rad = params.cone_angle_degrees.to_radians();
+                            let base_aim_angle_rad = survivor_stats.aim_direction.y.atan2(survivor_stats.aim_direction.x);
+
+                            // Centered fan calculation
+                            let first_sprite_offset_rad = if num_visual_sprites > 1 { -total_fan_angle_rad / 2.0 } else { 0.0 };
+                            let angle_step_rad = if num_visual_sprites > 1 { total_fan_angle_rad / (num_visual_sprites - 1) as f32 } else { 0.0 };
+
+                            let visual_anchor = params.visual_anchor_offset.map_or(Anchor::CenterLeft, |offset| Anchor::Custom(offset / params.cone_radius * 2.0));
+                            let (radius_scale_factor, _original_angle_scale_factor) = params.visual_size_scale_with_radius_angle.unwrap_or((1.0, 1.0));
+                            let fan_segment_angle_scale_factor = 0.35; // Smaller Y scale for individual segments
+
+                            let base_final_x_scale = params.cone_radius * radius_scale_factor;
+                            let base_final_y_scale = params.cone_radius * fan_segment_angle_scale_factor;
+
+                            let final_x_scale = base_final_x_scale * 2.0;
+                            let final_y_scale = base_final_y_scale * 2.0;
+
+                            let initial_scale_vec3 = Vec3::new(0.1, 0.1, 1.0);
+                            let final_scale_vec3 = Vec3::new(final_x_scale, final_y_scale, 1.0);
+
+                            for i in 0..num_visual_sprites {
+                                let current_sprite_angle_rad = base_aim_angle_rad + first_sprite_offset_rad + (i as f32 * angle_step_rad);
+                                // let sprite_direction = Vec2::new(current_sprite_angle_rad.cos(), current_sprite_angle_rad.sin()); // Potentially useful for offsetting from player center
+
+                                let mut visual_transform = *survivor_transform;
+                                visual_transform.rotation = Quat::from_rotation_z(current_sprite_angle_rad);
+                                visual_transform.scale = initial_scale_vec3;
+                                // Optional: Offset further from player if CenterLeft anchor isn't enough
+                                // visual_transform.translation += sprite_direction.extend(0.0) * (params.cone_radius * 0.1); // Example offset
+
+                                commands.spawn((
+                                    SpriteBundle {
+                                        texture: asset_server.load(sprite_path_str.clone()),
+                                        sprite: Sprite {
+                                            color: params.color,
+                                            custom_size: Some(Vec2::ONE),
+                                            anchor: visual_anchor,
+                                            ..default()
+                                        },
+                                        transform: visual_transform,
+                                        ..default()
+                                    },
+                                    ExpandingWaveVisual {
+                                        initial_scale: initial_scale_vec3,
+                                        final_scale: final_scale_vec3,
+                                    },
+                                    Lifetime { timer: Timer::from_seconds(0.25, TimerMode::Once) },
+                                    Name::new(format!("ConeAttackFanVisual_{}", i)),
+                                ));
+                            }
+                        }
+
+                        for (horror_entity, horror_transform, mut horror_health, _horror_tag) in horror_query.iter_mut() {
+                            let enemy_pos = horror_transform.translation.truncate();
+                            let direction_to_enemy = (enemy_pos - survivor_pos).normalize_or_zero();
+
+                            if direction_to_enemy == Vec2::ZERO {
+                                continue;
+                            }
+
+                            let distance_to_enemy_sq = survivor_pos.distance_squared(enemy_pos);
+                            if distance_to_enemy_sq < params.cone_radius * params.cone_radius {
+                                let angle_diff_rad = survivor_stats.aim_direction.angle_between(direction_to_enemy);
+                                if angle_diff_rad.abs() <= params.cone_angle_degrees.to_radians() / 2.0 {
+                                    // Enemy is hit
+                                    info!("ConeAttack: Potential hit on entity {:?}, health before: {}", horror_entity, horror_health.0);
+                                    let total_damage = params.base_damage + survivor_stats.auto_weapon_damage_bonus;
+                                    info!("ConeAttack: Calculated total_damage: {}", total_damage);
+                                    horror_health.0 = horror_health.0.saturating_sub(total_damage);
+                                    info!("ConeAttack: Entity {:?} health after damage: {}", horror_entity, horror_health.0);
+                                    spawn_damage_text(
+                                        &mut commands,
+                                        &asset_server,
+                                        horror_transform.translation,
+                                        total_damage,
+                                        &time // Added &time argument
+                                    );
+
+                                    if horror_health.0 > 0 { // Added health check
+                                        if params.applies_burn == Some(true) {
+                                            if let (Some(burn_dmg), Some(burn_dur), Some(burn_tick_interval)) =
+                                                (params.burn_damage_per_tick, params.burn_duration_secs, params.burn_tick_interval_secs)
+                                            {
+                                                commands.entity(horror_entity).insert(BurnStatusEffect {
+                                                    damage_per_tick: burn_dmg,
+                                                    tick_interval_secs: burn_tick_interval,
+                                                    duration_timer: Timer::from_seconds(burn_dur, TimerMode::Once),
+                                                    tick_timer: Timer::from_seconds(burn_tick_interval, TimerMode::Repeating),
+                                                    source_weapon_id: Some(weapon_def.id.0),
+                                                });
+                                            }
+                                        }
+                                    } // End health check
+                                }
+                            }
+                        }
                     }
                     _ => {
                         error!(

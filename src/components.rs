@@ -217,3 +217,21 @@ pub struct ContinuousDamageComponent {
 pub struct HorrorLatchedByTetherComponent {
     pub player_who_latched: Option<Entity>, // Changed to Option<Entity> to allow Default derive
 }
+
+#[derive(Debug, Component, Reflect, Default)] // Added Default here
+#[reflect(Component)]
+pub struct BurnStatusEffect {
+    pub damage_per_tick: i32,
+    pub tick_interval_secs: f32,
+    pub duration_timer: Timer,
+    pub tick_timer: Timer,
+    pub source_weapon_id: Option<u32>,
+}
+
+#[derive(Component, Debug, Reflect, Default)]
+#[reflect(Component)]
+pub struct ExpandingWaveVisual {
+    pub initial_scale: Vec3,
+    pub final_scale: Vec3,
+    // Lifetime component on the same entity will handle timing
+}
