@@ -856,13 +856,13 @@ fn survivor_casting_system(
                     }
                     AttackTypeData::ConeAttack(params) => {
                         let survivor_pos = survivor_transform.translation.truncate();
-
+                        
                         // Spawn visual effect for the cone (fan of sprites)
                         if let Some(sprite_path_str) = &params.visual_sprite_path {
                             let num_visual_sprites = 5;
                             let total_fan_angle_rad = params.cone_angle_degrees.to_radians();
                             let base_aim_angle_rad = survivor_stats.aim_direction.y.atan2(survivor_stats.aim_direction.x);
-
+                            
                             // Centered fan calculation
                             let first_sprite_offset_rad = if num_visual_sprites > 1 { -total_fan_angle_rad / 2.0 } else { 0.0 };
                             let angle_step_rad = if num_visual_sprites > 1 { total_fan_angle_rad / (num_visual_sprites - 1) as f32 } else { 0.0 };
@@ -876,7 +876,7 @@ fn survivor_casting_system(
 
                             let final_x_scale = base_final_x_scale * 2.0;
                             let final_y_scale = base_final_y_scale * 2.0;
-
+                            
                             let initial_scale_vec3 = Vec3::new(0.1, 0.1, 1.0);
                             let final_scale_vec3 = Vec3::new(final_x_scale, final_y_scale, 1.0);
 
@@ -940,7 +940,7 @@ fn survivor_casting_system(
 
                                     if horror_health.0 > 0 { // Added health check
                                         if params.applies_burn == Some(true) {
-                                            if let (Some(burn_dmg), Some(burn_dur), Some(burn_tick_interval)) =
+                                            if let (Some(burn_dmg), Some(burn_dur), Some(burn_tick_interval)) = 
                                                 (params.burn_damage_per_tick, params.burn_duration_secs, params.burn_tick_interval_secs)
                                             {
                                                 commands.entity(horror_entity).insert(BurnStatusEffect {
@@ -1023,7 +1023,7 @@ fn survivor_horror_collision_system(
                     survivor_component.invincibility_timer.reset();
 
                     let mut rng = rand::thread_rng();
-                    for item_id in survivor_component.collected_item_ids.iter() {
+                    for item_id in survivor_component.collected_item_ids.iter() { // test	
                         if let Some(item_def) = item_library.get_item_definition(*item_id) {
                             for effect in &item_def.effects {
                                 if let ItemEffect::OnSurvivorHitRetaliate { chance, retaliation_damage, retaliation_radius, retaliation_color } = effect {

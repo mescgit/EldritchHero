@@ -1,7 +1,8 @@
-use eldritch_hero::items::{ItemId, ItemDefinition, ItemEffect, ItemLibrary};
-use eldritch_hero::survivor::Survivor; // Assuming survivor.rs is at crate root
-use eldritch_hero::skills::ActiveSkillInstance; // For Survivor::new_with_skills_and_items
-use eldritch_hero::components::Health as ComponentHealth; // For checking health component
+use cosmic_gardener::items::{ItemId, ItemDefinition, ItemEffect, ItemLibrary};
+use cosmic_gardener::survivor::Survivor; // Assuming survivor.rs is at crate root
+use cosmic_gardener::skills::ActiveSkillInstance; // For Survivor::new_with_skills_and_items
+use cosmic_gardener::components::Health as ComponentHealth; // For checking health component
+use bevy::prelude::default; // For default components if needed for Survivor
 
 // Helper function to create a basic ItemLibrary for testing
 fn setup_test_item_library() -> ItemLibrary {
@@ -104,4 +105,45 @@ fn test_passive_stat_boost_application() {
         }
     }
     assert_eq!(survivor.ichor_blast_damage_bonus, initial_ichor_blast_bonus + 5);
+}
+
+// Added Bevy app and plugins for testing AutomaticWeaponLibrary
+use bevy::prelude::*;
+use bevy::asset::AssetPlugin;
+use bevy::render::texture::ImagePlugin; // Though not strictly needed for param check, good for consistency
+use cosmic_gardener::items::{ItemsPlugin, AutomaticWeaponLibrary, AutomaticWeaponId, AttackTypeData, ConeAttackParams as ItemConeAttackParams};
+
+#[test]
+fn test_sunfire_burst_config_with_burn() {
+    let mut app = App::new();
+    app.add_plugins((
+        MinimalPlugins, // MinimalPlugins is often better for non-graphical tests
+        AssetPlugin::default(),
+        // ImagePlugin::default(), // Might not be needed if no actual rendering/image loading
+        ItemsPlugin, // This plugin should populate the AutomaticWeaponLibrary
+    ));
+
+    // Run startup systems (like populate_automatic_weapon_library)
+    app.update();
+
+    let weapon_library = app.world.resource::<AutomaticWeaponLibrary>();
+    let sunfire_burst_def = weapon_library
+        .get_weapon_definition(AutomaticWeaponId(12))
+        .expect("Sunfire Burst definition (ID 12) not found");
+
+    match &sunfire_burst_def.attack_data {
+        AttackTypeData::ConeAttack(params) => {
+            // Assert burn parameters
+            assert_eq!(params.applies_burn, Some(true), "applies_burn mismatch");
+            assert_eq!(params.burn_damage_per_tick, Some(5), "burn_damage_per_tick mismatch");
+            assert_eq!(params.burn_duration_secs, Some(3.0), "burn_duration_secs mismatch");
+            assert_eq!(params.burn_tick_interval_secs, Some(0.5), "burn_tick_interval_secs mismatch");
+
+            // Assert core shotgun parameters
+            assert_eq!(params.base_damage, 20, "base_damage mismatch");
+            assert_eq!(params.cone_angle_degrees, 80.0, "cone_angle_degrees mismatch");
+            assert_eq!(params.cone_radius, 120.0, "cone_radius mismatch");
+        }
+        _ => panic!("Sunfire Burst is not configured as ConeAttack"),
+    }
 }
