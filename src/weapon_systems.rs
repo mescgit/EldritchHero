@@ -256,6 +256,7 @@ pub struct FireTrailSegmentComponent {
     pub duration_timer: Timer,
     pub width: f32,
     pub already_hit_this_tick: Vec<Entity>,
+    pub original_color: Color, // Added field
 }
 
 // --- Chain Lightning Definitions ---
@@ -446,6 +447,7 @@ pub fn spawn_blink_strike_projectile_attack(
             None,
             None,
             Some(params.clone()),
+            None // opt_trail_params
         );
     }
 }
@@ -642,12 +644,96 @@ pub fn charge_weapon_system(
     }
 }
 
-pub fn trail_spawning_projectile_system(mut _commands: Commands) {
-    // TODO: Implement system
+pub fn trail_spawning_projectile_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    asset_server: Res<AssetServer>,
+    mut query: Query<(&GlobalTransform, &mut TrailSpawningProjectileComponent)>,
+) {
+    for (projectile_transform, mut trail_spawner) in query.iter_mut() {
+        trail_spawner.segment_spawn_timer.tick(time.delta());
+
+        if trail_spawner.segment_spawn_timer.just_finished() {
+            let trail_params = &trail_spawner.trail_params; // Get a reference
+
+            commands.spawn((
+                SpriteBundle {
+                    // Using hardcoded placeholder as trail_segment_sprite_path_placeholder is not in TrailOfFireParams yet
+                    texture: asset_server.load("sprites/fire_trail_segment_placeholder.png"),
+                    sprite: Sprite {
+                        custom_size: Some(Vec2::new(trail_params.trail_segment_width, trail_params.trail_segment_width)),
+                        color: trail_params.trail_segment_color,
+                        ..default()
+                    },
+                    // Use .translation() to get Vec3 from GlobalTransform
+                    transform: Transform::from_translation(projectile_transform.translation()),
+                    ..default()
+                },
+                FireTrailSegmentComponent {
+                    damage_per_tick: trail_params.trail_segment_damage_per_tick,
+                    tick_timer: Timer::from_seconds(trail_params.trail_segment_tick_interval_secs.max(0.01), TimerMode::Repeating),
+                    duration_timer: Timer::from_seconds(trail_params.trail_segment_duration_secs.max(0.01), TimerMode::Once),
+                    width: trail_params.trail_segment_width,
+                    already_hit_this_tick: Vec::new(),
+                    original_color: trail_params.trail_segment_color, // Initialize new field
+                },
+                Name::new("FireTrailSegment"),
+            ));
+        }
+    }
 }
 
-pub fn fire_trail_segment_system(mut _commands: Commands) {
-    // TODO: Implement system
+pub fn fire_trail_segment_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    asset_server: Res<AssetServer>,
+    mut segment_query: Query<(Entity, &mut FireTrailSegmentComponent, &GlobalTransform, &mut Sprite)>,
+    mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>,
+) {
+    for (segment_entity, mut segment_comp, segment_gtransform, mut segment_sprite) in segment_query.iter_mut() {
+        // Segment Lifetime & Fade Out
+        segment_comp.duration_timer.tick(time.delta());
+        if segment_comp.duration_timer.finished() {
+            commands.entity(segment_entity).despawn_recursive();
+            continue;
+        }
+
+        let remaining_percent = 1.0 - segment_comp.duration_timer.percent();
+        segment_sprite.color.set_a(segment_comp.original_color.a() * remaining_percent);
+
+        // Damage Application
+        segment_comp.tick_timer.tick(time.delta());
+        if segment_comp.tick_timer.just_finished() {
+            segment_comp.already_hit_this_tick.clear();
+            let segment_pos = segment_gtransform.translation().truncate(); // Use GlobalTransform for world position
+
+            for (horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() {
+                let horror_pos = horror_gtransform.translation().truncate(); // Use GlobalTransform for world position
+
+                // Collision check (circular segment vs circular horror)
+                // Assuming horror_radius is fixed for now, ideally get from Horror component stats if available
+                let horror_radius = 16.0; // Placeholder radius for horrors
+                let combined_radius_sq = (segment_comp.width / 2.0 + horror_radius).powi(2);
+                let distance_sq = segment_pos.distance_squared(horror_pos);
+
+                if distance_sq < combined_radius_sq {
+                    if !segment_comp.already_hit_this_tick.contains(&horror_entity) {
+                        horror_health.0 = horror_health.0.saturating_sub(segment_comp.damage_per_tick);
+
+                        // Spawn damage text visual effect using the horror's GlobalTransform for position
+                        visual_effects::spawn_damage_text(
+                            &mut commands,
+                            &asset_server,
+                            horror_gtransform.translation(), // Position for damage text
+                            segment_comp.damage_per_tick,
+                            &time, // Pass time as a reference
+                        );
+                        segment_comp.already_hit_this_tick.push(horror_entity);
+                    }
+                }
+            }
+        }
+    }
 }
 
 pub fn chain_lightning_visual_system(mut _commands: Commands) {
@@ -906,8 +992,6 @@ impl Plugin for WeaponSystemsPlugin {
             ).run_if(in_state(AppState::InGame)))
             .add_systems(Update, (
                 charge_weapon_system,
-                trail_spawning_projectile_system,
-                fire_trail_segment_system,
                 chain_lightning_visual_system,
                 nova_visual_system,
                 manage_persistent_aura_system,
@@ -917,6 +1001,9 @@ impl Plugin for WeaponSystemsPlugin {
                 lobbed_projectile_system,
                 ichor_pool_system,
                 channeled_beam_update_system,
+                // Added new systems here, ensuring they are not duplicated if already added by previous steps
+                trail_spawning_projectile_system,
+                fire_trail_segment_system,
             ).run_if(in_state(AppState::InGame)));
     }
 }
@@ -1105,6 +1192,7 @@ pub fn spawn_actual_tether_projectile(
         None, // No trail params
         Some(weapon_params.clone()), // Tether params (cloned from definition)
         None, // No blink strike params
+        None // opt_trail_params
     );
 }
 
@@ -1383,6 +1471,7 @@ pub fn orbiting_pet_behavior_system(
                                     None,
                                     None,
                                     None,
+                                    None // opt_trail_params
                                 );
                             }
                         }
