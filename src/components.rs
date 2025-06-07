@@ -227,3 +227,11 @@ pub struct BurnStatusEffect {
     pub tick_timer: Timer,
     pub source_weapon_id: Option<u32>,
 }
+
+#[derive(Component, Debug, Reflect, Default)]
+#[reflect(Component)]
+pub struct ExpandingWaveVisual {
+    pub initial_scale: Vec3,
+    pub final_scale: Vec3,
+    // Lifetime component on the same entity will handle timing
+}

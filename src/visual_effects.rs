@@ -1,7 +1,7 @@
 // src/visual_effects.rs
 use bevy::prelude::*;
 use rand::Rng; // Added import for gen_range
-use crate::components::{Lifetime, Velocity}; // Added Velocity
+use crate::components::{Lifetime, Velocity, ExpandingWaveVisual}; // Added ExpandingWaveVisual
 
 const DAMAGE_TEXT_LIFETIME: f32 = 0.75;
 const DAMAGE_TEXT_VELOCITY_Y: f32 = 50.0;
@@ -14,6 +14,7 @@ impl Plugin for VisualEffectsPlugin {
         app.add_systems(Update, (
             damage_text_movement_system,
             damage_text_fade_despawn_system, // Combined fade and despawn
+            expanding_wave_visual_system, // Added new system
         ));
     }
 }
@@ -80,5 +81,27 @@ fn damage_text_fade_despawn_system(
         if lifetime.timer.just_finished() { // Despawn when lifetime is over
             commands.entity(entity).despawn();
         }
+    }
+}
+
+pub fn expanding_wave_visual_system(
+    mut query: Query<(
+        &mut Transform,
+        &mut Sprite,
+        &ExpandingWaveVisual,
+        &Lifetime,
+    )>,
+) {
+    for (mut transform, mut sprite, wave_params, lifetime) in query.iter_mut() {
+        let progress = lifetime.timer.percent(); // Current progress of the lifetime timer (0.0 to 1.0)
+
+        // Interpolate scale
+        transform.scale = wave_params.initial_scale.lerp(wave_params.final_scale, progress);
+
+        // Fade out alpha
+        // Assuming initial alpha is 1.0 from the sprite's base color.
+        // If the sprite.color itself has an alpha component, this will fade from that value.
+        let initial_alpha = sprite.color.a(); // Get current alpha, which might be the base or already modified
+        sprite.color.set_a((initial_alpha * (1.0 - progress)).clamp(0.0, 1.0));
     }
 }
