@@ -33,7 +33,7 @@ struct CollisionAction {
 #[derive(Component, Reflect, Debug, Clone)] // Added Clone here
 #[reflect(Component, Default)]
 pub struct AutomaticProjectile {
-    pub owner: Entity,
+    pub owner: Option<Entity>, // Changed to Option<Entity>
     pub piercing_left: u32,
     pub weapon_id: AutomaticWeaponId,
     pub bounces_left: Option<u32>,
@@ -50,7 +50,7 @@ pub struct AutomaticProjectile {
 impl Default for AutomaticProjectile {
     fn default() -> Self {
         Self {
-            owner: Entity::PLACEHOLDER,
+            owner: None, // Default to None
             piercing_left: 0,
             weapon_id: AutomaticWeaponId::default(),
             bounces_left: None,
@@ -152,7 +152,7 @@ pub fn spawn_automatic_projectile(
             ..default()
         },
         AutomaticProjectile {
-            owner,
+            owner: Some(owner), // Pass as Some(owner) since struct field is Option<Entity>
             piercing_left: piercing,
             weapon_id,
             bounces_left: opt_max_bounces,
@@ -375,7 +375,7 @@ fn automatic_projectile_collision_system(
                     next_effect_mode: next_mode,
                 });
                 commands.entity(action.horror_entity).insert(HorrorLatchedByTetherComponent { player_who_latched: Some(player_entity) });
-                sound_event_writer.send(PlaySoundEvent(SoundEffect::TetherHit));
+                // sound_event_writer.send(PlaySoundEvent(SoundEffect::TetherHit)); // Commented out as per subtask
             }
             commands.entity(action.projectile_entity).despawn_recursive();
             continue; 
@@ -509,8 +509,7 @@ fn projectile_screen_bounce_system(
             let radius = sprite.custom_size.map_or(1.0, |s| s.x.max(s.y) / 2.0);
             if proj_pos.x - radius < world_min_x || proj_pos.x + radius > world_max_x ||
                proj_pos.y - radius < world_min_y || proj_pos.y + radius > world_max_y {
-                if explosion_query.get(entity).is_ok() {
-                 }
+                    // Removed problematic: if explosion_query.get(entity).is_ok() {}
                 commands.entity(entity).despawn_recursive();
             }
             continue;
