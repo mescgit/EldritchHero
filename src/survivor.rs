@@ -1023,7 +1023,7 @@ fn survivor_horror_collision_system(
                     survivor_component.invincibility_timer.reset();
 
                     let mut rng = rand::thread_rng();
-                    for item_id in survivor_component.collected_item_ids.iter() {
+                    for item_id in survivor_component.collected_item_ids.iter() { // test	
                         if let Some(item_def) = item_library.get_item_definition(*item_id) {
                             for effect in &item_def.effects {
                                 if let ItemEffect::OnSurvivorHitRetaliate { chance, retaliation_damage, retaliation_radius, retaliation_color } = effect {
