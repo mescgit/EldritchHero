@@ -1,5 +1,8 @@
 // src/main.rs
 use bevy::prelude::*;
+use bevy::log::info;
+// use crate::game::AppState; // Removed as AppState is used with full path
+use bevy::ecs::schedule::common_conditions::in_state;
 
 mod survivor;
 mod components;
@@ -37,6 +40,16 @@ use items::{ItemsPlugin, AutomaticWeaponLibrary, AutomaticWeaponDefinition, Auto
 use weapon_systems::WeaponSystemsPlugin; // Added
 // use glyphs::GlyphsPlugin; // Commented out
 
+fn log_on_enter_ingame() {
+    info!("SM_DEBUG: Entered AppState::InGame");
+}
+
+fn log_in_ingame_update(mut first_run: Local<bool>) {
+    if !*first_run {
+        info!("SM_DEBUG: AppState::InGame first update tick");
+        *first_run = true;
+    }
+}
 
 fn main() {
     App::new()
@@ -76,6 +89,8 @@ fn main() {
                     .after(crate::items::populate_automatic_weapon_library),
             )
         )
+        .add_systems(OnEnter(crate::game::AppState::InGame), log_on_enter_ingame)
+        .add_systems(Update, log_in_ingame_update.run_if(in_state(crate::game::AppState::InGame)))
         .run();
 }
 

@@ -215,9 +215,11 @@ impl Plugin for SurvivorPlugin {
                 survivor_movement,
                 survivor_aiming,
                 survivor_casting_system,
+                log_equipped_weapon_system, // Added here
                 survivor_health_regeneration_system,
                 survivor_horror_collision_system.before(check_survivor_death_system),
                 survivor_invincibility_system,
+                // Removed duplicated systems below
                 check_survivor_death_system,
                 survivor_item_drop_collection_system,
                 mind_strain_debuff_update_system,
@@ -277,7 +279,7 @@ fn spawn_survivor(
     }
 
 
-    commands.spawn((
+    let survivor_entity_id = commands.spawn((
         SpriteBundle {
             texture: asset_server.load("sprites/survivor_placeholder.png"),
             sprite: Sprite { custom_size: Some(SURVIVOR_SIZE), ..default() },
@@ -287,7 +289,7 @@ fn spawn_survivor(
         Survivor::new_with_skills_items_and_weapon(
             initial_skills,
             Vec::new(),
-            chosen_inherent_weapon_id,
+            chosen_inherent_weapon_id, // Use this variable
             &weapon_library
         ),
         ComponentHealth(INITIAL_SURVIVOR_MAX_HEALTH),
@@ -298,8 +300,10 @@ fn spawn_survivor(
         },
         CircleOfWarding::default(),
         SwarmOfNightmares::default(),
-        Name::new(survivor_name),
-    ));
+        Name::new(survivor_name), // survivor_name is already defined in the function
+    )).id(); // Capture the ID
+
+    info!("SM_DEBUG: Survivor spawned. Entity ID: {:?}, Chosen Weapon ID: {:?}", survivor_entity_id, chosen_inherent_weapon_id);
 }
 fn despawn_survivor(mut commands: Commands, survivor_query: Query<Entity, With<Survivor>>) { if let Ok(survivor_entity) = survivor_query.get_single() { commands.entity(survivor_entity).despawn_recursive(); } }
 fn survivor_health_regeneration_system(time: Res<Time>, mut query: Query<(&Survivor, &mut ComponentHealth)>,) { for (survivor_stats, mut current_health) in query.iter_mut() { if survivor_stats.health_regen_rate > 0.0 && current_health.0 > 0 && current_health.0 < survivor_stats.max_health { let regen_amount = survivor_stats.health_regen_rate * time.delta_seconds(); current_health.0 = (current_health.0 as f32 + regen_amount).round() as i32; current_health.0 = current_health.0.min(survivor_stats.max_health); } } }
@@ -351,7 +355,7 @@ fn survivor_casting_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
-    mut player_query: Query<(Entity, &Transform, &Survivor, &mut SanityStrain, Option<&SurvivorBuffEffect>)>,
+    mut player_query: Query<(Entity, &Transform, &Survivor, Option<&mut SanityStrain>, Option<&SurvivorBuffEffect>)>,
     mut channeling_status_query: Query<&mut crate::weapon_systems::IsChannelingComponent>, // Now mutable
     charging_comp_query: Query<&crate::weapon_systems::ChargingWeaponComponent>,
     reticule_query: Query<(&GlobalTransform, &Parent), With<crate::weapon_systems::LobbedWeaponTargetReticuleComponent>>,
@@ -360,7 +364,18 @@ fn survivor_casting_system(
     weapon_library: Res<AutomaticWeaponLibrary>,
     mouse_button_input: Res<Input<MouseButton>>,
 ) {
-    for (survivor_entity, survivor_transform, survivor_stats, mut sanity_strain, buff_effect_opt) in player_query.iter_mut() {
+    info!("SM_DEBUG: survivor_casting_system running tick...");
+    info!("SM_DEBUG: survivor_casting_system player_query found {} entities before loop.", player_query.iter().count());
+    for (survivor_entity, survivor_transform, survivor_stats, opt_mut_sanity_strain, buff_effect_opt) in player_query.iter_mut() {
+        info!("SM_DEBUG: Entered survivor_casting_system loop. Survivor: {:?}, Weapon ID: {:?}", survivor_entity, survivor_stats.inherent_weapon_id);
+        
+        let mut sanity_strain = match opt_mut_sanity_strain {
+            Some(strain) => strain,
+            None => {
+                info!("SM_DEBUG: SanityStrain component NOT FOUND for survivor {:?}. Skipping this entity.", survivor_entity);
+                continue; 
+            }
+        };
         let weapon_def = match weapon_library.get_weapon_definition(survivor_stats.inherent_weapon_id) {
             Some(def) => def,
             None => {
@@ -392,17 +407,14 @@ fn survivor_casting_system(
                                 if let Some(cd_secs) = params.cooldown_secs { // Must have cooldown for automatic cycle
                                     channeling_comp.cooldown_timer = Some(Timer::from_seconds(cd_secs, TimerMode::Once));
                                 } else { 
-                                    // Should not happen for automatic; error or default cooldown. For now, remove component.
                                     error!("Automatic Channeled Beam (ID: {:?}) ended duration but has no cooldown_secs defined. Removing IsChannelingComponent.", weapon_def.id);
                                     commands.entity(survivor_entity).remove::<crate::weapon_systems::IsChannelingComponent>(); 
                                 }
                             }
                         } else { 
-                            // No duration, implies continuous until externally stopped (should not happen for automatic)
                             error!("Automatic Channeled Beam (ID: {:?}) is active but has no active_duration_timer. This should not happen for automatic beams.", weapon_def.id);
                         }
                     } else { // Beam is NOT active (beam_entity is None), and cooldown is NOT active (or just finished)
-                        // Spawn beam and set up timers (this is the "auto-activate" part)
                         let beam_aim_direction = survivor_stats.aim_direction;
                         if beam_aim_direction == Vec2::ZERO { continue; }
 
@@ -433,16 +445,14 @@ fn survivor_casting_system(
                             Name::new("ChanneledBeamWeaponInstance (Automatic)"),
                         )).id();
                         channeling_comp.beam_entity = Some(beam_entity_id);
-                        if let Some(max_duration) = params.max_duration_secs { // Must have duration for automatic cycle
+                        if let Some(max_duration) = params.max_duration_secs {
                             channeling_comp.active_duration_timer = Some(Timer::from_seconds(max_duration, TimerMode::Once));
                         } else { 
-                            // Should not happen for automatic; error or default duration
                             error!("Automatic Channeled Beam (ID: {:?}) started but has no max_duration_secs defined. Beam may not stop automatically.", weapon_def.id);
                         }
                         sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast));
                     }
-                } else { // Player does NOT have IsChannelingComponent (first activation for this weapon)
-                    // Spawn beam and ADD IsChannelingComponent
+                } else {
                     let beam_aim_direction = survivor_stats.aim_direction;
                     if beam_aim_direction == Vec2::ZERO { continue; }
                     
@@ -487,63 +497,50 @@ fn survivor_casting_system(
                     sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast));
                 }
             } else {
-                // MANUAL LOGIC (Existing press-and-hold logic)
+                // MANUAL LOGIC
                 if let Ok(mut channeling_comp) = channeling_status_query.get_mut(survivor_entity) {
-                    // 1. Tick and check Cooldown Timer
                     if let Some(ref mut cd_timer) = channeling_comp.cooldown_timer {
                         cd_timer.tick(time.delta());
                         if !cd_timer.finished() {
-                            continue; // Still on cooldown, skip rest of beam logic for this player
+                            continue;
                         } else {
-                            channeling_comp.cooldown_timer = None; // Cooldown finished
+                            channeling_comp.cooldown_timer = None;
                         }
                     }
 
-                    // 2. Handle Active Beam (mouse pressed, beam exists)
                     if mouse_button_input.pressed(MouseButton::Left) {
-                        if channeling_comp.beam_entity.is_some() { // Player is actively beaming
+                        if channeling_comp.beam_entity.is_some() {
                             if let Some(ref mut duration_timer) = channeling_comp.active_duration_timer {
                                 duration_timer.tick(time.delta());
                                 if duration_timer.finished() {
-                                    // Duration ended: Stop beam, start cooldown
-                                    if let Some(beam_e) = channeling_comp.beam_entity.take() { // take() sets beam_entity to None
+                                    if let Some(beam_e) = channeling_comp.beam_entity.take() {
                                         commands.entity(beam_e).despawn_recursive();
                                     }
                                     if let Some(cd_secs) = params.cooldown_secs {
                                         channeling_comp.cooldown_timer = Some(Timer::from_seconds(cd_secs, TimerMode::Once));
                                     } else {
-                                        // No cooldown defined, remove component if no beam and no cooldown
                                         commands.entity(survivor_entity).remove::<crate::weapon_systems::IsChannelingComponent>();
                                     }
-                                    // sound_event_writer.send(PlaySoundEvent(SoundEffect::BeamEnd)); // Optional
-                                    continue; // End processing for this player this frame
+                                    continue;
                                 }
                             }
-                            // If no duration_timer or it's not finished, beam continues.
-                            continue; // Already beaming and button held, skip trying to start a new one.
+                            continue;
                         }
-                        // If mouse is pressed, but beam_entity is None (it means cooldown just finished)
-                        // Fall through to "Start Channeling" logic below (for manual).
-                    } else { // Mouse button is NOT pressed
+                    } else {
                         if channeling_comp.beam_entity.is_some() {
-                            // Button released: Stop beam, start cooldown
                             if let Some(beam_e) = channeling_comp.beam_entity.take() {
                                 commands.entity(beam_e).despawn_recursive();
                             }
                             if let Some(cd_secs) = params.cooldown_secs {
                                 channeling_comp.cooldown_timer = Some(Timer::from_seconds(cd_secs, TimerMode::Once));
                             } else {
-                                // No cooldown defined, remove component
                                 commands.entity(survivor_entity).remove::<crate::weapon_systems::IsChannelingComponent>();
                             }
-                            // sound_event_writer.send(PlaySoundEvent(SoundEffect::BeamEnd)); // Optional
                         }
-                        // If beam_entity is already None (already stopped or just finished cooldown and mouse not pressed), do nothing more here.
-                        continue; // End processing for this player
+                        continue;
                     }
-                } // End of: if let Ok(mut channeling_comp) for manual
+                }
 
-                // Start Channeling (manual: mouse pressed, no active beam, not on cooldown from above check)
                 if mouse_button_input.pressed(MouseButton::Left) {
                     if channeling_status_query.get(survivor_entity).map_or(true, |comp| comp.beam_entity.is_none() && comp.cooldown_timer.is_none()) {
                         let beam_aim_direction = survivor_stats.aim_direction;
@@ -590,48 +587,34 @@ fn survivor_casting_system(
                     }
                 }
             }
-            continue; // IMPORTANT: Skip the rest of the timed weapon logic
+            continue;
         }
         // --- End of Channeled Beam Logic ---
 
         // --- Handle ChargeUpEnergyShot ---
         if let AttackTypeData::ChargeUpEnergyShot(ref shot_params) = weapon_def.attack_data {
-            // Tick the main cooldown timer once at the beginning of this weapon's logic block.
             sanity_strain.fire_timer.tick(time.delta());
 
-            // Handle starting the charge
             if mouse_button_input.just_pressed(MouseButton::Left) {
                 let is_on_cooldown = !sanity_strain.fire_timer.finished();
                 let is_already_charging = charging_comp_query.get(survivor_entity).is_ok();
-                info!("ChargeUp: Mouse Just Pressed. Cooldown finished: {}. Already charging: {}.", 
-                      sanity_strain.fire_timer.finished(), is_already_charging);
 
                 if !is_on_cooldown && !is_already_charging {
                     if shot_params.charge_levels.is_empty() {
-                        info!("ChargeUp: Blocked - No charge levels defined for weapon ID: {:?}.", weapon_def.id);
+                        // info!("ChargeUp: Blocked - No charge levels defined for weapon ID: {:?}.", weapon_def.id);
                     } else {
                         commands.entity(survivor_entity).insert(crate::weapon_systems::ChargingWeaponComponent {
                             weapon_id: weapon_def.id,
                             charge_timer: Timer::from_seconds(shot_params.charge_levels[0].charge_time_secs.max(0.01), TimerMode::Once),
                             current_charge_level_index: 0,
-                            is_actively_charging: true, // Explicitly set to true when starting
+                            is_actively_charging: true,
                         });
-                        info!("ChargeUp: SUCCESS - Added ChargingWeaponComponent for {:?}.", survivor_entity);
-                    }
-                } else {
-                    if is_on_cooldown {
-                        info!("ChargeUp: Blocked (on press) - Cooldown active. Remaining: {:.2}s", sanity_strain.fire_timer.remaining_secs());
-                    }
-                    if is_already_charging {
-                        info!("ChargeUp: Blocked (on press) - Already has ChargingWeaponComponent for {:?}.", survivor_entity);
                     }
                 }
             }
 
-            // Handle firing the shot (reacting to charge_weapon_system setting is_actively_charging to false)
             if let Ok(charging_comp) = charging_comp_query.get(survivor_entity) {
-                if !charging_comp.is_actively_charging { // This flag is modified by charge_weapon_system
-                    info!("ChargeUp: Firing shot because charging_comp.is_actively_charging is false for entity: {:?}", survivor_entity);
+                if !charging_comp.is_actively_charging {
                     let current_level_index = charging_comp.current_charge_level_index;
                     if current_level_index < shot_params.charge_levels.len() {
                         let level_params = &shot_params.charge_levels[current_level_index];
@@ -644,19 +627,14 @@ fn survivor_casting_system(
                             &mut commands, &asset_server, survivor_entity, survivor_transform.translation, survivor_stats.aim_direction,
                             projectile_damage, projectile_speed, projectile_piercing, weapon_def.id,
                             sprite_path, level_params.projectile_size, shot_params.base_projectile_color, shot_params.projectile_lifetime_secs,
-                            None, None, None, None, None, None
+                            None, None, None, None, None, None, None // Added None for opt_trail_params
                         );
                     }
                     
-                    info!("ChargeUp: PRE-REMOVAL check: ChargingWeaponComponent exists for {:?}: {}", survivor_entity, charging_comp_query.get(survivor_entity).is_ok());
-                    info!("ChargeUp: Attempting direct removal of ChargingWeaponComponent for entity: {:?}", survivor_entity);
                     commands.entity(survivor_entity).remove::<crate::weapon_systems::ChargingWeaponComponent>();
-                    info!("ChargeUp: POST-REMOVAL command issued for ChargingWeaponComponent for entity: {:?}", survivor_entity);
-
                     sanity_strain.fire_timer.set_duration(Duration::from_secs_f32(shot_params.base_fire_rate_secs));
                     sanity_strain.fire_timer.set_mode(TimerMode::Once);
                     sanity_strain.fire_timer.reset();
-                    info!("ChargeUp: Cooldown started for {:?}. Duration: {:.2}s", survivor_entity, shot_params.base_fire_rate_secs);
                     sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast));
                 }
             }
@@ -664,7 +642,6 @@ fn survivor_casting_system(
         }
         // --- End of ChargeUpEnergyShot ---
 
-        // --- Standard Timed Weapon Logic ---
         let mut effective_fire_rate_secs = sanity_strain.base_fire_rate_secs;
         if let Some(buff) = buff_effect_opt {
             effective_fire_rate_secs /= 1.0 + buff.fire_rate_multiplier_bonus;
@@ -673,7 +650,7 @@ fn survivor_casting_system(
         let new_duration = Duration::from_secs_f32(effective_fire_rate_secs.max(0.05));
         if sanity_strain.fire_timer.duration() != new_duration {
             sanity_strain.fire_timer.set_duration(new_duration);
-            sanity_strain.fire_timer.reset(); // Reset the timer so it's fresh for the new duration/weapon
+            sanity_strain.fire_timer.reset();
         }
         sanity_strain.fire_timer.tick(time.delta());
 
@@ -702,7 +679,7 @@ fn survivor_casting_system(
                             };
                             let projectile_direction = Vec2::from_angle(base_angle + angle_offset_rad);
 
-                            spawn_automatic_projectile( // This is crate::automatic_projectiles::spawn_automatic_projectile
+                            spawn_automatic_projectile(
                                 &mut commands,
                                 &asset_server,
                                 survivor_entity,
@@ -721,9 +698,35 @@ fn survivor_casting_system(
                                 None, 
                                 None, 
                                 None, 
-                                None, 
+                                None,
+                                None // opt_trail_params
                             );
                         }
+                    }
+                    AttackTypeData::TrailOfFire(params) => {
+                        // This is the new block for TrailOfFire
+                        crate::automatic_projectiles::spawn_automatic_projectile(
+                            &mut commands,
+                            &asset_server,
+                            survivor_entity, // owner
+                            survivor_transform.translation, // position
+                            survivor_stats.aim_direction, // direction
+                            params.base_damage_on_impact + survivor_stats.auto_weapon_damage_bonus, // initial_damage
+                            params.projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier, // initial_speed
+                            0 + survivor_stats.auto_weapon_piercing_bonus, // piercing
+                            weapon_def.id, // weapon_id
+                            &params.projectile_sprite_path, // sprite_path
+                            params.projectile_size, // size
+                            params.projectile_color, // color
+                            params.projectile_lifetime_secs * survivor_stats.auto_attack_projectile_duration_multiplier, // lifetime_secs
+                            None, // opt_max_bounces
+                            None, // opt_dmg_loss_mult
+                            None, // opt_speed_loss_mult
+                            None, // opt_lifesteal_percentage
+                            None, // opt_tether_params_for_comp
+                            None, // opt_blink_params
+                            Some(params.clone()) // opt_trail_params
+                        );
                     }
                     AttackTypeData::RepositioningTether(params) => {
                         crate::weapon_systems::spawn_actual_tether_projectile(
@@ -731,32 +734,19 @@ fn survivor_casting_system(
                             &asset_server,
                             survivor_entity,
                             survivor_stats.aim_direction,
-                            params, // These are &crate::items::RepositioningTetherParams
+                            params,
                             weapon_def.id,
                             survivor_transform,
                         );
                     }
-                    AttackTypeData::PersistentAura(_params) => { // params might be unused here
-                        // Log an info message, as persistent auras are typically managed by their own systems.
-                        // The survivor_casting_system doesn't "fire" them on each timer tick.
-                        // Their presence is usually detected by a dedicated aura management system.
-                        info!(
-                            "PersistentAura weapon type ({:?}) equipped. Actual aura management is handled by a dedicated system.",
-                            weapon_def.name
-                        );
-                        // No action taken by survivor_casting_system for this type.
+                    AttackTypeData::PersistentAura(_params) => {
+                        // info!("PersistentAura weapon type ({:?}) equipped. Actual aura management is handled by a dedicated system.", weapon_def.name);
                     }
                     AttackTypeData::OrbitingPet(_params) => {
-                        // Orbiting pets are managed by manage_player_orbs_system and orbiting_pet_behavior_system.
-                        // survivor_casting_system doesn't "fire" them on each timer tick in the traditional sense.
-                        info!(
-                            "OrbitingPet weapon type ({:?}) equipped. Actual pet management is handled by dedicated systems.",
-                            weapon_def.name
-                        );
-                        // No action taken by survivor_casting_system for this type.
+                        // info!("OrbitingPet weapon type ({:?}) equipped. Actual pet management is handled by dedicated systems.", weapon_def.name);
                     }
                     AttackTypeData::LobbedAoEPool(params) => {
-                        let mut final_target_pos = survivor_transform.translation + survivor_stats.aim_direction.extend(0.0) * (params.projectile_speed * 1.5); // Default/fallback
+                        let mut final_target_pos = survivor_transform.translation + survivor_stats.aim_direction.extend(0.0) * (params.projectile_speed * 1.5);
 
                         for (reticule_g_transform, parent) in reticule_query.iter() {
                             if parent.get() == survivor_entity {
@@ -770,10 +760,10 @@ fn survivor_casting_system(
                             &asset_server,
                             survivor_entity,
                             survivor_transform,
-                            survivor_stats.aim_direction, // Pass original aim_direction, spawn func might ignore it or use for fallback
-                            params, // This is &LobbedAoEPoolParams
+                            survivor_stats.aim_direction,
+                            params,
                             weapon_def.id,
-                            final_target_pos, // Pass the determined target position
+                            final_target_pos,
                         );
                     }
                     AttackTypeData::LifestealProjectile(params) => {
@@ -782,7 +772,6 @@ fn survivor_casting_system(
                         let current_speed = params.projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier;
                         let current_piercing = params.piercing + survivor_stats.auto_weapon_piercing_bonus;
                         
-                        // Assume base additional_projectiles for Lifesteal is 0, but player can have bonus
                         let total_projectiles = 1 + survivor_stats.auto_weapon_additional_projectiles_bonus;
 
                         let base_angle = survivor_stats.aim_direction.y.atan2(survivor_stats.aim_direction.x);
@@ -812,13 +801,13 @@ fn survivor_casting_system(
                                 params.projectile_size,
                                 params.projectile_color,
                                 effective_projectile_lifetime_secs,
-                                // Corrected order for optional arguments:
-                                None,                              // opt_max_bounces (LifestealProjectiles don't have inherent bounce stats)
-                                None,                              // opt_dmg_loss_mult
-                                None,                              // opt_speed_loss_mult
-                                Some(params.lifesteal_percentage), // opt_lifesteal_percentage
-                                None,                              // opt_tether_params
-                                None,                              // opt_blink_params
+                                None,
+                                None,
+                                None,
+                                Some(params.lifesteal_percentage),
+                                None,
+                                None,
+                                None // opt_trail_params
                             );
                         }
                     }
@@ -827,7 +816,7 @@ fn survivor_casting_system(
                             &mut commands,
                             &asset_server,
                             survivor_entity,
-                            params, // These are &crate::items::BlinkStrikeProjectileParams
+                            params,
                             survivor_transform,
                             survivor_stats.aim_direction,
                             weapon_def.id,
@@ -856,39 +845,34 @@ fn survivor_casting_system(
                     }
                     AttackTypeData::ConeAttack(params) => {
                         let survivor_pos = survivor_transform.translation.truncate();
-
-                        // Spawn visual effect for the cone (fan of sprites)
+                        
                         if let Some(sprite_path_str) = &params.visual_sprite_path {
                             let num_visual_sprites = 5;
                             let total_fan_angle_rad = params.cone_angle_degrees.to_radians();
                             let base_aim_angle_rad = survivor_stats.aim_direction.y.atan2(survivor_stats.aim_direction.x);
-
-                            // Centered fan calculation
+                            
                             let first_sprite_offset_rad = if num_visual_sprites > 1 { -total_fan_angle_rad / 2.0 } else { 0.0 };
                             let angle_step_rad = if num_visual_sprites > 1 { total_fan_angle_rad / (num_visual_sprites - 1) as f32 } else { 0.0 };
 
                             let visual_anchor = params.visual_anchor_offset.map_or(Anchor::CenterLeft, |offset| Anchor::Custom(offset / params.cone_radius * 2.0));
                             let (radius_scale_factor, _original_angle_scale_factor) = params.visual_size_scale_with_radius_angle.unwrap_or((1.0, 1.0));
-                            let fan_segment_angle_scale_factor = 0.35; // Smaller Y scale for individual segments
+                            let fan_segment_angle_scale_factor = 0.35;
 
                             let base_final_x_scale = params.cone_radius * radius_scale_factor;
                             let base_final_y_scale = params.cone_radius * fan_segment_angle_scale_factor;
 
                             let final_x_scale = base_final_x_scale * 2.0;
                             let final_y_scale = base_final_y_scale * 2.0;
-
+                            
                             let initial_scale_vec3 = Vec3::new(0.1, 0.1, 1.0);
                             let final_scale_vec3 = Vec3::new(final_x_scale, final_y_scale, 1.0);
 
                             for i in 0..num_visual_sprites {
                                 let current_sprite_angle_rad = base_aim_angle_rad + first_sprite_offset_rad + (i as f32 * angle_step_rad);
-                                // let sprite_direction = Vec2::new(current_sprite_angle_rad.cos(), current_sprite_angle_rad.sin()); // Potentially useful for offsetting from player center
 
                                 let mut visual_transform = *survivor_transform;
                                 visual_transform.rotation = Quat::from_rotation_z(current_sprite_angle_rad);
                                 visual_transform.scale = initial_scale_vec3;
-                                // Optional: Offset further from player if CenterLeft anchor isn't enough
-                                // visual_transform.translation += sprite_direction.extend(0.0) * (params.cone_radius * 0.1); // Example offset
 
                                 commands.spawn((
                                     SpriteBundle {
@@ -924,23 +908,19 @@ fn survivor_casting_system(
                             if distance_to_enemy_sq < params.cone_radius * params.cone_radius {
                                 let angle_diff_rad = survivor_stats.aim_direction.angle_between(direction_to_enemy);
                                 if angle_diff_rad.abs() <= params.cone_angle_degrees.to_radians() / 2.0 {
-                                    // Enemy is hit
-                                    info!("ConeAttack: Potential hit on entity {:?}, health before: {}", horror_entity, horror_health.0);
                                     let total_damage = params.base_damage + survivor_stats.auto_weapon_damage_bonus;
-                                    info!("ConeAttack: Calculated total_damage: {}", total_damage);
                                     horror_health.0 = horror_health.0.saturating_sub(total_damage);
-                                    info!("ConeAttack: Entity {:?} health after damage: {}", horror_entity, horror_health.0);
                                     spawn_damage_text(
                                         &mut commands,
                                         &asset_server,
                                         horror_transform.translation,
                                         total_damage,
-                                        &time // Added &time argument
+                                        &time
                                     );
 
-                                    if horror_health.0 > 0 { // Added health check
+                                    if horror_health.0 > 0 {
                                         if params.applies_burn == Some(true) {
-                                            if let (Some(burn_dmg), Some(burn_dur), Some(burn_tick_interval)) =
+                                            if let (Some(burn_dmg), Some(burn_dur), Some(burn_tick_interval)) = 
                                                 (params.burn_damage_per_tick, params.burn_duration_secs, params.burn_tick_interval_secs)
                                             {
                                                 commands.entity(horror_entity).insert(BurnStatusEffect {
@@ -952,25 +932,20 @@ fn survivor_casting_system(
                                                 });
                                             }
                                         }
-                                    } // End health check
+                                    }
                                 }
                             }
                         }
                     }
                     _ => {
-                        error!(
-                            "Weapon {:?} (ID: {}) has AttackTypeData variant {:?} which is not yet handled by survivor_casting_system's timed logic.",
-                            weapon_def.name,
-                            weapon_def.id.0,
-                            weapon_def.attack_data 
-                        );
+                        // error!("Weapon {:?} (ID: {}) has AttackTypeData variant {:?} which is not yet handled by survivor_casting_system's timed logic.", weapon_def.name, weapon_def.id.0, weapon_def.attack_data);
                     }
                 }
             }
         }
-        // --- End of Standard Timed Weapon Logic ---
     }
 }
+
 fn survivor_horror_collision_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -1023,7 +998,7 @@ fn survivor_horror_collision_system(
                     survivor_component.invincibility_timer.reset();
 
                     let mut rng = rand::thread_rng();
-                    for item_id in survivor_component.collected_item_ids.iter() {
+                    for item_id in survivor_component.collected_item_ids.iter() { // test	
                         if let Some(item_def) = item_library.get_item_definition(*item_id) {
                             for effect in &item_def.effects {
                                 if let ItemEffect::OnSurvivorHitRetaliate { chance, retaliation_damage, retaliation_radius, retaliation_color } = effect {
@@ -1048,3 +1023,32 @@ fn survivor_horror_collision_system(
 fn survivor_invincibility_system(time: Res<Time>, mut query: Query<(&mut Survivor, &mut Sprite, &ComponentHealth)>,) { for (mut survivor, mut sprite, health) in query.iter_mut() { if health.0 <= 0 { if sprite.color.a() != 1.0 { sprite.color.set_a(1.0); } continue; } if !survivor.invincibility_timer.finished() { survivor.invincibility_timer.tick(time.delta()); let alpha = (time.elapsed_seconds() * 20.0).sin() / 2.0 + 0.7; sprite.color.set_a(alpha.clamp(0.3, 1.0) as f32); } else { if sprite.color.a() != 1.0 { sprite.color.set_a(1.0); } } } }
 fn check_survivor_death_system(survivor_query: Query<&ComponentHealth, With<Survivor>>, mut app_state_next: ResMut<NextState<AppState>>, mut sound_event_writer: EventWriter<PlaySoundEvent>, current_app_state: Res<State<AppState>>,) { if let Ok(survivor_health) = survivor_query.get_single() { if survivor_health.0 <= 0 && *current_app_state.get() == AppState::InGame { sound_event_writer.send(PlaySoundEvent(SoundEffect::MadnessConsumes)); app_state_next.set(AppState::GameOver); } } }
 fn survivor_item_drop_collection_system(mut commands: Commands, survivor_query: Query<&Transform, With<Survivor>>, item_drop_query: Query<(Entity, &Transform, &ItemDrop)>, mut item_collected_event_writer: EventWriter<ItemCollectedEvent>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { if let Ok(survivor_transform) = survivor_query.get_single() { let survivor_pos = survivor_transform.translation.truncate(); for (item_drop_entity, item_drop_transform, item_drop_data) in item_drop_query.iter() { let item_drop_pos = item_drop_transform.translation.truncate(); if survivor_pos.distance(item_drop_pos) < ITEM_COLLECTION_RADIUS { item_collected_event_writer.send(ItemCollectedEvent(item_drop_data.item_id)); sound_event_writer.send(PlaySoundEvent(SoundEffect::SoulCollect)); commands.entity(item_drop_entity).despawn_recursive(); } } } }
+
+// Copied and adapted from the player.rs version
+fn log_equipped_weapon_system(
+    time: Res<Time>,
+    mut timer: Local<Timer>, 
+    survivor_query: Query<(Entity, Option<&Survivor>), With<Survivor>> // Changed back to Survivor
+) {
+    // Timers default to duration 0, mode Once. Set it up on first effective run if duration is 0.
+    if timer.duration().as_secs_f32() == 0.0 {
+        timer.set_duration(std::time::Duration::from_secs_f32(5.0)); // Use std::time::Duration
+        timer.set_mode(TimerMode::Repeating);
+        // timer.reset(); // Not strictly necessary here as tick will advance it from its current state
+    }
+
+    timer.tick(time.delta());
+
+    if timer.just_finished() {
+        if let Ok((survivor_entity, survivor_component_opt)) = survivor_query.get_single() { // variable name changed for clarity
+            if survivor_component_opt.is_some() {
+                let survivor_stats = survivor_component_opt.unwrap(); 
+                info!("[EquippedWeaponCheck] Survivor entity: {:?}, ID: {:?}, Aim: {:?}", survivor_entity, survivor_stats.inherent_weapon_id, survivor_stats.aim_direction); // Use inherent_weapon_id
+            } else {
+                info!("[EquippedWeaponCheck] Survivor entity: {:?} found, but Survivor component data is unexpectedly missing.", survivor_entity);
+            }
+        } else {
+            info!("[EquippedWeaponCheck] Query for Survivor entity failed (no single entity with Survivor component found).");
+        }
+    }
+}

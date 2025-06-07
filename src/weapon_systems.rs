@@ -256,14 +256,31 @@ pub struct FireTrailSegmentComponent {
     pub duration_timer: Timer,
     pub width: f32,
     pub already_hit_this_tick: Vec<Entity>,
+    pub original_color: Color, // Added field
 }
 
 // --- Chain Lightning Definitions ---
 
-#[derive(Component, Debug, Reflect, Default)]
+#[derive(Component, Debug, Reflect)]
 #[reflect(Component)]
 pub struct ChainLightningZapEffectComponent {
     pub duration_timer: Timer,
+    pub start_pos: Vec3,
+    pub end_pos: Vec3,
+    pub color: Color,
+    pub width: f32,
+}
+
+impl Default for ChainLightningZapEffectComponent {
+    fn default() -> Self {
+        Self {
+            duration_timer: Timer::from_seconds(0.2, TimerMode::Once), // Default duration
+            start_pos: Vec3::ZERO,
+            end_pos: Vec3::ZERO,
+            color: Color::WHITE,
+            width: 5.0,
+        }
+    }
 }
 
 // --- Point-Blank Nova Definitions ---
@@ -446,6 +463,7 @@ pub fn spawn_blink_strike_projectile_attack(
             None,
             None,
             Some(params.clone()),
+            None // opt_trail_params
         );
     }
 }
@@ -642,16 +660,165 @@ pub fn charge_weapon_system(
     }
 }
 
-pub fn trail_spawning_projectile_system(mut _commands: Commands) {
-    // TODO: Implement system
+pub fn trail_spawning_projectile_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    asset_server: Res<AssetServer>,
+    mut query: Query<(&GlobalTransform, &mut TrailSpawningProjectileComponent)>,
+) {
+    for (projectile_transform, mut trail_spawner) in query.iter_mut() {
+        trail_spawner.segment_spawn_timer.tick(time.delta());
+
+        if trail_spawner.segment_spawn_timer.just_finished() {
+            let trail_params = &trail_spawner.trail_params; // Get a reference
+
+            commands.spawn((
+                SpriteBundle {
+                    // Using hardcoded placeholder as trail_segment_sprite_path_placeholder is not in TrailOfFireParams yet
+                    texture: asset_server.load("sprites/fire_trail_segment_placeholder.png"),
+                    sprite: Sprite {
+                        custom_size: Some(Vec2::new(trail_params.trail_segment_width, trail_params.trail_segment_width)),
+                        color: trail_params.trail_segment_color,
+                        ..default()
+                    },
+                    // Use .translation() to get Vec3 from GlobalTransform
+                    transform: Transform::from_translation(projectile_transform.translation()),
+                    ..default()
+                },
+                FireTrailSegmentComponent {
+                    damage_per_tick: trail_params.trail_segment_damage_per_tick,
+                    tick_timer: Timer::from_seconds(trail_params.trail_segment_tick_interval_secs.max(0.01), TimerMode::Repeating),
+                    duration_timer: Timer::from_seconds(trail_params.trail_segment_duration_secs.max(0.01), TimerMode::Once),
+                    width: trail_params.trail_segment_width,
+                    already_hit_this_tick: Vec::new(),
+                    original_color: trail_params.trail_segment_color, // Initialize new field
+                },
+                Name::new("FireTrailSegment"),
+            ));
+        }
+    }
 }
 
-pub fn fire_trail_segment_system(mut _commands: Commands) {
-    // TODO: Implement system
+pub fn fire_trail_segment_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    asset_server: Res<AssetServer>,
+    mut segment_query: Query<(Entity, &mut FireTrailSegmentComponent, &GlobalTransform, &mut Sprite)>,
+    mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>,
+) {
+    for (segment_entity, mut segment_comp, segment_gtransform, mut segment_sprite) in segment_query.iter_mut() {
+        // Segment Lifetime & Fade Out
+        segment_comp.duration_timer.tick(time.delta());
+        if segment_comp.duration_timer.finished() {
+            commands.entity(segment_entity).despawn_recursive();
+            continue;
+        }
+
+        let remaining_percent = 1.0 - segment_comp.duration_timer.percent();
+        segment_sprite.color.set_a(segment_comp.original_color.a() * remaining_percent);
+
+        // Damage Application
+        segment_comp.tick_timer.tick(time.delta());
+        if segment_comp.tick_timer.just_finished() {
+            segment_comp.already_hit_this_tick.clear();
+            let segment_pos = segment_gtransform.translation().truncate(); // Use GlobalTransform for world position
+
+            for (horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() {
+                let horror_pos = horror_gtransform.translation().truncate(); // Use GlobalTransform for world position
+
+                // Collision check (circular segment vs circular horror)
+                // Assuming horror_radius is fixed for now, ideally get from Horror component stats if available
+                let horror_radius = 16.0; // Placeholder radius for horrors
+                let combined_radius_sq = (segment_comp.width / 2.0 + horror_radius).powi(2);
+                let distance_sq = segment_pos.distance_squared(horror_pos);
+
+                if distance_sq < combined_radius_sq {
+                    if !segment_comp.already_hit_this_tick.contains(&horror_entity) {
+                        horror_health.0 = horror_health.0.saturating_sub(segment_comp.damage_per_tick);
+
+                        // Spawn damage text visual effect using the horror's GlobalTransform for position
+                        visual_effects::spawn_damage_text(
+                            &mut commands,
+                            &asset_server,
+                            horror_gtransform.translation(), // Position for damage text
+                            segment_comp.damage_per_tick,
+                            &time, // Pass time as a reference
+                        );
+                        segment_comp.already_hit_this_tick.push(horror_entity);
+                    }
+                }
+            }
+        }
+    }
 }
 
-pub fn chain_lightning_visual_system(mut _commands: Commands) {
-    // TODO: Implement system
+pub fn chain_lightning_visual_system(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    time: Res<Time>,
+    mut zap_query: Query<(Entity, &mut ChainLightningZapEffectComponent, Option<&Children>)>,
+    // We might need QueryState if we iterate and then try to get a mutable child sprite via commands.get_entity().
+    // For now, let's try direct query for children if possible, or simply manage sprites via their own entity.
+    // A simpler approach for now: the visual system will spawn/despawn its own sprite entities
+    // that are linked conceptually but not via Bevy parent/child hierarchy *if* direct child management becomes too complex
+    // within a single system pass.
+    // Re-evaluating: The parent/child for auto-despawn is good. The challenge is modifying the child sprite.
+    // Let's assume we spawn a child sprite and then query for it if we need to update it.
+    // For this version, we spawn it once and it gets despawned with the parent.
+    // We will need a marker component on the child sprite if we want to query it specifically.
+    // Or, if there's only one child, children.first() might work.
+) {
+    for (entity, mut zap, children_option) in zap_query.iter_mut() {
+        zap.duration_timer.tick(time.delta());
+        if zap.duration_timer.finished() {
+            commands.entity(entity).despawn_recursive();
+            continue;
+        }
+
+        // Check if a visual sprite child already exists
+        let mut has_sprite_child = false;
+        if let Some(children) = children_option {
+            for _child_entity in children.iter() {
+                // This is a simplification. In a real scenario, you'd have a marker component
+                // on the sprite child to ensure you're not interfering with other unrelated children.
+                // For now, we assume any child is the visual sprite.
+                has_sprite_child = true; 
+                // TODO: If we needed to update the sprite every frame (e.g., for fading alpha independently),
+                // we would query its components here using `commands.get_entity(*child_entity)` or a direct query.
+                // For example: `if let Some(mut sprite) = sprite_query.get_mut(*child_entity) { sprite.color.set_a(...) }`
+                break;
+            }
+        }
+
+        if !has_sprite_child {
+            let segment_vector = zap.end_pos - zap.start_pos;
+            let length = segment_vector.length();
+
+            if length < 1.0 { // Avoid issues with zero/tiny length
+                continue;
+            }
+
+            let midpoint = zap.start_pos + segment_vector / 2.0;
+            let angle = segment_vector.y.atan2(segment_vector.x);
+
+            let sprite_entity = commands.spawn(SpriteBundle {
+                texture: asset_server.load("sprites/white_pixel.png"), // Assuming 1x1 white pixel
+                sprite: Sprite {
+                    color: zap.color,
+                    custom_size: Some(Vec2::new(1.0, 1.0)), // Base size of the pixel
+                    anchor: bevy::sprite::Anchor::Center,
+                    ..default()
+                },
+                transform: Transform {
+                    translation: Vec3::new(midpoint.x, midpoint.y, 0.9), // Z-ordering
+                    rotation: Quat::from_rotation_z(angle),
+                    scale: Vec3::new(length, zap.width, 1.0),
+                },
+                ..default()
+            }).id();
+            commands.entity(entity).add_child(sprite_entity);
+        }
+    }
 }
 
 pub fn nova_visual_system(mut _commands: Commands) {
@@ -884,6 +1051,9 @@ impl Plugin for WeaponSystemsPlugin {
             .register_type::<TetherProjectileComponent>()
             .register_type::<PlayerWaitingTetherActivationComponent>()
             .register_type::<HorrorLatchedByTetherComponent>()
+            // Added ChainZapParams to Reflect for potential editor usage if this system evolves.
+            // Not strictly necessary if it's only passed as a direct param and not a component.
+            .register_type::<crate::items::ChainZapParams>()
             .add_systems(Update, (
                 manage_player_orbs_system,
                 orbiting_pet_behavior_system,
@@ -906,9 +1076,7 @@ impl Plugin for WeaponSystemsPlugin {
             ).run_if(in_state(AppState::InGame)))
             .add_systems(Update, (
                 charge_weapon_system,
-                trail_spawning_projectile_system,
-                fire_trail_segment_system,
-                chain_lightning_visual_system,
+                // chain_lightning_visual_system, // Will be added below with other visual systems
                 nova_visual_system,
                 manage_persistent_aura_system,
                 debuff_cloud_system,
@@ -917,7 +1085,172 @@ impl Plugin for WeaponSystemsPlugin {
                 lobbed_projectile_system,
                 ichor_pool_system,
                 channeled_beam_update_system,
+                // Added new systems here, ensuring they are not duplicated if already added by previous steps
+                trail_spawning_projectile_system,
+                fire_trail_segment_system,
+                chain_lightning_visual_system, // Added the new visual system here
+                // chain_lightning_attack_system, // This system is called directly for now
             ).run_if(in_state(AppState::InGame)));
+    }
+}
+
+// --- Chain Lightning Attack System ---
+pub fn chain_lightning_attack_system(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    time: Res<Time>,
+    player_query: Query<&Transform, With<crate::survivor::Survivor>>,
+    mut horror_query: Query<(Entity, &Transform, &mut crate::components::Health), With<crate::horror::Horror>>,
+    params: crate::items::ChainZapParams,
+) {
+    let player_transform = match player_query.get_single() {
+        Ok(transform) => transform,
+        Err(_) => return, // Player not found, exit early
+    };
+    let player_position = player_transform.translation.truncate();
+
+    // 1. Find and damage initial target
+    let mut initial_target_search_results: Vec<(Entity, f32, Transform)> = Vec::new();
+    for (horror_entity, horror_transform, _health) in horror_query.iter() {
+        let distance_sq = player_position.distance_squared(horror_transform.translation.truncate());
+        if distance_sq < params.initial_target_range.powi(2) {
+            initial_target_search_results.push((horror_entity, distance_sq, *horror_transform));
+        }
+    }
+
+    if initial_target_search_results.is_empty() {
+        info!("Chain Lightning: No initial target found within range {}.", params.initial_target_range);
+        return;
+    }
+
+    // Sort by distance to find the closest
+    initial_target_search_results.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+    
+    let (initial_target_entity, initial_target_dist_sq, _initial_target_transform) = initial_target_search_results[0];
+
+    // Damage the initial target
+    let player_actual_pos = player_transform.translation; // Player's current world position
+
+    if let Ok((_, target_actual_transform_ref, mut health)) = horror_query.get_mut(initial_target_entity) {
+        let initial_target_actual_pos = target_actual_transform_ref.translation; // Initial target's current world position
+        health.0 = health.0.saturating_sub(params.base_damage_per_zap);
+        
+        crate::visual_effects::spawn_damage_text(
+            &mut commands,
+            &asset_server,
+            initial_target_actual_pos, // Use current transform for damage text
+            params.base_damage_per_zap,
+            &time,
+        );
+        info!("Applied {} damage to initial target {:?} at distance {}", params.base_damage_per_zap, initial_target_entity, initial_target_dist_sq.sqrt());
+
+        // Spawn visual effect for player to initial target
+        commands.spawn((
+            ChainLightningZapEffectComponent {
+                start_pos: player_actual_pos,
+                end_pos: initial_target_actual_pos,
+                color: params.zap_color,
+                width: params.zap_width,
+                duration_timer: Timer::from_seconds(params.zap_duration_secs, TimerMode::Once),
+            },
+            Name::new("ChainLightningVisualSegment (Initial)"),
+        ));
+
+    } else {
+        error!("Failed to get mutable health for initial target {:?}", initial_target_entity);
+        return; // Cannot proceed if initial target cannot be damaged
+    }
+
+    // 2. Prepare for Chaining
+    let mut hit_targets: Vec<Entity> = vec![initial_target_entity];
+    // current_target_transform needs to be the actual transform of the entity, not a copy from the initial search
+    let mut current_target_transform = match horror_query.get(initial_target_entity) {
+         Ok((_, transform, _)) => *transform, // Dereference to get Transform from &Transform
+         Err(_) => {
+             error!("Could not re-fetch initial target's transform for chaining start.");
+             return;
+         }
+    };
+    let mut current_damage = params.base_damage_per_zap;
+
+    // 3. Chaining Loop
+    for chain_count in 1..=params.max_chains {
+        let mut next_target_options: Vec<(Entity, f32, Transform)> = Vec::new();
+        let current_search_origin = current_target_transform.translation.truncate();
+
+        for (possible_next_entity, possible_next_transform, _health) in horror_query.iter() {
+            if hit_targets.contains(&possible_next_entity) {
+                continue; // Already hit this target in this chain sequence
+            }
+            let distance_sq = current_search_origin.distance_squared(possible_next_transform.translation.truncate());
+            if distance_sq < params.chain_search_radius.powi(2) {
+                next_target_options.push((possible_next_entity, distance_sq, *possible_next_transform));
+            }
+        }
+
+        if next_target_options.is_empty() {
+            info!("Chain Lightning: Chain broken. No further targets found after chain {}.", chain_count - 1);
+            break; 
+        }
+
+        // Sort by distance to find the closest next target
+        next_target_options.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+        let (next_target_entity, _next_target_dist_sq, _next_target_transform) = next_target_options[0];
+
+        // If a next target is found:
+        current_damage = (current_damage as f32 * params.damage_falloff_per_chain).round() as i32;
+        if current_damage == 0 {
+            info!("Chain Lightning: Damage fell to zero at chain {}. Stopping.", chain_count);
+            break;
+        }
+
+        // The next_target_transform obtained from iteration is a snapshot.
+        // We need the most current transform if we were to use it for visual start, but for damage text it's fine.
+        // For the zap effect's end_pos, this snapshot is also fine.
+        
+        let zap_start_pos = current_target_transform.translation; // Position of the previous target in chain
+
+        if let Ok((_, next_target_actual_transform_ref, mut health)) = horror_query.get_mut(next_target_entity) {
+            let next_target_actual_pos = next_target_actual_transform_ref.translation; // Current position of the new target
+
+            health.0 = health.0.saturating_sub(current_damage);
+            crate::visual_effects::spawn_damage_text(
+                &mut commands,
+                &asset_server,
+                next_target_actual_pos, 
+                current_damage,
+                &time,
+            );
+            info!("Chain link {}: Applied {} damage to target {:?}", chain_count, current_damage, next_target_entity);
+
+            // Spawn visual effect for this chain segment
+            commands.spawn((
+                ChainLightningZapEffectComponent {
+                    start_pos: zap_start_pos, // From previous target
+                    end_pos: next_target_actual_pos, // To current new target
+                    color: params.zap_color,
+                    width: params.zap_width,
+                    duration_timer: Timer::from_seconds(params.zap_duration_secs, TimerMode::Once),
+                },
+                Name::new("ChainLightningVisualSegment (Chained)"),
+            ));
+            
+            // Update current_target_transform to the actual, current transform of the entity that was just hit
+            current_target_transform = *next_target_actual_transform_ref;
+
+        } else {
+            error!("Chain link {}: Failed to get mutable health for target {:?}. Chain broken.", chain_count, next_target_entity);
+            break; 
+        }
+
+        hit_targets.push(next_target_entity);
+        // current_target_entity = next_target_entity; // This line is actually not used by the loop logic anymore.
+                                                 // current_target_transform is the key for the next search origin.
+        
+        if chain_count == params.max_chains {
+            info!("Chain Lightning: Max chains ({}) reached.", params.max_chains);
+            break; // Ensure loop terminates if max_chains is met
+        }
     }
 }
 
@@ -1105,6 +1438,7 @@ pub fn spawn_actual_tether_projectile(
         None, // No trail params
         Some(weapon_params.clone()), // Tether params (cloned from definition)
         None, // No blink strike params
+        None // opt_trail_params
     );
 }
 
@@ -1383,6 +1717,7 @@ pub fn orbiting_pet_behavior_system(
                                     None,
                                     None,
                                     None,
+                                    None // opt_trail_params
                                 );
                             }
                         }

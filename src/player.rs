@@ -5,7 +5,8 @@ use crate::{
     components::{Velocity, Health as ComponentHealth},
     game::{AppState, ItemCollectedEvent},
     // thought_fragment::{spawn_thought_fragment, BASE_FRAGMENT_DAMAGE, BASE_FRAGMENT_SPEED}, // Old system, remove if no longer needed
-    enemy::Enemy,
+    enemy::Enemy, // Keep Enemy if used elsewhere, or remove if Horror replaces its usage
+    horror::Horror, // Added Horror
     weapons::{WardingWhispersAura, MindLarvaSwarm},
     audio::{PlaySoundEvent, SoundEffect},
     skills::{ActiveSkillInstance, SkillLibrary, SkillId, PlayerBuffEffect},
@@ -64,7 +65,7 @@ fn spawn_player( mut commands: Commands, asset_server: Res<AssetServer>, skill_l
         // No hardcoded glyphs anymore
         initial_skills.push(bolt_instance);
     }
-    commands.spawn(( SpriteBundle { texture: asset_server.load("sprites/player_ship_eldritch.png"), sprite: Sprite { custom_size: Some(PLAYER_SIZE), ..default() }, transform: Transform::from_xyz(0.0, 0.0, 1.0), ..default() }, Player::new_with_skills_and_items(initial_skills, Vec::new(), Some(AutomaticWeaponId(0))), ComponentHealth(INITIAL_PLAYER_MAX_HEALTH), Velocity(Vec2::ZERO), MindAffliction::default(), WardingWhispersAura::default(), MindLarvaSwarm::default(), Name::new("Player (Eldritch Hero)"), ));
+    commands.spawn(( SpriteBundle { texture: asset_server.load("sprites/player_ship_eldritch.png"), sprite: Sprite { custom_size: Some(PLAYER_SIZE), ..default() }, transform: Transform::from_xyz(0.0, 0.0, 1.0), ..default() }, Player::new_with_skills_and_items(initial_skills, Vec::new(), Some(AutomaticWeaponId(5))), ComponentHealth(INITIAL_PLAYER_MAX_HEALTH), Velocity(Vec2::ZERO), MindAffliction::default(), WardingWhispersAura::default(), MindLarvaSwarm::default(), Name::new("Player (Eldritch Hero)"), ));
 }
 fn despawn_player(mut commands: Commands, player_query: Query<Entity, With<Player>>) { if let Ok(player_entity) = player_query.get_single() { commands.entity(player_entity).despawn_recursive(); } }
 fn player_health_regeneration_system(time: Res<Time>, mut query: Query<(&Player, &mut ComponentHealth)>,) { for (player_stats, mut current_health) in query.iter_mut() { if player_stats.health_regen_rate > 0.0 && current_health.0 > 0 && current_health.0 < player_stats.max_health { let regen_amount = player_stats.health_regen_rate * time.delta_seconds(); current_health.0 = (current_health.0 as f32 + regen_amount).round() as i32; current_health.0 = current_health.0.min(player_stats.max_health); } } }
@@ -75,9 +76,14 @@ fn player_shooting_system(
     asset_server: Res<AssetServer>,
     time: Res<Time>,
     mut query: Query<(Entity, &Transform, &Player, &mut MindAffliction, Option<&PlayerBuffEffect>)>,
+    // Query for player's transform, specifically for chain_lightning_attack_system
+    player_q_for_chainzap: Query<&Transform, With<Player>>, 
+    // Query for horrors, specifically for chain_lightning_attack_system
+    horror_query: Query<(Entity, &Transform, &mut ComponentHealth), With<crate::horror::Horror>>,
     weapon_library: Res<AutomaticWeaponLibrary>,
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
 ) {
+    info!("player_shooting_system running tick...");
     for (player_entity, player_transform, player_stats, mut mind_affliction, buff_effect_opt) in query.iter_mut() {
         mind_affliction.fire_timer.tick(time.delta());
 
@@ -85,7 +91,9 @@ fn player_shooting_system(
         // let mut current_beam_params: Option<ChanneledBeamParams> = None; // Not needed with new direct check
 
         if let Some(weapon_id) = player_stats.equipped_weapon_id {
+            info!("Processing weapon_id: {:?}. Aim direction: {:?}. Fire timer finished: {}", weapon_id, player_stats.aim_direction, mind_affliction.fire_timer.finished());
             if let Some(weapon_def) = weapon_library.get_weapon_definition(weapon_id) {
+                info!("Selected weapon: '{}' (ID: {:?}), AttackType: {:?}", weapon_def.name, weapon_def.id, weapon_def.attack_data);
                 let base_fire_rate = match &weapon_def.attack_data {
                     AttackTypeData::StandardProjectile(params) => params.base_fire_rate_secs,
                     AttackTypeData::ReturningProjectile(params) => params.base_fire_rate_secs,
@@ -94,6 +102,7 @@ fn player_shooting_system(
                     AttackTypeData::LobbedAoEPool(params) => params.base_fire_rate_secs,
                     AttackTypeData::LobbedBouncingMagma(params) => params.base_fire_rate_secs,
                     AttackTypeData::RepositioningTether(params) => params.base_fire_rate_secs,
+                    AttackTypeData::ChainZap(params) => params.base_fire_rate_secs, // Added for ChainZap
                     // Add other new types here for fire rate calculation
                     _ => 1.0, // Default fire rate for unhandled types
                 };
@@ -196,6 +205,59 @@ fn player_shooting_system(
                             );
                         }
                     }
+                    AttackTypeData::TrailOfFire(params) => {
+                        should_stop_channeling = true; // Stop any previous channeling behavior
+                        if mind_affliction.fire_timer.just_finished() && player_stats.aim_direction != Vec2::ZERO {
+                            sound_event_writer.send(PlaySoundEvent(SoundEffect::PlayerShoot)); // Or a more fiery sound
+
+                            crate::automatic_projectiles::spawn_automatic_projectile(
+                                &mut commands,
+                                &asset_server,
+                                player_entity, // owner
+                                player_transform.translation, // position
+                                player_stats.aim_direction, // direction
+                                params.base_damage_on_impact, // initial_damage
+                                params.projectile_speed, // initial_speed
+                                0, // piercing (Inferno Bolt projectile itself might not pierce, the trail does the work)
+                                weapon_def.id, // weapon_id
+                                &params.projectile_sprite_path, // sprite_path
+                                params.projectile_size, // size
+                                params.projectile_color, // color
+                                params.projectile_lifetime_secs, // lifetime_secs
+                                None, // opt_max_bounces
+                                None, // opt_dmg_loss_mult
+                                None, // opt_speed_loss_mult
+                                None, // opt_lifesteal_percentage
+                                None, // opt_tether_params_for_comp
+                                None, // opt_blink_params
+                                Some(params.clone()) // opt_trail_params - THIS IS THE NEW PARAMETER
+                            );
+                        }
+                    }
+                    AttackTypeData::ChainZap(params) => {
+                        info!("Selected weapon is ChainZap. Params: {:?}", params);
+                        should_stop_channeling = true;
+                        // Call the new chain_lightning_attack_system
+                        // We only call this if the fire timer is ready, similar to other single-shot attacks.
+                        info!("Attempting to fire ChainZap (before IF condition). Fire timer finished: {}, Aim direction: {:?}", mind_affliction.fire_timer.finished(), player_stats.aim_direction);
+                        if mind_affliction.fire_timer.just_finished() && player_stats.aim_direction != Vec2::ZERO {
+                            info!("ChainZap fire condition met (timer finished and aiming). Calling attack system...");
+                            // Not sending a sound event here as the system itself might handle sounds for each zap.
+                            // Or, a general "activation" sound could be played here if desired.
+                            // sound_event_writer.send(PlaySoundEvent(SoundEffect::PlayerShoot)); // Example
+                            
+                            crate::weapon_systems::chain_lightning_attack_system(
+                                commands.reborrow(), // Reborrow commands
+                                asset_server.reborrow(), // Reborrow asset_server
+                                time.reborrow(), // Reborrow time
+                                player_q_for_chainzap.reborrow(), // Pass the specific player query
+                                horror_query.reborrow(), // Pass the horror query
+                                params.clone(),
+                            );
+                        }
+                        // If it's a continuous effect rather than a shot, the timer check might be inside the system
+                        // or handled differently. For now, assuming it's a "shot" type effect.
+                    }
                     // Ensure all other existing and future AttackTypeData variants are handled or have a default case.
                     _ => { // Default case for other attack types not explicitly handled above
                         should_stop_channeling = true;
@@ -226,3 +288,28 @@ fn player_enemy_collision_system( mut commands: Commands, asset_server: Res<Asse
 fn player_invincibility_system(time: Res<Time>, mut query: Query<(&mut Player, &mut Sprite, &ComponentHealth)>,) { for (mut player, mut sprite, health) in query.iter_mut() { if health.0 <= 0 { if sprite.color.a() != 1.0 { sprite.color.set_a(1.0); } continue; } if !player.invincibility_timer.finished() { player.invincibility_timer.tick(time.delta()); let alpha = (time.elapsed_seconds() * 20.0).sin() / 2.0 + 0.7; sprite.color.set_a(alpha.clamp(0.3, 1.0) as f32); } else { if sprite.color.a() != 1.0 { sprite.color.set_a(1.0); } } } }
 fn check_player_death_system(player_query: Query<&ComponentHealth, With<Player>>, mut app_state_next: ResMut<NextState<AppState>>, mut sound_event_writer: EventWriter<PlaySoundEvent>, current_app_state: Res<State<AppState>>,) { if let Ok(player_health) = player_query.get_single() { if player_health.0 <= 0 && *current_app_state.get() == AppState::InGame { sound_event_writer.send(PlaySoundEvent(SoundEffect::GameOver)); app_state_next.set(AppState::GameOver); } } }
 fn player_item_drop_collection_system(mut commands: Commands, player_query: Query<&Transform, With<Player>>, item_drop_query: Query<(Entity, &Transform, &ItemDrop)>, mut item_collected_event_writer: EventWriter<ItemCollectedEvent>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { if let Ok(player_transform) = player_query.get_single() { let player_pos = player_transform.translation.truncate(); for (item_drop_entity, item_drop_transform, item_drop_data) in item_drop_query.iter() { let item_drop_pos = item_drop_transform.translation.truncate(); if player_pos.distance(item_drop_pos) < ITEM_COLLECTION_RADIUS { item_collected_event_writer.send(ItemCollectedEvent(item_drop_data.item_id)); sound_event_writer.send(PlaySoundEvent(SoundEffect::XpCollect)); commands.entity(item_drop_entity).despawn_recursive(); } } } }
+
+fn log_equipped_weapon_system(
+    time: Res<Time>,
+    mut timer: Local<Timer>, // Local timer for this system
+    player_query: Query<(Entity, Option<&Player>), With<Player>> // Query for the player
+) {
+    if !timer.is_initialized() { // Initialize timer on first run
+        *timer = Timer::from_seconds(1.0, TimerMode::Repeating);
+    }
+    timer.tick(time.delta());
+    if timer.just_finished() { // Log every second
+        if let Ok((player_entity, player_component_opt)) = player_query.get_single() {
+            if player_component_opt.is_some() {
+                let player_stats = player_component_opt.unwrap(); // Safe due to is_some() check
+                info!("[EquippedWeaponCheck] Player entity: {:?}, ID: {:?}, Aim: {:?}", player_entity, player_stats.equipped_weapon_id, player_stats.aim_direction);
+            } else {
+                // This case should ideally not be reached if With<Player> guarantees the Player component.
+                // But it's here for robustness in case of unexpected states.
+                info!("[EquippedWeaponCheck] Player entity: {:?} found, but Player component data is unexpectedly missing.", player_entity);
+            }
+        } else {
+            info!("[EquippedWeaponCheck] Query for Player entity failed (no single entity with Player component found).");
+        }
+    }
+}
