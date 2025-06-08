@@ -1,5 +1,6 @@
 // src/items.rs
 use bevy::prelude::*;
+use serde::{Serialize, Deserialize};
 use crate::{
     survivor::Survivor,
     components::Health,
@@ -59,104 +60,119 @@ pub struct AutomaticWeaponId(pub u32);
 
 // --- Parameter Struct Definitions for AttackTypeData ---
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)]
+#[reflect(Default, PartialEq)]
 pub struct StandardProjectileParams {
-    pub base_damage: i32,
-    pub base_fire_rate_secs: f32,
-    pub base_projectile_speed: f32,
-    pub base_piercing: u32,
-    pub additional_projectiles: u32,
     pub projectile_sprite_path: String,
     pub projectile_size: Vec2,
     pub projectile_color: Color,
+    pub base_damage: i32,
+    pub projectile_speed: f32, // Keep this as the main speed field
     pub projectile_lifetime_secs: f32,
+    pub piercing: u32, // Keep this as the main piercing field
+    pub base_fire_rate_secs: f32, // Added
+    pub additional_projectiles: u32, // Added
 }
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)]
+#[reflect(Default, PartialEq)]
 pub struct ReturningProjectileParams {
-    pub base_damage: i32,
-    pub base_fire_rate_secs: f32,
+    pub base_fire_rate_secs: f32, // Added
     pub projectile_sprite_path: String,
     pub projectile_size: Vec2,
     pub projectile_color: Color,
+    pub base_damage: i32,
     pub projectile_speed: f32,
     pub travel_distance: f32,
     pub piercing: u32,
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq)] // Assuming Default is handled by impl
 pub struct ChanneledBeamParams {
-    pub base_damage_per_tick: i32,
-    pub tick_rate_secs: f32,
-    pub range: f32,
+    // pub base_damage_per_tick: i32, // Renamed in subtask to damage_per_tick
+    pub damage_per_tick: i32, // From subtask
+    pub tick_interval_secs: f32, // From subtask (was tick_rate_secs)
+    // pub range: f32, // Renamed in subtask to beam_range
+    pub beam_range: f32, // From subtask
     pub beam_width: f32,
-    pub beam_color: Color,
+    // pub beam_color: Color, // Renamed in subtask to color
+    pub color: Color, // From subtask
     pub movement_penalty_multiplier: f32,
-    pub max_duration_secs: Option<f32>,
-    pub cooldown_secs: Option<f32>,
-    pub is_automatic: bool,
+    pub max_duration_secs: Option<f32>, // Added
+    pub cooldown_secs: Option<f32>, // Added
+    pub is_automatic: bool, // Added
 }
 impl Default for ChanneledBeamParams {
     fn default() -> Self {
         Self {
-            base_damage_per_tick: 1, tick_rate_secs: 0.1, range: 300.0, beam_width: 10.0,
-            beam_color: Color::WHITE, movement_penalty_multiplier: 0.5,
-            max_duration_secs: None,
-            cooldown_secs: None,
-            is_automatic: false,
+            damage_per_tick: 1, tick_interval_secs: 0.1, beam_range: 300.0, beam_width: 10.0,
+            color: Color::WHITE, movement_penalty_multiplier: 0.5,
+            max_duration_secs: None, // Added default
+            cooldown_secs: None, // Added default
+            is_automatic: false, // Added default
         }
     }
 }
 
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)] // Added Serialize, Deserialize
+#[reflect(Default, PartialEq)]
 pub struct ConeAttackParams {
+    // pub base_damage: i32, // Already present
+    pub base_fire_rate_secs: f32, // Added
     pub base_damage: i32,
-    pub base_fire_rate_secs: f32,
     pub cone_angle_degrees: f32,
     pub cone_radius: f32,
     pub color: Color,
     pub visual_sprite_path: Option<String>,
     pub visual_size_scale_with_radius_angle: Option<(f32, f32)>,
     pub visual_anchor_offset: Option<Vec2>,
-    // New burn-related fields
-    pub applies_burn: Option<bool>,
-    pub burn_damage_per_tick: Option<i32>,
-    pub burn_duration_secs: Option<f32>,
-    pub burn_tick_interval_secs: Option<f32>,
+    pub applies_burn: Option<bool>, // Added
+    pub burn_damage_per_tick: Option<i32>, // Added
+    pub burn_duration_secs: Option<f32>, // Added
+    pub burn_tick_interval_secs: Option<f32>, // Added
 }
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)]
+#[reflect(Default, PartialEq)]
 pub struct LobbedAoEPoolParams {
-    pub base_damage_on_impact: i32,
-    pub pool_damage_per_tick: i32,
-    pub base_fire_rate_secs: f32,
-    pub projectile_speed: f32,
+    // pub base_damage_on_impact: i32, // Already present
+    // pub pool_damage_per_tick: i32, // Already present
+    pub base_fire_rate_secs: f32, // Added
     pub projectile_sprite_path: String,
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_arc_height: f32,
+    pub projectile_speed: f32,
+    pub base_damage_on_impact: i32,
     pub pool_radius: f32,
     pub pool_duration_secs: f32,
+    pub pool_damage_per_tick: i32,
     pub pool_tick_interval_secs: f32,
     pub pool_color: Color,
-    pub max_active_pools: u32,
+    pub max_active_pools: u32, // Added
 }
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)]
+#[reflect(Default, PartialEq)]
 pub struct ChargeLevelParams {
     pub charge_time_secs: f32,
-    pub projectile_damage: i32,
+    // pub projectile_damage: i32, // Renamed to damage in subtask
+    pub damage: i32,
     pub projectile_speed: f32,
     pub projectile_size: Vec2,
-    pub piercing: u32,
-    pub explodes_on_impact: bool,
-    pub explosion_radius: f32,
-    pub explosion_damage: i32,
-    pub projectile_sprite_path_override: Option<String>,
+    pub piercing: u32, // Added
+    pub explodes_on_impact: bool, // Added
+    pub explosion_radius: f32, // Added
+    pub explosion_damage: i32, // Added
+    pub projectile_sprite_path: String,
+    pub projectile_color: Color,
+    pub aoe_radius_on_impact: Option<f32>,
 }
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)]
+#[reflect(Default, PartialEq)]
 pub struct ChargeUpEnergyShotParams {
     pub base_fire_rate_secs: f32,
     pub base_projectile_sprite_path: String,
@@ -165,16 +181,17 @@ pub struct ChargeUpEnergyShotParams {
     pub projectile_lifetime_secs: f32,
 }
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)]
+#[reflect(Default, PartialEq)]
 pub struct TrailOfFireParams {
-    pub base_damage_on_impact: i32,
-    pub base_fire_rate_secs: f32,
-    pub projectile_speed: f32,
-    pub projectile_sprite_path: String,
-    pub projectile_size: Vec2,
-    pub projectile_color: Color,
-    pub projectile_lifetime_secs: f32,
-    pub trail_segment_spawn_interval_secs: f32,
+    pub base_damage_on_impact: i32, // Added
+    pub base_fire_rate_secs: f32, // Added
+    pub projectile_speed: f32, // Added
+    pub projectile_sprite_path: String, // Added
+    pub projectile_size: Vec2, // Added
+    pub projectile_color: Color, // Added
+    pub projectile_lifetime_secs: f32, // Added
+    pub segment_spawn_interval_secs: f32,
     pub trail_segment_damage_per_tick: i32,
     pub trail_segment_tick_interval_secs: f32,
     pub trail_segment_duration_secs: f32,
@@ -183,8 +200,8 @@ pub struct TrailOfFireParams {
 }
 
 
-#[derive(Debug, Clone, Copy, Reflect, PartialEq, Default)]
-#[reflect(Default)]
+#[derive(Debug, Clone, Copy, Reflect, PartialEq, Default, Serialize, Deserialize)] // Added Serialize, Deserialize
+#[reflect(Default, PartialEq)]
 pub enum RepositioningTetherMode {
     #[default]
     Pull,
@@ -192,9 +209,10 @@ pub enum RepositioningTetherMode {
     Alternate,
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq)] // Default is custom
 pub struct RepositioningTetherParams {
-    pub base_fire_rate_secs: f32,
+    pub base_fire_rate_secs: f32, // Added
     pub tether_projectile_speed: f32,
     pub tether_range: f32,
     pub tether_sprite_path: String,
@@ -209,7 +227,7 @@ pub struct RepositioningTetherParams {
 impl Default for RepositioningTetherParams {
     fn default() -> Self {
         Self {
-            base_fire_rate_secs: 1.0,
+            base_fire_rate_secs: 1.0, // Added default
             tether_projectile_speed: 600.0,
             tether_range: 400.0,
             tether_sprite_path: "sprites/tether_placeholder.png".to_string(),
@@ -225,68 +243,86 @@ impl Default for RepositioningTetherParams {
 }
 
 
-#[derive(Debug, Clone, Reflect, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)] // Added Serialize, Deserialize
+#[reflect(PartialEq)] // Default is custom
 pub struct OrbitingPetParams {
-    pub base_fire_rate_secs: f32,
+    // pub base_fire_rate_secs: f32, // Not in subtask list
     pub max_active_orbs: u32,
     pub orb_duration_secs: f32,
-    pub orb_sprite_path: String,
-    pub orb_size: Vec2,
-    pub orb_color: Color,
+    pub orb_sprite_path: String, // Not in subtask list, but seems essential
+    pub orb_size: Vec2, // Not in subtask list, but seems essential
+    pub orb_color: Color, // Not in subtask list, but seems essential
     pub orbit_radius: f32,
     pub orbit_speed_rad_per_sec: f32,
-    pub can_be_deployed_at_location: bool,
-    pub deployment_range: f32,
-    pub pulses_aoe: bool,
-    pub pulse_damage: i32,
-    pub pulse_radius: f32,
-    pub pulse_interval_secs: f32,
-    pub pulse_color: Option<Color>,
-    pub fires_seeking_bolts: bool,
-    pub bolt_damage: i32,
-    pub bolt_speed: f32,
-    pub bolt_fire_interval_secs: f32,
-    pub bolt_sprite_path: Option<String>,
-    pub bolt_size: Option<Vec2>,
-    pub bolt_color: Option<Color>,
-    pub bolt_lifetime_secs: Option<f32>,
-    pub bolt_homing_strength: Option<f32>,
+    pub base_fire_rate_secs: f32, // Added
+    pub can_be_deployed_at_location: bool, // Added
+    pub deployment_range: f32, // Added
+    pub pulses_aoe: bool, // Added
+    pub pulse_damage: i32, // Added
+    pub pulse_radius: f32, // Added
+    pub pulse_interval_secs: f32, // Added
+    pub pulse_color: Option<Color>, // Added
+    pub fires_seeking_bolts: bool, // Added
+    pub bolt_damage: i32, // Added
+    pub bolt_speed: f32, // Added
+    pub bolt_fire_interval_secs: f32, // Added
+    pub bolt_sprite_path: Option<String>, // Added
+    pub bolt_size: Option<Vec2>, // Added
+    pub bolt_color: Option<Color>, // Added
+    pub bolt_lifetime_secs: Option<f32>, // Added
+    pub bolt_homing_strength: Option<f32>, // Added
 }
 impl Default for OrbitingPetParams {
     fn default() -> Self {
         Self {
-            base_fire_rate_secs: 1.0, max_active_orbs: 1, orb_duration_secs: 10.0,
+            max_active_orbs: 1, orb_duration_secs: 10.0,
             orb_sprite_path: "sprites/auto_shadow_orb.png".to_string(), orb_size: Vec2::new(32.0, 32.0),
             orb_color: Color::PURPLE, orbit_radius: 75.0, orbit_speed_rad_per_sec: 1.0,
-            can_be_deployed_at_location: false, deployment_range: 0.0,
-            pulses_aoe: true, pulse_damage: 5, pulse_radius: 50.0, pulse_interval_secs: 1.5, pulse_color: Some(Color::rgba(0.5, 0.2, 0.8, 0.4)),
-            fires_seeking_bolts: false, bolt_damage: 0, bolt_speed: 0.0, bolt_fire_interval_secs: 0.0,
-            bolt_sprite_path: None, bolt_size: None, bolt_color: None, bolt_lifetime_secs: None, bolt_homing_strength: None,
+            base_fire_rate_secs: 1.0, // Added default
+            can_be_deployed_at_location: false, // Added default
+            deployment_range: 0.0, // Added default
+            pulses_aoe: true, // Added default
+            pulse_damage: 5, // Added default
+            pulse_radius: 50.0, // Added default
+            pulse_interval_secs: 1.5, // Added default
+            pulse_color: Some(Color::rgba(0.5, 0.2, 0.8, 0.4)), // Added default
+            fires_seeking_bolts: false, // Added default
+            bolt_damage: 0, // Added default
+            bolt_speed: 0.0, // Added default
+            bolt_fire_interval_secs: 0.0, // Added default
+            bolt_sprite_path: None, // Added default
+            bolt_size: None, // Added default
+            bolt_color: None, // Added default
+            bolt_lifetime_secs: None, // Added default
+            bolt_homing_strength: None, // Added default
         }
     }
 }
 
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)] // Added Serialize, Deserialize
+#[reflect(Default, PartialEq)]
 pub struct GroundTargetedAoEParams {
-    pub base_fire_rate_secs: f32,
+    // pub base_fire_rate_secs: f32, // Not in subtask list
     pub targeting_range: f32,
     pub reticle_sprite_path: Option<String>,
-    pub visual_sprite_path: Option<String>, // Added field
+    pub visual_sprite_path: Option<String>,
     pub reticle_size: Vec2,
     pub delay_before_eruption_secs: f32,
     pub eruption_radius: f32,
     pub damage: i32,
     pub aoe_color: Color,
     pub aoe_visual_duration_secs: f32,
-    pub knock_up_strength: f32,
-    pub root_duration_secs: Option<f32>,
+    pub base_fire_rate_secs: f32, // Added
+    pub knock_up_strength: f32, // Added
+    pub root_duration_secs: Option<f32>, // Added
 }
 
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)]
+#[reflect(Default, PartialEq)]
 pub struct LifestealProjectileParams {
-    pub base_fire_rate_secs: f32,
+    pub base_fire_rate_secs: f32, // Added
     pub base_damage: i32,
     pub projectile_speed: f32,
     pub projectile_sprite_path: String,
@@ -297,10 +333,11 @@ pub struct LifestealProjectileParams {
     pub lifesteal_percentage: f32,
 }
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)] // Added Serialize, Deserialize
+#[reflect(Default, PartialEq)]
 pub struct BouncingProjectileParams {
-    pub base_fire_rate_secs: f32,
-    pub num_shards_per_shot: u32,
+    // pub base_fire_rate_secs: f32, // Not in subtask list
+    // pub num_shards_per_shot: u32, // Not in subtask list
     pub base_damage: i32,
     pub projectile_speed: f32,
     pub projectile_sprite_path: String,
@@ -308,24 +345,27 @@ pub struct BouncingProjectileParams {
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
     pub max_bounces: u32,
-    pub damage_loss_per_bounce_multiplier: f32,
-    pub speed_loss_per_bounce_multiplier: f32,
-    pub spread_angle_degrees: f32,
+    pub base_fire_rate_secs: f32, // Added
+    pub num_shards_per_shot: u32, // Added
+    pub damage_loss_per_bounce_multiplier: f32, // Added
+    pub speed_loss_per_bounce_multiplier: f32, // Added
+    pub spread_angle_degrees: f32, // Added
 }
 
 
-#[derive(Debug, Clone, Copy, Reflect, PartialEq, Default)]
-#[reflect(Default)]
+#[derive(Debug, Clone, Copy, Reflect, PartialEq, Default, Serialize, Deserialize)]
+#[reflect(Default, PartialEq)]
 pub enum ProjectileDebuffType {
     #[default]
     DamageAmp,
     Slow,
 }
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)] // Added Serialize, Deserialize
+#[reflect(Default, PartialEq)]
 pub struct HomingDebuffProjectileParams {
-    pub base_fire_rate_secs: f32,
-    pub num_darts_per_shot: u32,
+    // pub base_fire_rate_secs: f32, // Not in subtask list
+    // pub num_darts_per_shot: u32, // Not in subtask list
     pub base_damage: i32,
     pub projectile_speed: f32,
     pub projectile_sprite_path: String,
@@ -333,39 +373,48 @@ pub struct HomingDebuffProjectileParams {
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
     pub homing_strength: f32,
-    pub homing_initial_target_search_radius: f32,
     pub debuff_type: ProjectileDebuffType,
-    pub debuff_magnitude_per_stack: f32,
-    pub max_debuff_stacks: u32,
-    pub debuff_duration_secs_on_target: f32,
+    pub base_fire_rate_secs: f32, // Added
+    pub num_darts_per_shot: u32, // Added
+    pub homing_initial_target_search_radius: f32, // Added
+    pub debuff_magnitude_per_stack: f32, // Added
+    pub max_debuff_stacks: u32, // Added
+    pub debuff_duration_secs_on_target: f32, // Added
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq)] // Default is custom
 pub struct ExpandingEnergyBombParams {
-    pub base_fire_rate_secs: f32,
+    // pub base_fire_rate_secs: f32, // Not in subtask list
     pub max_radius: f32,
     pub expansion_duration_secs: f32,
-    pub min_damage_at_min_radius: i32,
-    pub max_damage_at_max_radius: i32,
+    // pub min_damage_at_min_radius: i32, // Not in subtask list
     pub bomb_color: Color,
     pub visual_sprite_path: Option<String>,
-    pub detonation_can_be_manual: bool,
-    pub auto_detonation_delay_after_max_expansion_secs: f32,
+    pub base_fire_rate_secs: f32, // Added
+    pub min_damage_at_min_radius: i32, // Added
+    pub max_damage_at_max_radius: i32, // Added
+    pub detonation_can_be_manual: bool, // Added
+    pub auto_detonation_delay_after_max_expansion_secs: f32, // Added
 }
 impl Default for ExpandingEnergyBombParams {
     fn default() -> Self {
         Self {
-            base_fire_rate_secs: 2.0, max_radius: 250.0, expansion_duration_secs: 2.5,
-            min_damage_at_min_radius: 10, max_damage_at_max_radius: 80, bomb_color: Color::CYAN,
+            max_radius: 250.0, expansion_duration_secs: 2.5,
+            bomb_color: Color::CYAN,
             visual_sprite_path: Some("sprites/spirit_bomb_effect_placeholder.png".to_string()),
-            detonation_can_be_manual: true, auto_detonation_delay_after_max_expansion_secs: 1.0,
+            base_fire_rate_secs: 2.0, // Added default
+            min_damage_at_min_radius: 10, // Added default
+            max_damage_at_max_radius: 80, // Added default
+            detonation_can_be_manual: true, // Added default
+            auto_detonation_delay_after_max_expansion_secs: 1.0, // Added default
         }
     }
 }
 
 
-#[derive(Debug, Clone, Copy, Reflect, PartialEq, Default)]
-#[reflect(Default)]
+#[derive(Debug, Clone, Copy, Reflect, PartialEq, Default, Serialize, Deserialize)] // Added Serialize, Deserialize
+#[reflect(Default, PartialEq)]
 pub enum AuraDebuffType {
     #[default]
     ReduceAccuracy,
@@ -374,93 +423,103 @@ pub enum AuraDebuffType {
 }
 
 
-#[derive(Debug, Clone, Reflect, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)] // Added Serialize, Deserialize
+#[reflect(PartialEq)] // Default is custom
 pub struct DebuffAuraParams {
-    pub base_fire_rate_secs: f32,
+    // pub base_fire_rate_secs: f32, // Not in subtask list
     pub cloud_radius: f32,
     pub cloud_duration_secs: f32,
     pub cloud_color: Color,
     pub visual_sprite_path: Option<String>,
     pub debuff_type: AuraDebuffType,
     pub debuff_magnitude: f32,
-    pub debuff_duration_secs: f32,
+    pub base_fire_rate_secs: f32, // Added
+    pub debuff_duration_secs: f32, // Added
 }
 impl Default for DebuffAuraParams {
     fn default() -> Self {
         Self {
-            base_fire_rate_secs: 1.0, cloud_radius: 100.0, cloud_duration_secs: 3.0,
+            base_fire_rate_secs: 1.0, // Added default
+            cloud_radius: 100.0, cloud_duration_secs: 3.0,
             cloud_color: Color::GRAY, visual_sprite_path: Some("sprites/debuff_cloud_placeholder.png".to_string()),
-            debuff_type: AuraDebuffType::ReduceAccuracy, debuff_magnitude: 0.2, debuff_duration_secs: 2.0,
+            debuff_type: AuraDebuffType::ReduceAccuracy, debuff_magnitude: 0.2,
+            debuff_duration_secs: 2.0, // Added default
         }
     }
 }
 
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)] // Added Serialize, Deserialize
+#[reflect(Default, PartialEq)]
 pub struct PersistentAuraParams {
-    pub is_active_by_default: bool,
+    pub is_active_by_default: bool, // Added
     pub damage_per_tick: i32,
     pub tick_interval_secs: f32,
     pub radius: f32,
     pub aura_color: Color,
     pub visual_sprite_path: Option<String>,
-    pub fire_rate_secs_placeholder: f32,
+    pub fire_rate_secs_placeholder: f32, // Added
 }
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)]
+#[reflect(Default, PartialEq)]
 pub struct PointBlankNovaParams {
-    pub base_fire_rate_secs: f32,
+    pub base_fire_rate_secs: f32, // Added
     pub damage: i32,
     pub radius: f32,
     pub nova_color: Color,
-    pub visual_duration_secs: f32,
-    pub slow_effect_multiplier: f32,
-    pub slow_duration_secs: f32,
+    pub visual_duration_secs: f32, // Added
+    pub slow_effect_multiplier: f32, // Added
+    pub slow_duration_secs: f32, // Added
 }
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)]
+#[reflect(Default, PartialEq)]
 pub struct ChainZapParams {
-    pub base_fire_rate_secs: f32,
+    pub base_fire_rate_secs: f32, // Restored and ensuring it's present
     pub initial_target_range: f32,
     pub max_chains: u32,
     pub chain_search_radius: f32,
     pub base_damage_per_zap: i32,
-    pub damage_falloff_per_chain: f32,
+    pub damage_falloff_per_chain: f32, // Added
     pub zap_color: Color,
-    pub zap_width: f32,
-    pub zap_duration_secs: f32,
+    pub zap_width: f32, // Added
+    pub zap_duration_secs: f32, // Added
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq)] // Default is custom
 pub struct LineDashAttackParams {
-    pub base_fire_rate_secs: f32,
+    // pub base_fire_rate_secs: f32, // Not in subtask list
     pub dash_speed: f32,
     pub dash_duration_secs: f32,
     pub damage_per_hit: i32,
     pub hitbox_width: f32,
-    pub piercing_cap: u32,
-    pub dash_trail_color: Option<Color>,
-    pub invulnerable_during_dash: bool,
+    pub base_fire_rate_secs: f32, // Added
+    pub piercing_cap: u32, // Added
+    pub dash_trail_color: Option<Color>, // Added
+    pub invulnerable_during_dash: bool, // Added
 }
 impl Default for LineDashAttackParams {
     fn default() -> Self {
         Self {
-            base_fire_rate_secs: 1.0,
+            base_fire_rate_secs: 1.0, // Added default
             dash_speed: 1000.0,
             dash_duration_secs: 0.3,
             damage_per_hit: 10,
             hitbox_width: 50.0,
-            piercing_cap: 3,
-            dash_trail_color: Some(Color::WHITE),
-            invulnerable_during_dash: false,
+            piercing_cap: 3, // Added default
+            dash_trail_color: Some(Color::WHITE), // Added default
+            invulnerable_during_dash: false, // Added default
         }
     }
 }
 
 
-#[derive(Debug, Clone, Reflect, Default, PartialEq)]
+#[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)] // Added Serialize, Deserialize
+#[reflect(Default, PartialEq)]
 pub struct BlinkStrikeProjectileParams {
-    pub base_fire_rate_secs: f32,
+    // pub base_fire_rate_secs: f32, // Not in subtask list
     pub base_damage: i32,
     pub projectile_speed: f32,
     pub projectile_sprite_path: String,
@@ -468,16 +527,18 @@ pub struct BlinkStrikeProjectileParams {
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
     pub piercing: u32,
-    pub blink_chance_on_hit_percent: f32,
-    pub blink_distance: f32,
-    pub blink_to_target_behind: bool,
-    pub blink_requires_kill: bool,
-    pub num_projectiles_per_shot: u32,
+    pub base_fire_rate_secs: f32, // Added
+    pub blink_chance_on_hit_percent: f32, // Added
+    pub blink_distance: f32, // Added
+    pub blink_to_target_behind: bool, // Added
+    pub blink_requires_kill: bool, // Added
+    pub num_projectiles_per_shot: u32, // Added
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq)] // Default is custom
 pub struct LobbedBouncingMagmaParams {
-    pub base_fire_rate_secs: f32,
+    // pub base_fire_rate_secs: f32, // Not in subtask list
     pub projectile_speed: f32,
     pub projectile_sprite_path: String,
     pub projectile_size: Vec2,
@@ -486,21 +547,22 @@ pub struct LobbedBouncingMagmaParams {
     pub num_bounces: u32,
     pub damage_per_bounce_impact: i32,
     pub bounce_impact_radius: f32,
-    pub fire_pool_on_bounce_chance: f32,
-    pub fire_pool_damage_per_tick: i32,
-    pub fire_pool_radius: f32,
-    pub fire_pool_duration_secs: f32,
-    pub fire_pool_tick_interval_secs: f32,
-    pub fire_pool_color: Color,
     pub projectile_lifetime_secs: f32, 
-    pub explosion_radius_on_final_bounce: f32, // New field
-    pub explosion_damage_on_final_bounce: i32, // New field
+    pub base_fire_rate_secs: f32, // Added
+    pub explosion_radius_on_final_bounce: f32, // Added
+    pub explosion_damage_on_final_bounce: i32, // Added
+    pub fire_pool_on_bounce_chance: f32, // Added
+    pub fire_pool_color: Color, // Added
+    pub fire_pool_radius: f32, // Added
+    pub fire_pool_damage_per_tick: i32, // Added
+    pub fire_pool_tick_interval_secs: f32, // Added
+    pub fire_pool_duration_secs: f32, // Added
 }
 
 impl Default for LobbedBouncingMagmaParams {
     fn default() -> Self {
         Self {
-            base_fire_rate_secs: 0.9,
+            base_fire_rate_secs: 0.9, // Added default
             projectile_speed: 350.0,
             projectile_sprite_path: "sprites/magma_ball_placeholder.png".to_string(),
             projectile_size: Vec2::new(28.0, 28.0),
@@ -509,21 +571,22 @@ impl Default for LobbedBouncingMagmaParams {
             num_bounces: 3,
             damage_per_bounce_impact: 15,
             bounce_impact_radius: 50.0,
-            fire_pool_on_bounce_chance: 0.66,
-            fire_pool_damage_per_tick: 8,
-            fire_pool_radius: 60.0,
-            fire_pool_duration_secs: 2.5,
-            fire_pool_tick_interval_secs: 0.4,
-            fire_pool_color: Color::rgba(1.0, 0.4, 0.0, 0.6),
+            fire_pool_on_bounce_chance: 0.66, // Added default
+            fire_pool_damage_per_tick: 8, // Added default
+            fire_pool_radius: 60.0, // Added default
+            fire_pool_duration_secs: 2.5, // Added default
+            fire_pool_tick_interval_secs: 0.4, // Added default
+            fire_pool_color: Color::rgba(1.0, 0.4, 0.0, 0.6), // Added default
             projectile_lifetime_secs: 10.0, 
-            explosion_radius_on_final_bounce: 75.0, // Example default value
-            explosion_damage_on_final_bounce: 40,   // Example default value
+            explosion_radius_on_final_bounce: 75.0, // Added default
+            explosion_damage_on_final_bounce: 40,   // Added default
         }
     }
 }
 
 
-#[derive(Debug, Clone, Reflect, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)] // Added Serialize, Deserialize
+#[reflect(PartialEq)] // Default is custom
 pub enum AttackTypeData {
     StandardProjectile(StandardProjectileParams),
     ReturningProjectile(ReturningProjectileParams),
@@ -547,7 +610,7 @@ pub enum AttackTypeData {
     BlinkStrikeProjectile(BlinkStrikeProjectileParams),
     LobbedBouncingMagma(LobbedBouncingMagmaParams),
 }
-
+// Ensure Default impl for AttackTypeData is still valid with potentially changed StandardProjectileParams
 impl Default for AttackTypeData {
     fn default() -> Self {
         AttackTypeData::StandardProjectile(StandardProjectileParams::default())
@@ -555,7 +618,8 @@ impl Default for AttackTypeData {
 }
 
 
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, Default, Serialize, Deserialize)] // Added Default, Serialize, Deserialize
+#[reflect(Default)] // Added reflect Default
 pub struct ItemDefinition {
     pub id: ItemId,
     pub name: String,
@@ -564,29 +628,32 @@ pub struct ItemDefinition {
     pub icon_path: String,
 }
 
-#[derive(Resource, Default, Reflect)] #[reflect(Resource)]
+#[derive(Resource, Default, Reflect, Serialize, Deserialize)] #[reflect(Resource)] // Added Serialize, Deserialize
 pub struct ItemLibrary { pub items: Vec<ItemDefinition>, }
 impl ItemLibrary { pub fn get_item_definition(&self, id: ItemId) -> Option<&ItemDefinition> { self.items.iter().find(|def| def.id == id) } }
 
-#[derive(Component, Debug)] pub struct ItemDrop { pub item_id: ItemId, }
+#[derive(Component, Debug, Reflect, Default, Serialize, Deserialize)] // Added Reflect, Default, Serialize, Deserialize
+#[reflect(Component, Default)] // Added reflect Component, Default
+pub struct ItemDrop { pub item_id: ItemId, }
 pub const ITEM_DROP_SIZE: Vec2 = Vec2::new(24.0, 24.0);
 
-#[derive(Component, Reflect, Default, Debug)] #[reflect(Component)]
+#[derive(Component, Reflect, Default, Debug, Serialize, Deserialize)] #[reflect(Component, Default)] // Added Serialize, Deserialize and reflect Default
 pub struct ExplosionEffect { pub damage: i32, pub radius_sq: f32, pub timer: Timer, pub already_hit_entities: Vec<Entity>, }
-#[derive(Component, Reflect, Default, Debug)] #[reflect(Component)]
+#[derive(Component, Reflect, Default, Debug, Serialize, Deserialize)] #[reflect(Component, Default)] // Added Serialize, Deserialize and reflect Default
 pub struct RetaliationNovaEffect { pub damage: i32, pub radius_sq: f32, pub timer: Timer, pub already_hit_entities: Vec<Entity>, }
-#[derive(Component, Reflect, Default, Debug)] #[reflect(Component)]
+#[derive(Component, Reflect, Default, Debug, Serialize, Deserialize)] #[reflect(Component, Default)] // Added Serialize, Deserialize and reflect Default
 pub struct TemporaryHealthRegenBuff { pub regen_per_second: f32, pub duration_timer: Timer, }
 
 
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, Default, Serialize, Deserialize)] // Added Default, Serialize, Deserialize
+#[reflect(Default)] // Added reflect Default
 pub struct AutomaticWeaponDefinition {
     pub id: AutomaticWeaponId,
     pub name: String,
     pub attack_data: AttackTypeData,
 }
 
-#[derive(Resource, Default, Reflect)]
+#[derive(Resource, Default, Reflect, Serialize, Deserialize)] // Added Serialize, Deserialize
 #[reflect(Resource)]
 pub struct AutomaticWeaponLibrary {
     pub weapons: Vec<AutomaticWeaponDefinition>,
@@ -602,32 +669,43 @@ impl AutomaticWeaponLibrary {
 pub struct ItemsPlugin;
 impl Plugin for ItemsPlugin {
     fn build(&self, app: &mut App) {
-        app .register_type::<ItemId>() .register_type::<SurvivorTemporaryBuff>() .register_type::<ItemEffect>() .register_type::<ItemLibrary>()
-            .register_type::<ExplosionEffect>() .register_type::<RetaliationNovaEffect>() .register_type::<TemporaryHealthRegenBuff>()
-            .register_type::<AutomaticWeaponId>()
-            .register_type::<StandardProjectileParams>() .register_type::<ReturningProjectileParams>() .register_type::<ChanneledBeamParams>() .register_type::<ConeAttackParams>() .register_type::<LobbedAoEPoolParams>()
-            .register_type::<ChargeLevelParams>() .register_type::<ChargeUpEnergyShotParams>()
-            .register_type::<TrailOfFireParams>()
-            .register_type::<ChainZapParams>()
-            .register_type::<PointBlankNovaParams>()
-            .register_type::<PersistentAuraParams>()
-            .register_type::<AuraDebuffType>()
-            .register_type::<DebuffAuraParams>()
-            .register_type::<ExpandingEnergyBombParams>()
-            .register_type::<ProjectileDebuffType>()
-            .register_type::<HomingDebuffProjectileParams>()
-            .register_type::<BouncingProjectileParams>()
-            .register_type::<LifestealProjectileParams>()
-            .register_type::<GroundTargetedAoEParams>()
-            .register_type::<LineDashAttackParams>()
-            .register_type::<OrbitingPetParams>()
-            .register_type::<RepositioningTetherMode>()
-            .register_type::<RepositioningTetherParams>()
-            .register_type::<BlinkStrikeProjectileParams>()
-            .register_type::<LobbedBouncingMagmaParams>()
-            .register_type::<AttackTypeData>()
-            .register_type::<AutomaticWeaponDefinition>() // Registered
-            .register_type::<AutomaticWeaponLibrary>()
+        app .register_type::<ItemId>()
+            .register_type::<SurvivorTemporaryBuff>()
+            .register_type::<ItemEffect>()
+            .register_type::<ItemDrop>() // Added ItemDrop registration
+            .register_type::<ItemLibrary>() // Already Reflect, Resource, Default, Serialize, Deserialize
+            .register_type::<ExplosionEffect>()      // Reflect, Component, Default, Debug, Serialize, Deserialize
+            .register_type::<RetaliationNovaEffect>() // Reflect, Component, Default, Debug, Serialize, Deserialize
+            .register_type::<TemporaryHealthRegenBuff>() // Reflect, Component, Default, Debug, Serialize, Deserialize
+            .register_type::<AutomaticWeaponId>() // Reflect, Default
+            .register_type::<StandardProjectileParams>() // Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<ReturningProjectileParams>() // Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<ChanneledBeamParams>()      // Reflect, PartialEq, Serialize, Deserialize (custom Default)
+            .register_type::<ConeAttackParams>()         // Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<LobbedAoEPoolParams>()      // Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<ChargeLevelParams>()        // Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<ChargeUpEnergyShotParams>() // Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<TrailOfFireParams>()        // Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<ChainZapParams>()           // Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<PointBlankNovaParams>()     // Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<PersistentAuraParams>()     // Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<AuraDebuffType>()           // Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<DebuffAuraParams>()         // Reflect, PartialEq, Serialize, Deserialize (custom Default)
+            .register_type::<ExpandingEnergyBombParams>()// Reflect, PartialEq, Serialize, Deserialize (custom Default)
+            .register_type::<ProjectileDebuffType>()     // Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<HomingDebuffProjectileParams>()// Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<BouncingProjectileParams>() // Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<LifestealProjectileParams>()// Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<GroundTargetedAoEParams>()  // Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<LineDashAttackParams>()     // Reflect, PartialEq, Serialize, Deserialize (custom Default)
+            .register_type::<OrbitingPetParams>()        // Reflect, PartialEq, Serialize, Deserialize (custom Default)
+            .register_type::<RepositioningTetherMode>()  // Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<RepositioningTetherParams>()// Reflect, PartialEq, Serialize, Deserialize (custom Default)
+            .register_type::<BlinkStrikeProjectileParams>()// Reflect, Default, PartialEq, Serialize, Deserialize
+            .register_type::<LobbedBouncingMagmaParams>()// Reflect, PartialEq, Serialize, Deserialize (custom Default)
+            .register_type::<AttackTypeData>()           // Reflect, PartialEq, Serialize, Deserialize (custom Default)
+            .register_type::<AutomaticWeaponDefinition>() // Reflect, Default, Serialize, Deserialize
+            .register_type::<AutomaticWeaponLibrary>()   // Reflect, Resource, Default, Serialize, Deserialize
             .init_resource::<ItemLibrary>()
             .init_resource::<AutomaticWeaponLibrary>()
             .add_systems(Startup, (populate_item_library, populate_automatic_weapon_library) )

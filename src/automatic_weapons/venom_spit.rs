@@ -9,8 +9,8 @@ pub fn define_venom_spit() -> AutomaticWeaponDefinition {
         attack_data: AttackTypeData::StandardProjectile(StandardProjectileParams {
             base_damage: 10,
             base_fire_rate_secs: 0.4,
-            base_projectile_speed: 500.0,
-            base_piercing: 0,
+            projectile_speed: 500.0, // Renamed from base_projectile_speed
+            piercing: 0, // Renamed from base_piercing
             additional_projectiles: 2,
             projectile_sprite_path: "sprites/auto_venom_spit.png".to_string(),
             projectile_size: Vec2::new(15.0, 15.0),

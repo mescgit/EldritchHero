@@ -236,9 +236,9 @@ pub fn update_in_game_debug_ui(
         if let Some(weapon_def) = weapon_library.get_weapon_definition(player.inherent_weapon_id) {
             if let AttackTypeData::StandardProjectile(params) = &weapon_def.attack_data {
                 let effective_damage = params.base_damage as i32 + player.auto_weapon_damage_bonus;
-                let base_fire_rate = sanity_strain.base_fire_rate_secs; // This is from SanityStrain, set by game.rs
+                let base_fire_rate = sanity_strain.base_fire_rate_secs;
                 let current_fire_rate = sanity_strain.fire_timer.duration().as_secs_f32();
-                let effective_piercing = params.base_piercing + player.auto_weapon_piercing_bonus;
+                let effective_piercing = params.piercing + player.auto_weapon_piercing_bonus; // Corrected: base_piercing -> piercing
                 let effective_projectiles = 1 + params.additional_projectiles + player.auto_weapon_additional_projectiles_bonus;
 
                 text.sections[0].value = format!(
@@ -248,11 +248,11 @@ pub fn update_in_game_debug_ui(
                     Proj#: {} (Base: {}, Bonus: {})\n\
                     Crit: {:.1}% (Dmg Mult: {:.2}x) | Lifesteal: {:.1}% | Exec. Threshold: {:.1}%\n\
                     Bonus Ele Dmg (F/C/L/P): {}/{}/{}/{}",
-                    weapon_def.name, // Name is fine
+                    weapon_def.name,
                     effective_damage, params.base_damage, player.auto_weapon_damage_bonus,
                     current_fire_rate, base_fire_rate,
                     player.auto_weapon_projectile_speed_multiplier,
-                    effective_piercing, params.base_piercing, player.auto_weapon_piercing_bonus,
+                    effective_piercing, params.piercing, player.auto_weapon_piercing_bonus, // Corrected: base_piercing -> piercing
                     effective_projectiles, params.additional_projectiles, player.auto_weapon_additional_projectiles_bonus,
                     player.auto_attack_crit_chance, player.auto_attack_crit_damage_multiplier,
                     player.auto_attack_lifesteal_percent, player.auto_attack_execute_threshold,
