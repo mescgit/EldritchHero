@@ -1836,7 +1836,7 @@ pub fn spawn_magma_ball_attack(
         Damage(params.damage_per_bounce_impact + survivor_stats.auto_weapon_damage_bonus),
         Lifetime { timer: Timer::from_seconds(params.projectile_lifetime_secs, TimerMode::Once) },
         crate::automatic_projectiles::AutomaticProjectile {
-            owner: owner_entity,
+            owner: Some(owner_entity), // Corrected: owner -> Some(owner)
             piercing_left: 0,
             weapon_id,
             bounces_left: Some(params.num_bounces),

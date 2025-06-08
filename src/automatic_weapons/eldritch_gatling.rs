@@ -7,11 +7,11 @@ pub fn define_eldritch_gatling() -> AutomaticWeaponDefinition {
         id: AutomaticWeaponId(1),
         name: "Eldritch Gatling".to_string(),
         attack_data: AttackTypeData::ChanneledBeam(ChanneledBeamParams {
-            base_damage_per_tick: 2,
-            tick_rate_secs: 0.1,
-            range: 400.0,
+            damage_per_tick: 2, // Renamed
+            tick_interval_secs: 0.1, // Renamed
+            beam_range: 400.0, // Renamed
             beam_width: 15.0,
-            beam_color: Color::rgb(0.3, 0.9, 0.4),
+            color: Color::rgb(0.3, 0.9, 0.4), // Renamed
             movement_penalty_multiplier: 0.7,
             max_duration_secs: None,
             cooldown_secs: None,

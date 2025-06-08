@@ -313,7 +313,7 @@ fn spawn_survivor(
         match &weapon_def.attack_data {
             AttackTypeData::StandardProjectile(params) => initial_fire_rate = params.base_fire_rate_secs,
             AttackTypeData::ReturningProjectile(params) => initial_fire_rate = params.base_fire_rate_secs,
-            AttackTypeData::ChanneledBeam(params) => initial_fire_rate = params.tick_rate_secs, 
+            AttackTypeData::ChanneledBeam(params) => initial_fire_rate = params.tick_interval_secs, // Corrected: tick_rate_secs -> tick_interval_secs
             AttackTypeData::ConeAttack(params) => initial_fire_rate = params.base_fire_rate_secs,
             AttackTypeData::LobbedAoEPool(params) => initial_fire_rate = params.base_fire_rate_secs,
             AttackTypeData::ChargeUpEnergyShot(params) => {
@@ -483,8 +483,8 @@ fn survivor_casting_system(
                             SpriteBundle { 
                                 texture: asset_server.load(String::from("sprites/channeled_beam_placeholder.png")), 
                                 sprite: Sprite { 
-                                    custom_size: Some(Vec2::new(params.range, params.beam_width)), 
-                                    color: params.beam_color, 
+                                    custom_size: Some(Vec2::new(params.beam_range, params.beam_width)), // Corrected: range -> beam_range
+                                    color: params.color, // Corrected: beam_color -> color
                                     anchor: bevy::sprite::Anchor::CenterLeft, 
                                     ..default() 
                                 }, 
@@ -493,11 +493,11 @@ fn survivor_casting_system(
                                 ..default() 
                             },
                             crate::weapon_systems::ChanneledBeamComponent {
-                                damage_per_tick: params.base_damage_per_tick + survivor_stats.auto_weapon_damage_bonus,
-                                tick_timer: Timer::from_seconds(params.tick_rate_secs, TimerMode::Repeating),
-                                range: params.range, 
+                                damage_per_tick: params.damage_per_tick + survivor_stats.auto_weapon_damage_bonus, // Corrected: base_damage_per_tick -> damage_per_tick
+                                tick_timer: Timer::from_seconds(params.tick_interval_secs, TimerMode::Repeating), // Corrected: tick_rate_secs -> tick_interval_secs
+                                range: params.beam_range, // Corrected: range -> beam_range
                                 width: params.beam_width, 
-                                color: params.beam_color,
+                                color: params.color, // Corrected: beam_color -> color
                                 owner: survivor_entity,
                             },
                             Name::new("ChanneledBeamWeaponInstance (Automatic)"),
@@ -521,8 +521,8 @@ fn survivor_casting_system(
                         SpriteBundle { 
                             texture: asset_server.load(String::from("sprites/channeled_beam_placeholder.png")), 
                             sprite: Sprite { 
-                                custom_size: Some(Vec2::new(params.range, params.beam_width)), 
-                                color: params.beam_color, 
+                                custom_size: Some(Vec2::new(params.beam_range, params.beam_width)), // Corrected: range -> beam_range
+                                color: params.color, // Corrected: beam_color -> color
                                 anchor: bevy::sprite::Anchor::CenterLeft, 
                                 ..default() 
                             }, 
@@ -531,11 +531,11 @@ fn survivor_casting_system(
                             ..default() 
                         },
                         crate::weapon_systems::ChanneledBeamComponent {
-                            damage_per_tick: params.base_damage_per_tick + survivor_stats.auto_weapon_damage_bonus,
-                            tick_timer: Timer::from_seconds(params.tick_rate_secs, TimerMode::Repeating),
-                            range: params.range, 
+                            damage_per_tick: params.damage_per_tick + survivor_stats.auto_weapon_damage_bonus, // Corrected: base_damage_per_tick -> damage_per_tick
+                            tick_timer: Timer::from_seconds(params.tick_interval_secs, TimerMode::Repeating), // Corrected: tick_rate_secs -> tick_interval_secs
+                            range: params.beam_range, // Corrected: range -> beam_range
                             width: params.beam_width, 
-                            color: params.beam_color,
+                            color: params.color, // Corrected: beam_color -> color
                             owner: survivor_entity,
                         },
                         Name::new("ChanneledBeamWeaponInstance (Automatic)"),
@@ -610,8 +610,8 @@ fn survivor_casting_system(
                             SpriteBundle { 
                                 texture: asset_server.load(String::from("sprites/channeled_beam_placeholder.png")), 
                                 sprite: Sprite { 
-                                    custom_size: Some(Vec2::new(params.range, params.beam_width)), 
-                                    color: params.beam_color, 
+                                    custom_size: Some(Vec2::new(params.beam_range, params.beam_width)), // Corrected: range -> beam_range
+                                    color: params.color, // Corrected: beam_color -> color
                                     anchor: bevy::sprite::Anchor::CenterLeft, 
                                     ..default() 
                                 }, 
@@ -620,11 +620,11 @@ fn survivor_casting_system(
                                 ..default() 
                             },
                             crate::weapon_systems::ChanneledBeamComponent {
-                                damage_per_tick: params.base_damage_per_tick + survivor_stats.auto_weapon_damage_bonus,
-                                tick_timer: Timer::from_seconds(params.tick_rate_secs, TimerMode::Repeating),
-                                range: params.range, 
+                                damage_per_tick: params.damage_per_tick + survivor_stats.auto_weapon_damage_bonus, // Corrected: base_damage_per_tick -> damage_per_tick
+                                tick_timer: Timer::from_seconds(params.tick_interval_secs, TimerMode::Repeating), // Corrected: tick_rate_secs -> tick_interval_secs
+                                range: params.beam_range, // Corrected: range -> beam_range
                                 width: params.beam_width, 
-                                color: params.beam_color,
+                                color: params.color, // Corrected: beam_color -> color
                                 owner: survivor_entity,
                             },
                             Name::new("ChanneledBeamWeaponInstance (Manual)"),
@@ -671,15 +671,24 @@ fn survivor_casting_system(
                     let current_level_index = charging_comp.current_charge_level_index;
                     if current_level_index < shot_params.charge_levels.len() {
                         let level_params = &shot_params.charge_levels[current_level_index];
-                        let projectile_damage = level_params.projectile_damage + survivor_stats.auto_weapon_damage_bonus;
+                        let projectile_damage = level_params.damage + survivor_stats.auto_weapon_damage_bonus; // Corrected: projectile_damage -> damage
                         let projectile_speed = level_params.projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier;
                         let projectile_piercing = level_params.piercing + survivor_stats.auto_weapon_piercing_bonus;
-                        let sprite_path = level_params.projectile_sprite_path_override.as_deref().unwrap_or(&shot_params.base_projectile_sprite_path);
+                        // Use level_params.projectile_sprite_path directly; if empty, it implies using base.
+                        // The logic for choosing sprite path might need to be more explicit if "" is not desired.
+                        let sprite_path = if level_params.projectile_sprite_path.is_empty() {
+                            &shot_params.base_projectile_sprite_path
+                        } else {
+                            &level_params.projectile_sprite_path
+                        };
+                        // Use level_params.projectile_color directly; if different from base, it's an override.
+                        let color_to_use = level_params.projectile_color;
+
 
                         crate::automatic_projectiles::spawn_automatic_projectile(
                             &mut commands, &asset_server, survivor_entity, survivor_transform.translation, survivor_stats.aim_direction,
                             projectile_damage, projectile_speed, projectile_piercing, weapon_def.id,
-                            sprite_path, level_params.projectile_size, shot_params.base_projectile_color, shot_params.projectile_lifetime_secs,
+                            sprite_path, level_params.projectile_size, color_to_use, shot_params.projectile_lifetime_secs,
                             None, None, None, None, None, None, None 
                         );
                     }
@@ -714,8 +723,8 @@ fn survivor_casting_system(
                     AttackTypeData::StandardProjectile(params) => {
                         let current_damage = params.base_damage + survivor_stats.auto_weapon_damage_bonus;
                         let effective_projectile_lifetime_secs = params.projectile_lifetime_secs * survivor_stats.auto_attack_projectile_duration_multiplier;
-                        let current_speed = params.base_projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier;
-                        let current_piercing = params.base_piercing + survivor_stats.auto_weapon_piercing_bonus;
+                        let current_speed = params.projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier; // Corrected: base_projectile_speed -> projectile_speed
+                        let current_piercing = params.piercing + survivor_stats.auto_weapon_piercing_bonus; // Corrected: base_piercing -> piercing
                         let total_projectiles = 1 + params.additional_projectiles + survivor_stats.auto_weapon_additional_projectiles_bonus;
 
                         let base_angle = survivor_stats.aim_direction.y.atan2(survivor_stats.aim_direction.x);

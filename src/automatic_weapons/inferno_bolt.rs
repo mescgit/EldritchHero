@@ -13,7 +13,7 @@ pub fn define_inferno_bolt() -> AutomaticWeaponDefinition {
             projectile_size: Vec2::new(20.0, 20.0),
             projectile_color: Color::rgb(1.0, 0.3, 0.0),
             projectile_lifetime_secs: 1.5,
-            trail_segment_spawn_interval_secs: 0.1,
+            segment_spawn_interval_secs: 0.1, // Renamed from trail_segment_spawn_interval_secs
             trail_segment_damage_per_tick: 5,
             trail_segment_tick_interval_secs: 0.5,
             trail_segment_duration_secs: 2.0,

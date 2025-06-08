@@ -1224,15 +1224,15 @@ fn apply_chosen_upgrade(
                     if equipped_def.id == *weapon_id {
                         if let AttackTypeData::ChanneledBeam(ref mut params) = equipped_def.attack_data {
                             match field {
-                                ChanneledBeamField::BaseDamagePerTick => {
-                                    let current_val = params.base_damage_per_tick as f32;
-                                    if *is_percentage { params.base_damage_per_tick = (current_val * (1.0 + change_value)).round() as i32; } else { params.base_damage_per_tick = (current_val + change_value).round() as i32; }
+                                ChanneledBeamField::BaseDamagePerTick => { // This enum variant should likely be DamagePerTick
+                                    let current_val = params.damage_per_tick as f32; // Corrected: base_damage_per_tick -> damage_per_tick
+                                    if *is_percentage { params.damage_per_tick = (current_val * (1.0 + change_value)).round() as i32; } else { params.damage_per_tick = (current_val + change_value).round() as i32; }
                                 }
-                                ChanneledBeamField::TickRateSecs => { // Lower is better
-                                    if *is_percentage { params.tick_rate_secs /= 1.0 + change_value; } else { params.tick_rate_secs = (params.tick_rate_secs + change_value).max(0.01); }
+                                ChanneledBeamField::TickRateSecs => { // This enum variant should likely be TickIntervalSecs
+                                    if *is_percentage { params.tick_interval_secs /= 1.0 + change_value; } else { params.tick_interval_secs = (params.tick_interval_secs + change_value).max(0.01); } // Corrected: tick_rate_secs -> tick_interval_secs
                                 }
-                                ChanneledBeamField::Range => {
-                                    if *is_percentage { params.range *= 1.0 + change_value; } else { params.range += *change_value; }
+                                ChanneledBeamField::Range => { // This enum variant should likely be BeamRange
+                                    if *is_percentage { params.beam_range *= 1.0 + change_value; } else { params.beam_range += *change_value; } // Corrected: range -> beam_range
                                 }
                                 ChanneledBeamField::BeamWidth => {
                                     if *is_percentage { params.beam_width *= 1.0 + change_value; } else { params.beam_width += *change_value; }
@@ -1294,12 +1294,12 @@ fn apply_chosen_upgrade(
                                 StandardProjectileField::BaseFireRateSecs => { // Lower is better
                                     if *is_percentage { params.base_fire_rate_secs /= 1.0 + change_value; } else { params.base_fire_rate_secs = (params.base_fire_rate_secs + change_value).max(0.01); }
                                 }
-                                StandardProjectileField::BaseProjectileSpeed => {
-                                    if *is_percentage { params.base_projectile_speed *= 1.0 + change_value; } else { params.base_projectile_speed += *change_value; }
+                                StandardProjectileField::BaseProjectileSpeed => { // This enum variant should likely be ProjectileSpeed
+                                    if *is_percentage { params.projectile_speed *= 1.0 + change_value; } else { params.projectile_speed += *change_value; } // Corrected: base_projectile_speed -> projectile_speed
                                 }
-                                StandardProjectileField::BasePiercing => {
-                                    let current_val = params.base_piercing as f32;
-                                    if *is_percentage { params.base_piercing = (current_val * (1.0 + change_value)).round() as u32; } else { params.base_piercing = (current_val + change_value).round() as u32; }
+                                StandardProjectileField::BasePiercing => { // This enum variant should likely be Piercing
+                                    let current_val = params.piercing as f32; // Corrected: base_piercing -> piercing
+                                    if *is_percentage { params.piercing = (current_val * (1.0 + change_value)).round() as u32; } else { params.piercing = (current_val + change_value).round() as u32; }
                                 }
                                 StandardProjectileField::AdditionalProjectiles => {
                                     let current_val = params.additional_projectiles as f32;
