@@ -335,3 +335,7 @@ pub struct PlayerSparkAuraComponent {
     pub base_radius: f32, // e.g., related to chain lightning initial range
     // Add any other relevant fields for animation or appearance
 }
+
+#[derive(Component, Debug, Reflect, Default)]
+#[reflect(Component, Default)]
+pub struct PlayerRequestsOrbDeployment(pub bool);

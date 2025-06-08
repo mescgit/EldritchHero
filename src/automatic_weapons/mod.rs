@@ -66,5 +66,7 @@ pub fn get_all_specific_weapon_upgrades() -> Vec<UpgradeCard> {
     specific_upgrades.extend(sunfire_burst::get_specific_upgrades());
     // As more weapons get this function, add their calls here
 
+    specific_upgrades.extend(shadow_orb::get_shadow_orb_upgrade_cards());
+
     specific_upgrades
 }

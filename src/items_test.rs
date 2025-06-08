@@ -1,7 +1,7 @@
-use cosmic_gardener::items::{ItemId, ItemDefinition, ItemEffect, ItemLibrary};
-use cosmic_gardener::survivor::Survivor; // Assuming survivor.rs is at crate root
-use cosmic_gardener::skills::ActiveSkillInstance; // For Survivor::new_with_skills_and_items
-use cosmic_gardener::components::Health as ComponentHealth; // For checking health component
+use eldritch_hero::items::{ItemId, ItemDefinition, ItemEffect, ItemLibrary};
+use eldritch_hero::survivor::Survivor; // Assuming survivor.rs is at crate root
+use eldritch_hero::skills::ActiveSkillInstance; // For Survivor::new_with_skills_and_items
+use eldritch_hero::components::Health as ComponentHealth; // For checking health component
 use bevy::prelude::default; // For default components if needed for Survivor
 
 // Helper function to create a basic ItemLibrary for testing
@@ -111,7 +111,7 @@ fn test_passive_stat_boost_application() {
 use bevy::prelude::*;
 use bevy::asset::AssetPlugin;
 use bevy::render::texture::ImagePlugin; // Though not strictly needed for param check, good for consistency
-use cosmic_gardener::items::{ItemsPlugin, AutomaticWeaponLibrary, AutomaticWeaponId, AttackTypeData, ConeAttackParams as ItemConeAttackParams};
+use eldritch_hero::items::{ItemsPlugin, AutomaticWeaponLibrary, AutomaticWeaponId, AttackTypeData, ConeAttackParams as ItemConeAttackParams};
 
 #[test]
 fn test_sunfire_burst_config_with_burn() {

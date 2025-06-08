@@ -1,4 +1,4 @@
-use eldritch_hero::skills::{ActiveSkillInstance, SkillId}; // Assuming 'cosmic_gardener' is the crate name
+use eldritch_hero::skills::{ActiveSkillInstance, SkillId};
 use std::time::Duration;
 
 #[test]

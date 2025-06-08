@@ -183,9 +183,33 @@ pub enum UpgradeType {
     ModifyChanneledBeam { weapon_id: AutomaticWeaponId, field: ChanneledBeamField, change_value: f32, is_percentage: bool },
     ModifyConeAttack { weapon_id: AutomaticWeaponId, field: ConeAttackField, change_value: f32, is_percentage: bool },
     ModifyLobbedAoEPool { weapon_id: AutomaticWeaponId, field: LobbedAoEPoolField, change_value: f32, is_percentage: bool },
+    ModifyOrbitingPet { weapon_id: AutomaticWeaponId, field: OrbitingPetField, change_value: f32, is_percentage: bool },
 }
 
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Default)]
+#[reflect(Default)]
+pub enum OrbitingPetField {
+    #[default]
+    MaxActiveOrbs,
+    OrbDurationSecs,
+    OrbitRadius,
+    OrbitSpeedRadPerSec,
+    // Deployment related
+    CanBeDeployedAtLocation, // Might be a boolean toggle rather than numerical.
+    DeploymentRange,
+    // Pulse Attack related
+    PulseDamage,
+    PulseRadius,
+    PulseIntervalSecs,
+    // Bolt Attack related
+    BoltDamage,
+    BoltSpeed,
+    BoltFireIntervalSecs,
+    BoltLifetimeSecs,
+    BoltHomingStrength,
+}
+
+#[derive(Debug, Clone, Reflect, PartialEq)] // Added PartialEq
 pub struct UpgradeCard {
     pub id: UpgradeId,
     pub name: String,
@@ -1456,6 +1480,7 @@ impl Plugin for UpgradePlugin {
             .register_type::<ChanneledBeamField>()
             .register_type::<ReturningProjectileField>()
             .register_type::<StandardProjectileField>()
-            .register_type::<ConeAttackField>();
+            .register_type::<ConeAttackField>()
+            .register_type::<OrbitingPetField>();
     }
 }

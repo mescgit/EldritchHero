@@ -4,26 +4,30 @@ use bevy::log::info;
 // use crate::game::AppState; // Removed as AppState is used with full path
 use bevy::ecs::schedule::common_conditions::in_state;
 
-mod survivor;
-mod components;
-mod horror;
-mod automatic_projectiles; // Changed from ichor_blast
-mod game;
-mod echoing_soul;
-mod upgrades;
-mod level_event_effects;
-mod weapons;
-mod visual_effects;
-mod audio;
-mod camera_systems;
-mod background;
-mod debug_menu;
-mod in_game_debug_ui;
-mod skills;
-mod items;
-mod glyphs; // Uncommented
-mod weapon_systems; // Added
-pub mod automatic_weapons;
+// Modules managed by lib.rs now
+use eldritch_hero::survivor;
+use eldritch_hero::components;
+use eldritch_hero::horror;
+use eldritch_hero::game;
+use eldritch_hero::echoing_soul;
+use eldritch_hero::upgrades;
+use eldritch_hero::level_event_effects;
+use eldritch_hero::weapons;
+use eldritch_hero::visual_effects;
+use eldritch_hero::audio;
+use eldritch_hero::camera_systems;
+use eldritch_hero::background;
+use eldritch_hero::debug_menu;
+use eldritch_hero::in_game_debug_ui;
+use eldritch_hero::skills;
+use eldritch_hero::items;
+use eldritch_hero::glyphs;
+use eldritch_hero::weapon_systems;
+use eldritch_hero::automatic_weapons;
+use eldritch_hero::automatic_projectiles; // Ensure this use statement is present
+
+// Modules specific to main.rs (if any)
+// mod automatic_projectiles; // This line should be removed
 
 use survivor::SurvivorPlugin;
 use horror::HorrorPlugin;
@@ -65,6 +69,7 @@ fn main() {
         .register_type::<AutomaticWeaponId>()
         .register_type::<AutomaticWeaponDefinition>()
         .register_type::<AutomaticWeaponLibrary>()
+        .register_type::<components::PlayerRequestsOrbDeployment>() // Added registration
         .add_event::<crate::components::PlayerBlinkEvent>()
         .add_plugins((
             GamePlugin,

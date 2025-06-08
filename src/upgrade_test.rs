@@ -1,6 +1,7 @@
 use eldritch_hero::upgrades::{UpgradeId, UpgradeCard, UpgradeType, UpgradePool};
 use eldritch_hero::skills::{SkillId, ActiveSkillInstance};
 use eldritch_hero::survivor::Survivor; // For applying upgrades to survivor's skills
+use std::time::Duration;
 
 fn setup_test_upgrade_pool() -> UpgradePool {
     let mut pool = UpgradePool::default();

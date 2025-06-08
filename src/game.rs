@@ -1356,6 +1356,13 @@ fn apply_chosen_upgrade(
                     }
                 }
             }
+            UpgradeType::ModifyOrbitingPet { weapon_id, field, change_value, is_percentage } => {
+                // TODO: Implement logic for modifying orbiting pet parameters
+                info!(
+                    "Selected ModifyOrbitingPet for weapon {:?}, field {:?}, value {}, is_percentage {}",
+                    weapon_id, field, change_value, is_percentage
+                );
+            }
         }
     }
 }

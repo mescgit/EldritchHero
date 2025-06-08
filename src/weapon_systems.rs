@@ -10,7 +10,7 @@ use crate::items::{
     AutomaticWeaponId, AttackTypeData, OrbitingPetParams, AutomaticWeaponLibrary
 };
 use crate::components::{
-    Velocity, Damage, Lifetime, Health, RootedComponent, HorrorLatchedByTetherComponent
+    Velocity, Damage, Lifetime, Health, RootedComponent, HorrorLatchedByTetherComponent, PlayerRequestsOrbDeployment
 };
 use crate::survivor::{BASE_SURVIVOR_SPEED as BASE_PLAYER_SPEED, Survivor, SanityStrain as SurvivorSanityStrain, SURVIVOR_SIZE};
 use crate::camera_systems::MainCamera;
@@ -990,8 +990,8 @@ pub fn channeled_beam_update_system(
     }
 }
 
-#[derive(Component, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Debug, Reflect)] // Default was removed as new fields need specific init
+#[reflect(Component)]
 pub struct OrbitingPetComponent {
     pub params_snapshot: crate::items::OrbitingPetParams,
     pub orbit_angle_rad: f32,
@@ -999,17 +999,22 @@ pub struct OrbitingPetComponent {
     pub pulse_timer: Option<Timer>,
     pub bolt_timer: Option<Timer>,
     pub owner_player_entity: Entity,
+    pub is_deployed: bool, // New field
+    pub deployed_position: Vec3, // New field
 }
 
+// Add a Default impl manually if Default derive was removed
 impl Default for OrbitingPetComponent {
     fn default() -> Self {
         Self {
-            params_snapshot: OrbitingPetParams::default(),
+            params_snapshot: crate::items::OrbitingPetParams::default(),
             orbit_angle_rad: 0.0,
             duration_timer: Timer::from_seconds(1.0, TimerMode::Once),
             pulse_timer: None,
             bolt_timer: None,
             owner_player_entity: Entity::PLACEHOLDER,
+            is_deployed: false, // Default to not deployed
+            deployed_position: Vec3::ZERO, // Default position
         }
     }
 }
@@ -1067,6 +1072,7 @@ impl Plugin for WeaponSystemsPlugin {
             .add_systems(Update, (
                 manage_player_orbs_system,
                 orbiting_pet_behavior_system,
+                deploy_orbiting_pet_system, // Added new system
                 tether_reactivation_window_system,
                 returning_projectile_system,
                 player_is_channeling_effect_system,
@@ -1630,24 +1636,31 @@ pub fn spawn_orbiting_pet_attack(
         bolt_timer_opt = Some(Timer::from_seconds(params.bolt_fire_interval_secs, TimerMode::Repeating));
     }
 
+    // Determine initial deployment state
+    // Orb always starts orbiting. 'can_be_deployed_at_location' signifies capability.
+    let initial_is_deployed = false; 
+    let initial_deployed_position = Vec3::ZERO; // Default, not used if not deployed
+
     let orb_entity = commands.spawn((
         SpriteBundle {
-            texture: asset_server.load(params.orb_sprite_path.to_string()), // Use .to_string() for String
+            texture: asset_server.load(&params.orb_sprite_path), // Ensure correct path usage
             sprite: Sprite {
                 custom_size: Some(params.orb_size),
                 color: params.orb_color,
                 ..default()
             },
-            transform: Transform::from_translation(initial_pos),
+            transform: Transform::from_translation(initial_pos), // Initial position
             ..default()
         },
         OrbitingPetComponent {
             params_snapshot: params.clone(),
-            orbit_angle_rad: initial_offset_angle,
+            orbit_angle_rad: initial_offset_angle, // Still useful if it can switch to orbiting
             duration_timer: Timer::from_seconds(params.orb_duration_secs, TimerMode::Once),
-            pulse_timer: pulse_timer_opt,
+            pulse_timer: pulse_timer_opt, // Assuming pulse_timer_opt and bolt_timer_opt are defined earlier
             bolt_timer: bolt_timer_opt,
             owner_player_entity: player_entity,
+            is_deployed: initial_is_deployed, // Should now be false
+            deployed_position: initial_deployed_position, // Default Vec3::ZERO
         },
         Name::new("ShadowOrbInstance"),
     )).id();
@@ -1686,9 +1699,16 @@ pub fn manage_player_orbs_system(
                 max_orbs_allowed: params.max_active_orbs,
                 spawn_cooldown_timer: Timer::from_seconds(params.base_fire_rate_secs, TimerMode::Repeating),
             };
+            // Spawn initial orb(s)
+            // Note: spawn_orbiting_pet_attack might spawn one orb at a time.
+            // If max_orbs_allowed can be > 1 initially, this might need a loop,
+            // but for Shadow Orb starting with 1, a single call is fine.
             if new_controller.active_orb_entities.len() < new_controller.max_orbs_allowed as usize {
                  spawn_orbiting_pet_attack(&mut commands, &asset_server, player_entity, player_transform, &params, &mut new_controller);
-                 new_controller.spawn_cooldown_timer.reset();
+                 // If spawn_orbiting_pet_attack adds to active_orb_entities itself, ensure it doesn't go over max_orbs_allowed.
+                 // The current spawn_orbiting_pet_attack adds one orb and pushes to controller.active_orb_entities.
+                 // So, if new_controller.max_orbs_allowed is 1, this single call is correct.
+                 new_controller.spawn_cooldown_timer.reset(); // Reset timer after this initial spawn
             }
             commands.entity(player_entity).insert(new_controller);
         }
@@ -1704,6 +1724,44 @@ pub fn manage_player_orbs_system(
     }
 }
 
+pub fn deploy_orbiting_pet_system(
+    mut commands: Commands,
+    mut player_query: Query<(Entity, &mut PlayerRequestsOrbDeployment), With<Survivor>>,
+    // Query for orbs that are NOT currently deployed and belong to the player.
+    // We might need to refine this query or iterate through all player orbs.
+    // For simplicity, let's get all orbs of the player and find one that is not deployed.
+    mut orb_query: Query<(Entity, &mut OrbitingPetComponent, &Transform)>,
+) {
+    if let Ok((player_entity, mut deploy_request)) = player_query.get_single_mut() {
+        if deploy_request.0 { // If true, a deployment is requested
+            let mut deployed_an_orb = false;
+            for (orb_entity, mut orb_comp, orb_transform) in orb_query.iter_mut() {
+                // Check if this orb belongs to the player who made the request
+                // AND if it's not already deployed.
+                if orb_comp.owner_player_entity == player_entity && !orb_comp.is_deployed {
+                    orb_comp.is_deployed = true;
+                    orb_comp.deployed_position = orb_transform.translation; // Set deployed position to current
+                    
+                    // Optional: If you want the orb to stop moving immediately
+                    // commands.entity(orb_entity).remove::<Velocity>(); // If orbs have a velocity component for orbiting
+                    
+                    deployed_an_orb = true;
+                    break; // Deploy one orb at a time
+                }
+            }
+
+            if deployed_an_orb {
+                deploy_request.0 = false; // Reset the request
+                info!("Player {:?} deployed an orb.", player_entity);
+            } else {
+                // Optional: Log if no orb was available to deploy
+                // info!("Player {:?} requested orb deployment, but no suitable orb found or already deploying.", player_entity);
+                // Reset request even if no orb found, to prevent spamming if held true
+                deploy_request.0 = false; 
+            }
+        }
+    }
+}
 
 pub fn orbiting_pet_behavior_system(
     mut commands: Commands,
@@ -1721,17 +1779,32 @@ pub fn orbiting_pet_behavior_system(
             continue;
         }
 
-        if let Ok(owner_transform) = player_query.get(orb_comp.owner_player_entity) {
-            orb_comp.orbit_angle_rad += orb_comp.params_snapshot.orbit_speed_rad_per_sec * time.delta_seconds();
-            orb_comp.orbit_angle_rad %= std::f32::consts::TAU;
-
-            let offset = Vec2::from_angle(orb_comp.orbit_angle_rad) * orb_comp.params_snapshot.orbit_radius;
-            orb_transform.translation = owner_transform.translation + offset.extend(0.1);
+        // Determine orb position based on deployment status
+        if orb_comp.is_deployed {
+            // If deployed, stay at the deployed position
+            // Ensure deployed_position is Vec3. The Z component might need adjustment for visibility.
+            orb_transform.translation = orb_comp.deployed_position; 
+                                       // Make sure Z is appropriate, e.g. orb_comp.deployed_position.truncate().extend(0.1)
+                                       // Or, if deployed_position is already Vec3 with correct Z: orb_transform.translation = orb_comp.deployed_position;
+            // No need to update orbit_angle_rad if it's stationary.
         } else {
-            commands.entity(orb_entity).despawn_recursive();
-            continue;
+            // If not deployed, orbit the player
+            if let Ok(owner_transform) = player_query.get(orb_comp.owner_player_entity) {
+                orb_comp.orbit_angle_rad += orb_comp.params_snapshot.orbit_speed_rad_per_sec * time.delta_seconds();
+                orb_comp.orbit_angle_rad %= std::f32::consts::TAU;
+
+                let offset = Vec2::from_angle(orb_comp.orbit_angle_rad) * orb_comp.params_snapshot.orbit_radius;
+                // Ensure Z-offset is consistent, e.g., player's Z + small offset, or a fixed Z for orbs.
+                let new_translation_z = owner_transform.translation.z + 0.1; // Example Z adjustment
+                orb_transform.translation = (owner_transform.translation.truncate() + offset).extend(new_translation_z);
+            } else {
+                // Owner (player) not found, despawn the orb
+                commands.entity(orb_entity).despawn_recursive();
+                continue; // Skip further processing for this orb
+            }
         }
 
+        // Pulse AoE logic (should use orb_transform.translation, which is now correctly set)
         if orb_comp.params_snapshot.pulses_aoe {
             if let Some(ref mut pulse_timer) = orb_comp.pulse_timer {
                 pulse_timer.tick(time.delta());
