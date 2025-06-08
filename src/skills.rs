@@ -9,8 +9,9 @@ use crate::{
     visual_effects::spawn_damage_text,
     audio::{PlaySoundEvent, SoundEffect},
 };
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Default, Serialize, Deserialize)]
 pub struct SkillId(pub u32);
 
 #[derive(Debug, Clone, PartialEq, Reflect)]

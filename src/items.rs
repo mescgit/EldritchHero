@@ -14,14 +14,14 @@ use crate::{
 use crate::automatic_weapons;
 
 // --- Standard Items (Relics) ---
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Default, Serialize, Deserialize)]
 #[reflect(Default)]
 pub struct ItemId(pub u32);
 
-#[derive(Debug, Clone, PartialEq, Reflect)]
+#[derive(Debug, Clone, PartialEq, Reflect, Serialize, Deserialize)]
 pub enum SurvivorTemporaryBuff { HealthRegen { rate: f32, duration_secs: f32 }, }
 
-#[derive(Debug, Clone, PartialEq, Reflect)]
+#[derive(Debug, Clone, PartialEq, Reflect, Serialize, Deserialize)]
 pub enum ItemEffect {
     PassiveStatBoost {
         max_health_increase: Option<i32>,
@@ -53,7 +53,7 @@ pub enum ItemEffect {
 }
 
 // --- Automatic Weapon ID ---
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Default, Serialize, Deserialize)]
 #[reflect(Default)]
 pub struct AutomaticWeaponId(pub u32);
 
@@ -638,11 +638,11 @@ pub struct ItemDrop { pub item_id: ItemId, }
 pub const ITEM_DROP_SIZE: Vec2 = Vec2::new(24.0, 24.0);
 
 #[derive(Component, Reflect, Default, Debug, Serialize, Deserialize)] #[reflect(Component, Default)] // Added Serialize, Deserialize and reflect Default
-pub struct ExplosionEffect { pub damage: i32, pub radius_sq: f32, pub timer: Timer, pub already_hit_entities: Vec<Entity>, }
+pub struct ExplosionEffect { pub damage: i32, pub radius_sq: f32, #[serde(skip)] pub timer: Timer, pub already_hit_entities: Vec<Entity>, }
 #[derive(Component, Reflect, Default, Debug, Serialize, Deserialize)] #[reflect(Component, Default)] // Added Serialize, Deserialize and reflect Default
-pub struct RetaliationNovaEffect { pub damage: i32, pub radius_sq: f32, pub timer: Timer, pub already_hit_entities: Vec<Entity>, }
+pub struct RetaliationNovaEffect { pub damage: i32, pub radius_sq: f32, #[serde(skip)] pub timer: Timer, pub already_hit_entities: Vec<Entity>, }
 #[derive(Component, Reflect, Default, Debug, Serialize, Deserialize)] #[reflect(Component, Default)] // Added Serialize, Deserialize and reflect Default
-pub struct TemporaryHealthRegenBuff { pub regen_per_second: f32, pub duration_timer: Timer, }
+pub struct TemporaryHealthRegenBuff { pub regen_per_second: f32, #[serde(skip)] pub duration_timer: Timer, }
 
 
 #[derive(Debug, Clone, Reflect, Default, Serialize, Deserialize)] // Added Default, Serialize, Deserialize
