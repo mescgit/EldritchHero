@@ -179,7 +179,7 @@ pub fn spawn_automatic_projectile(
     if let Some(trail_params) = opt_trail_params {
         projectile_commands.insert(crate::weapon_systems::TrailSpawningProjectileComponent {
             trail_params: trail_params.clone(),
-            segment_spawn_timer: Timer::from_seconds(trail_params.trail_segment_spawn_interval_secs.max(0.01), TimerMode::Repeating),
+            segment_spawn_timer: Timer::from_seconds(trail_params.trail_segment_tick_interval_secs.max(0.01), TimerMode::Repeating),
         });
     }
 
@@ -483,7 +483,7 @@ fn automatic_projectile_collision_system(
 fn projectile_screen_bounce_system(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Velocity, &GlobalTransform, &mut AutomaticProjectile, &mut Damage, &Sprite, &mut Transform)>,
-    explosion_query: Query<&crate::weapon_systems::ExplodesOnFinalImpact>,
+    _explosion_query: Query<&crate::weapon_systems::ExplodesOnFinalImpact>,
     camera_query: Query<(&Camera, &GlobalTransform, &OrthographicProjection), With<MainCamera>>,
 ) {
     let Ok((_camera, camera_gtransform, _projection)) = camera_query.get_single() else { return; };

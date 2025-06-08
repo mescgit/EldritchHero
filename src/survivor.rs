@@ -195,11 +195,20 @@ pub fn initialize_player_weapon_system(
     mut player_query: Query<&mut Survivor>,
     weapon_library: Res<AutomaticWeaponLibrary>,
 ) {
+    info!("SM_DEBUG_INIT_WEP: initialize_player_weapon_system running."); // Log system start
     for mut survivor in player_query.iter_mut() {
+        info!("SM_DEBUG_INIT_WEP: Processing survivor with inherent_weapon_id: {:?}", survivor.inherent_weapon_id);
         if survivor.equipped_weapon_definition.is_none() { 
+            info!("SM_DEBUG_INIT_WEP: survivor.equipped_weapon_definition is None. Attempting to set it.");
             if let Some(base_weapon_def) = weapon_library.get_weapon_definition(survivor.inherent_weapon_id) {
+                info!("SM_DEBUG_INIT_WEP: Found weapon definition in library: {}. ID: {:?}", base_weapon_def.name, base_weapon_def.id);
                 survivor.equipped_weapon_definition = Some(base_weapon_def.clone());
+                info!("SM_DEBUG_INIT_WEP: survivor.equipped_weapon_definition is NOW Some. Name: {}", base_weapon_def.name);
+            } else {
+                info!("SM_DEBUG_INIT_WEP: Weapon definition NOT FOUND in library for ID: {:?}", survivor.inherent_weapon_id);
             }
+        } else {
+            info!("SM_DEBUG_INIT_WEP: survivor.equipped_weapon_definition was already Some. Name: {:?}", survivor.equipped_weapon_definition.as_ref().map(|d| &d.name));
         }
     }
 }
@@ -424,16 +433,45 @@ fn survivor_casting_system(
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
     weapon_library: Res<AutomaticWeaponLibrary>,
     mouse_button_input: Res<Input<MouseButton>>,
+    mut log_timer: Local<Timer>,
 ) {
-    info!("SM_DEBUG: survivor_casting_system running tick...");
-    info!("SM_DEBUG: survivor_casting_system player_query found {} entities before loop.", player_query.iter().count());
+    // Initialize the timer if it's the first run
+    if log_timer.duration().as_secs_f32() == 0.0 {
+        log_timer.set_duration(Duration::from_secs_f32(2.0)); // Log every 2 seconds
+        log_timer.set_mode(TimerMode::Repeating);
+    }
+    log_timer.tick(time.delta());
+
+    static mut PREV_PLAYER_COUNT: usize = 0;
+    let current_player_count = player_query.iter().count();
+
+    if log_timer.just_finished() || unsafe { PREV_PLAYER_COUNT != current_player_count } {
+        info!("SM_DEBUG: survivor_casting_system running tick...");
+        info!("SM_DEBUG: survivor_casting_system player_query found {} entities before loop.", current_player_count);
+        unsafe { PREV_PLAYER_COUNT = current_player_count };
+    }
+
     for (survivor_entity, survivor_transform, survivor_stats, opt_mut_sanity_strain, buff_effect_opt) in player_query.iter_mut() {
-        info!("SM_DEBUG: Entered survivor_casting_system loop. Survivor: {:?}, Weapon ID: {:?}", survivor_entity, survivor_stats.inherent_weapon_id);
+        static mut PREV_WEAPON_ID: Option<AutomaticWeaponId> = None;
+        static mut PREV_SURVIVOR_ENTITY: Option<Entity> = None;
+
+        let weapon_id_changed = unsafe { PREV_WEAPON_ID != Some(survivor_stats.inherent_weapon_id) };
+        let survivor_entity_changed = unsafe { PREV_SURVIVOR_ENTITY != Some(survivor_entity) };
+
+        if log_timer.just_finished() || weapon_id_changed || survivor_entity_changed {
+            info!("SM_DEBUG: Entered survivor_casting_system loop. Survivor: {:?}, Weapon ID: {:?}", survivor_entity, survivor_stats.inherent_weapon_id);
+            unsafe {
+                PREV_WEAPON_ID = Some(survivor_stats.inherent_weapon_id);
+                PREV_SURVIVOR_ENTITY = Some(survivor_entity);
+            }
+        }
         
         let mut sanity_strain = match opt_mut_sanity_strain {
             Some(strain) => strain,
             None => {
-                info!("SM_DEBUG: SanityStrain component NOT FOUND for survivor {:?}. Skipping this entity.", survivor_entity);
+                if log_timer.just_finished() || survivor_entity_changed { // Log if entity changed or timer finished
+                    info!("SM_DEBUG: SanityStrain component NOT FOUND for survivor {:?}. Skipping this entity.", survivor_entity);
+                }
                 continue; 
             }
         };

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Your Rust Game</title>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+  <script type="module">
+    import init from "./eldritch_hero.js";
+    async function run() {
+      await init();
+    }
+    run();
+  </script>
+</body>
+</html>
