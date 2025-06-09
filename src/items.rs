@@ -72,6 +72,7 @@ pub struct StandardProjectileParams {
     pub piercing: u32, // Keep this as the main piercing field
     pub base_fire_rate_secs: f32, // Added
     pub additional_projectiles: u32, // Added
+    pub fire_sound_effect: Option<String>,
 }
 
 #[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)]
@@ -85,10 +86,11 @@ pub struct ReturningProjectileParams {
     pub projectile_speed: f32,
     pub travel_distance: f32,
     pub piercing: u32,
+    pub fire_sound_effect: Option<String>,
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
-#[reflect(PartialEq)] // Assuming Default is handled by impl
+#[reflect(Default, PartialEq)] // Assuming Default is handled by impl
 pub struct ChanneledBeamParams {
     // pub base_damage_per_tick: i32, // Renamed in subtask to damage_per_tick
     pub damage_per_tick: i32, // From subtask
@@ -102,6 +104,9 @@ pub struct ChanneledBeamParams {
     pub max_duration_secs: Option<f32>, // Added
     pub cooldown_secs: Option<f32>, // Added
     pub is_automatic: bool, // Added
+    pub fire_sound_effect: Option<String>,
+    pub loop_sound_effect: Option<String>,
+    pub stop_sound_effect: Option<String>,
 }
 impl Default for ChanneledBeamParams {
     fn default() -> Self {
@@ -111,6 +116,9 @@ impl Default for ChanneledBeamParams {
             max_duration_secs: None, // Added default
             cooldown_secs: None, // Added default
             is_automatic: false, // Added default
+            fire_sound_effect: None,
+            loop_sound_effect: None,
+            stop_sound_effect: None,
         }
     }
 }
@@ -132,6 +140,7 @@ pub struct ConeAttackParams {
     pub burn_damage_per_tick: Option<i32>, // Added
     pub burn_duration_secs: Option<f32>, // Added
     pub burn_tick_interval_secs: Option<f32>, // Added
+    pub fire_sound_effect: Option<String>,
 }
 
 #[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)]
@@ -152,6 +161,7 @@ pub struct LobbedAoEPoolParams {
     pub pool_tick_interval_secs: f32, 
     pub pool_color: Color, 
     pub max_active_pools: u32, // Added
+    pub fire_sound_effect: Option<String>,
 }
 
 #[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)]
@@ -179,6 +189,8 @@ pub struct ChargeUpEnergyShotParams {
     pub base_projectile_color: Color, 
     pub charge_levels: Vec<ChargeLevelParams>, 
     pub projectile_lifetime_secs: f32, 
+    pub charge_sound_effect: Option<String>,
+    pub release_sound_effect: Option<String>,
 }
 
 #[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)]
@@ -197,6 +209,7 @@ pub struct TrailOfFireParams {
     pub trail_segment_duration_secs: f32,
     pub trail_segment_width: f32,
     pub trail_segment_color: Color,
+    pub fire_sound_effect: Option<String>,
 }
 
 
@@ -210,7 +223,7 @@ pub enum RepositioningTetherMode {
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
-#[reflect(PartialEq)] // Default is custom
+#[reflect(Default, PartialEq)] // Default is custom
 pub struct RepositioningTetherParams {
     pub base_fire_rate_secs: f32, // Added
     pub tether_projectile_speed: f32,
@@ -223,6 +236,7 @@ pub struct RepositioningTetherParams {
     pub push_strength: f32,
     pub reactivation_window_secs: f32,
     pub effect_duration_secs: f32,
+    pub fire_sound_effect: Option<String>,
 }
 impl Default for RepositioningTetherParams {
     fn default() -> Self {
@@ -238,13 +252,14 @@ impl Default for RepositioningTetherParams {
             push_strength: 50.0,
             reactivation_window_secs: 2.0,
             effect_duration_secs: 0.3,
+            fire_sound_effect: None,
         }
     }
 }
 
 
 #[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)] // Added Serialize, Deserialize
-#[reflect(PartialEq)] // Default is custom
+#[reflect(Default, PartialEq)] // Default is custom
 pub struct OrbitingPetParams {
     // pub base_fire_rate_secs: f32, // Not in subtask list
     pub max_active_orbs: u32,
@@ -271,6 +286,7 @@ pub struct OrbitingPetParams {
     pub bolt_color: Option<Color>, // Added
     pub bolt_lifetime_secs: Option<f32>, // Added
     pub bolt_homing_strength: Option<f32>, // Added
+    pub spawn_sound_effect: Option<String>,
 }
 impl Default for OrbitingPetParams {
     fn default() -> Self {
@@ -295,6 +311,7 @@ impl Default for OrbitingPetParams {
             bolt_color: None, // Added default
             bolt_lifetime_secs: None, // Added default
             bolt_homing_strength: None, // Added default
+            spawn_sound_effect: None,
         }
     }
 }
@@ -316,6 +333,7 @@ pub struct GroundTargetedAoEParams {
     pub base_fire_rate_secs: f32, // Added
     pub knock_up_strength: f32, // Added
     pub root_duration_secs: Option<f32>, // Added
+    pub fire_sound_effect: Option<String>,
 }
 
 
@@ -331,6 +349,7 @@ pub struct LifestealProjectileParams {
     pub projectile_lifetime_secs: f32,
     pub piercing: u32,
     pub lifesteal_percentage: f32,
+    pub fire_sound_effect: Option<String>,
 }
 
 #[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)] // Added Serialize, Deserialize
@@ -350,6 +369,7 @@ pub struct BouncingProjectileParams {
     pub damage_loss_per_bounce_multiplier: f32, // Added
     pub speed_loss_per_bounce_multiplier: f32, // Added
     pub spread_angle_degrees: f32, // Added
+    pub fire_sound_effect: Option<String>,
 }
 
 
@@ -380,10 +400,11 @@ pub struct HomingDebuffProjectileParams {
     pub debuff_magnitude_per_stack: f32, // Added
     pub max_debuff_stacks: u32, // Added
     pub debuff_duration_secs_on_target: f32, // Added
+    pub fire_sound_effect: Option<String>,
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
-#[reflect(PartialEq)] // Default is custom
+#[reflect(Default, PartialEq)] // Default is custom
 pub struct ExpandingEnergyBombParams {
     // pub base_fire_rate_secs: f32, // Not in subtask list
     pub max_radius: f32,
@@ -396,6 +417,8 @@ pub struct ExpandingEnergyBombParams {
     pub max_damage_at_max_radius: i32, // Added
     pub detonation_can_be_manual: bool, // Added
     pub auto_detonation_delay_after_max_expansion_secs: f32, // Added
+    pub launch_sound_effect: Option<String>,
+    pub detonation_sound_effect: Option<String>,
 }
 impl Default for ExpandingEnergyBombParams {
     fn default() -> Self {
@@ -408,6 +431,8 @@ impl Default for ExpandingEnergyBombParams {
             max_damage_at_max_radius: 80, // Added default
             detonation_can_be_manual: true, // Added default
             auto_detonation_delay_after_max_expansion_secs: 1.0, // Added default
+            launch_sound_effect: None,
+            detonation_sound_effect: None,
         }
     }
 }
@@ -424,7 +449,7 @@ pub enum AuraDebuffType {
 
 
 #[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)] // Added Serialize, Deserialize
-#[reflect(PartialEq)] // Default is custom
+#[reflect(Default, PartialEq)] // Default is custom
 pub struct DebuffAuraParams {
     // pub base_fire_rate_secs: f32, // Not in subtask list
     pub cloud_radius: f32,
@@ -435,6 +460,7 @@ pub struct DebuffAuraParams {
     pub debuff_magnitude: f32,
     pub base_fire_rate_secs: f32, // Added
     pub debuff_duration_secs: f32, // Added
+    pub activation_sound_effect: Option<String>,
 }
 impl Default for DebuffAuraParams {
     fn default() -> Self {
@@ -444,6 +470,7 @@ impl Default for DebuffAuraParams {
             cloud_color: Color::GRAY, visual_sprite_path: Some("sprites/debuff_cloud_placeholder.png".to_string()),
             debuff_type: AuraDebuffType::ReduceAccuracy, debuff_magnitude: 0.2, 
             debuff_duration_secs: 2.0, // Added default
+            activation_sound_effect: None,
         }
     }
 }
@@ -459,6 +486,8 @@ pub struct PersistentAuraParams {
     pub aura_color: Color,
     pub visual_sprite_path: Option<String>,
     pub fire_rate_secs_placeholder: f32, // Added
+    pub activation_sound_effect: Option<String>,
+    pub deactivation_sound_effect: Option<String>,
 }
 
 #[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)]
@@ -471,6 +500,7 @@ pub struct PointBlankNovaParams {
     pub visual_duration_secs: f32, // Added
     pub slow_effect_multiplier: f32, // Added
     pub slow_duration_secs: f32, // Added
+    pub fire_sound_effect: Option<String>,
 }
 
 #[derive(Debug, Clone, Reflect, Default, PartialEq, Serialize, Deserialize)]
@@ -485,10 +515,11 @@ pub struct ChainZapParams {
     pub zap_color: Color,
     pub zap_width: f32, // Added
     pub zap_duration_secs: f32, // Added
+    pub fire_sound_effect: Option<String>,
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
-#[reflect(PartialEq)] // Default is custom
+#[reflect(Default, PartialEq)] // Default is custom
 pub struct LineDashAttackParams {
     // pub base_fire_rate_secs: f32, // Not in subtask list
     pub dash_speed: f32,
@@ -499,6 +530,7 @@ pub struct LineDashAttackParams {
     pub piercing_cap: u32, // Added
     pub dash_trail_color: Option<Color>, // Added
     pub invulnerable_during_dash: bool, // Added
+    pub fire_sound_effect: Option<String>,
 }
 impl Default for LineDashAttackParams {
     fn default() -> Self {
@@ -511,6 +543,7 @@ impl Default for LineDashAttackParams {
             piercing_cap: 3, // Added default
             dash_trail_color: Some(Color::WHITE), // Added default
             invulnerable_during_dash: false, // Added default
+            fire_sound_effect: None,
         }
     }
 }
@@ -533,10 +566,11 @@ pub struct BlinkStrikeProjectileParams {
     pub blink_to_target_behind: bool, // Added
     pub blink_requires_kill: bool, // Added
     pub num_projectiles_per_shot: u32, // Added
+    pub fire_sound_effect: Option<String>,
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
-#[reflect(PartialEq)] // Default is custom
+#[reflect(Default, PartialEq)] // Default is custom
 pub struct LobbedBouncingMagmaParams {
     // pub base_fire_rate_secs: f32, // Not in subtask list
     pub projectile_speed: f32,
@@ -557,6 +591,7 @@ pub struct LobbedBouncingMagmaParams {
     pub fire_pool_damage_per_tick: i32, // Added
     pub fire_pool_tick_interval_secs: f32, // Added
     pub fire_pool_duration_secs: f32, // Added
+    pub fire_sound_effect: Option<String>,
 }
 
 impl Default for LobbedBouncingMagmaParams {
@@ -580,6 +615,7 @@ impl Default for LobbedBouncingMagmaParams {
             projectile_lifetime_secs: 10.0, 
             explosion_radius_on_final_bounce: 75.0, // Added default
             explosion_damage_on_final_bounce: 40,   // Added default
+            fire_sound_effect: None,
         }
     }
 }

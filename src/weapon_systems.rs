@@ -484,6 +484,7 @@ pub fn blink_strike_projectile_weapon_fire_system(
     weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
     time: Res<Time>,
     mut sanity_strain_q: Query<&mut SurvivorSanityStrain>,
+    mut sound_event_writer: EventWriter<PlaySoundEvent>,
 ) {
     if let Ok((player_entity, player_transform, survivor_stats)) = player_q.get_single() {
         if let Ok(mut sanity_strain) = sanity_strain_q.get_single_mut() {
@@ -491,6 +492,9 @@ pub fn blink_strike_projectile_weapon_fire_system(
             if let Some(weapon_def) = weapon_library.get_weapon_definition(weapon_id) {
                 if let AttackTypeData::BlinkStrikeProjectile(ref params) = weapon_def.attack_data {
                     if sanity_strain.fire_timer.tick(time.delta()).just_finished() {
+                        if let Some(sound_path) = &params.fire_sound_effect {
+                            sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                        }
                         spawn_blink_strike_projectile_attack(
                             &mut commands,
                             &asset_server,
@@ -647,8 +651,9 @@ pub fn charge_weapon_system(
                             charging_comp.current_charge_level_index += 1;
                             let next_level_params = &shot_params.charge_levels[charging_comp.current_charge_level_index];
                             charging_comp.charge_timer = Timer::from_seconds(next_level_params.charge_time_secs.max(0.01), TimerMode::Once); // Ensure non-zero
-                            // Optional: Play charge level up sound
-                            sound_event_writer.send(crate::audio::PlaySoundEvent(crate::audio::SoundEffect::RitualCast)); // Placeholder sound
+                            if let Some(sound_path) = &shot_params.charge_sound_effect {
+                                sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                            }
                         } else {
                             // Already at max charge level. Timer can stay finished/paused.
                             // charging_comp.charge_timer.pause(); // Or just let it be finished.
@@ -1139,7 +1144,8 @@ pub fn chain_lightning_attack_system(
     sanity_strain_query: Query<&SurvivorSanityStrain, With<Survivor>>, 
     weapon_library: Res<AutomaticWeaponLibrary>, // Added
     mut horror_query: Query<(Entity, &Transform, &mut crate::components::Health), With<crate::horror::Horror>>, 
-    mut log_state: ResMut<ChainLightningLogState>, 
+    mut log_state: ResMut<ChainLightningLogState>,
+    mut sound_event_writer: EventWriter<PlaySoundEvent>,
 ) {
     let Ok((player_transform, survivor_stats)) = player_query.get_single() else { return; }; 
     let Ok(sanity_strain) = sanity_strain_query.get_single() else { return; }; 
@@ -1172,6 +1178,10 @@ pub fn chain_lightning_attack_system(
             return;
         }
     };
+
+    if let Some(sound_path) = &actual_params.fire_sound_effect {
+        sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+    }
 
     let player_position = player_transform.translation.truncate();
 
@@ -1450,6 +1460,7 @@ pub fn repositioning_tether_firing_system(
         Query<&mut Transform, With<Horror>>,                         // p1: Horror mutable transform query
         Query<&mut PlayerWaitingTetherActivationComponent>,          // p2: Player waiting component query
     )>,
+    mut sound_event_writer: EventWriter<PlaySoundEvent>,
 ) {
     // It's tricky to iterate player_query (p0) and pass horror_query (p1) and player_waiting_query (p2) mutably
     // to spawn_repositioning_tether_attack due to ParamSet limitations.
@@ -1526,6 +1537,7 @@ pub fn repositioning_tether_firing_system(
                 &fire_params, // These are the weapon's definition RepositioningTetherParams
                 weapon_id,
                 &player_transform_copy,
+                &mut sound_event_writer,
             );
         }
     }
@@ -1539,7 +1551,11 @@ pub fn spawn_actual_tether_projectile(
     weapon_params: &crate::items::RepositioningTetherParams, // This is the definition params
     weapon_id: crate::items::AutomaticWeaponId,
     player_transform: &Transform,
+    sound_event_writer: &mut EventWriter<PlaySoundEvent>,
 ) {
+    if let Some(sound_path) = &weapon_params.fire_sound_effect {
+        sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+    }
     // Spawns a new tether projectile
     let _projectile_entity = crate::automatic_projectiles::spawn_automatic_projectile(
         commands,
@@ -1575,7 +1591,11 @@ pub fn spawn_lobbed_aoe_pool_attack(
     weapon_params: &crate::items::LobbedAoEPoolParams,
     _weapon_id: crate::items::AutomaticWeaponId, // For potential tracking or specific logic, marked unused for now
     target_world_pos: Vec3, // New parameter
+    sound_event_writer: &mut EventWriter<PlaySoundEvent>,
 ) {
+    if let Some(sound_path) = &weapon_params.fire_sound_effect {
+        sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+    }
     let g = 980.0; // pixels/sec^2, positive for downward influence
     let start_pos = player_transform.translation;
 
@@ -1641,7 +1661,11 @@ pub fn spawn_orbiting_pet_attack(
     player_transform: &Transform,
     params: &crate::items::OrbitingPetParams,
     orb_controller: &mut PlayerOrbControllerComponent,
+    sound_event_writer: &mut EventWriter<PlaySoundEvent>,
 ) {
+    if let Some(sound_path) = &params.spawn_sound_effect {
+        sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+    }
     let initial_offset_angle = orb_controller.active_orb_entities.len() as f32 * (std::f32::consts::TAU / params.max_active_orbs as f32);
     let initial_pos = player_transform.translation +
         Quat::from_rotation_z(initial_offset_angle) * Vec3::X * params.orbit_radius;
@@ -1694,7 +1718,8 @@ pub fn manage_player_orbs_system(
     weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
     mut player_query: Query<(Entity, &Transform, &Survivor, Option<&mut PlayerOrbControllerComponent>)>,
     // Changed orb_query to all_orbs_query to reflect its new role and components
-    all_orbs_query: Query<(Entity, &OrbitingPetComponent)>, 
+    all_orbs_query: Query<(Entity, &OrbitingPetComponent)>,
+    mut sound_event_writer: EventWriter<PlaySoundEvent>,
 ) {
     let Ok((player_entity, player_transform, player_stats, opt_orb_controller)) = player_query.get_single_mut() else { return; };
 
@@ -1727,7 +1752,7 @@ pub fn manage_player_orbs_system(
             if controller.spawn_cooldown_timer.finished() && live_orb_count < controller.max_orbs_allowed as usize {
                 // spawn_orbiting_pet_attack will add the new (pending) orb ID to controller.active_orb_entities.
                 // This is fine, as this list is reconstructed from reality at the start of the next frame/run.
-                spawn_orbiting_pet_attack(&mut commands, &asset_server, player_entity, player_transform, &params, &mut controller);
+                spawn_orbiting_pet_attack(&mut commands, &asset_server, player_entity, player_transform, &params, &mut controller, &mut sound_event_writer);
                 controller.spawn_cooldown_timer.reset(); 
             }
         } else {
@@ -1739,7 +1764,7 @@ pub fn manage_player_orbs_system(
             // Spawn initial orb(s)
             // Spawn initial orb(s). This logic remains the same, as new_controller.active_orb_entities is empty.
             if new_controller.active_orb_entities.len() < new_controller.max_orbs_allowed as usize {
-                 spawn_orbiting_pet_attack(&mut commands, &asset_server, player_entity, player_transform, &params, &mut new_controller);
+                 spawn_orbiting_pet_attack(&mut commands, &asset_server, player_entity, player_transform, &params, &mut new_controller, &mut sound_event_writer);
                  new_controller.spawn_cooldown_timer.reset(); // Reset timer after this initial spawn
             }
             commands.entity(player_entity).insert(new_controller);
@@ -1955,8 +1980,12 @@ pub fn spawn_magma_ball_attack(
     aim_direction: Vec2,
     weapon_id: AutomaticWeaponId,
     owner_entity: Entity, // New parameter
-    survivor_stats: &Survivor // New parameter
+    survivor_stats: &Survivor, // New parameter
+    sound_event_writer: &mut EventWriter<PlaySoundEvent>,
 ) {
+    if let Some(sound_path) = &params.fire_sound_effect {
+        sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+    }
     let initial_pos = player_transform.translation;
     let projectile_velocity = aim_direction.normalize_or_zero() * params.projectile_speed;
 
@@ -2180,7 +2209,11 @@ pub fn spawn_line_dash_attack(
     player_stats: &mut crate::survivor::Survivor,
     player_transform: &Transform,
     params: &crate::items::LineDashAttackParams,
+    sound_event_writer: &mut EventWriter<PlaySoundEvent>,
 ) {
+    if let Some(sound_path) = &params.fire_sound_effect {
+        sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+    }
     let mut dash_direction = player_stats.aim_direction.normalize_or_zero();
     if dash_direction == Vec2::ZERO {
         dash_direction = (player_transform.rotation * Vec3::X).truncate().normalize_or_zero();
@@ -2352,7 +2385,11 @@ pub fn spawn_pending_ground_aoe_attack(
     commands: &mut Commands,
     params: &crate::items::GroundTargetedAoEParams,
     reticule_world_position: Vec3,
+    sound_event_writer: &mut EventWriter<PlaySoundEvent>,
 ) {
+    if let Some(sound_path) = &params.fire_sound_effect {
+        sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+    }
     commands.spawn((
         PendingGroundAoEComponent {
             position_of_impact: reticule_world_position,
@@ -2561,8 +2598,12 @@ pub fn spawn_standard_projectile_attack(
     params: &StandardProjectileParams,
     _player_transform: &Transform,
     _aim_direction: Vec2,
-    _weapon_id: AutomaticWeaponId
+    _weapon_id: AutomaticWeaponId,
+    sound_event_writer: &mut EventWriter<PlaySoundEvent>,
 ) {
+    if let Some(sound_path) = &params.fire_sound_effect {
+        sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+    }
     info!("spawn_standard_projectile_attack called for sprite: {}, damage: {}, fire_rate: {}", params.projectile_sprite_path, params.base_damage, params.base_fire_rate_secs);
 }
 
@@ -2572,7 +2613,11 @@ pub fn spawn_returning_projectile_attack(
     params: &ReturningProjectileParams,
     player_transform: &Transform,
     aim_direction: Vec2,
+    sound_event_writer: &mut EventWriter<PlaySoundEvent>,
 ) {
+    if let Some(sound_path) = &params.fire_sound_effect {
+        sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+    }
     let spawn_offset_distance = SURVIVOR_SIZE.x / 2.0 + params.projectile_size.x / 4.0; // Spawn slightly ahead of player's edge + projectile's own radius
     let offset_vector = aim_direction.normalize_or_zero() * spawn_offset_distance;
 
@@ -2640,7 +2685,11 @@ pub fn execute_cone_attack(
     aim_direction: Vec2,
     mut enemy_query: Query<(&Transform, &mut Health), With<Horror>>,
     time: &Res<Time>,
+    sound_event_writer: &mut EventWriter<PlaySoundEvent>,
 ) {
+    if let Some(sound_path) = &params.fire_sound_effect {
+        sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+    }
     let player_pos = player_transform.translation.truncate();
     let forward_vector = aim_direction.normalize_or_zero();
 

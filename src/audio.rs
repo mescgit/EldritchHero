@@ -22,11 +22,15 @@ pub enum SoundEffect {
     GlacialNovaHit,
     ChainLightningZap,
     ShadowOrbPulse, // Added new sound effect
+    // New variants for path-based and looped sounds
+    Path(String),
+    LoopPathStart(Entity, String), // Entity is the owner of the sound
+    StopLoop(Entity),              // Entity is the owner of the sound
 }
 
 #[derive(Resource)]
 pub struct GameAudioHandles {
-    pub ritual_cast: Handle<AudioSource>,
+    // Removed: ritual_cast, tether_hit, player_blink, glacial_nova_hit, chain_lightning_zap, shadow_orb_pulse
     pub horror_hit: Handle<AudioSource>,
     pub horror_death: Handle<AudioSource>,
     pub survivor_hit: Handle<AudioSource>,
@@ -36,15 +40,14 @@ pub struct GameAudioHandles {
     pub omen_accepted: Handle<AudioSource>,
     pub horror_projectile: Handle<AudioSource>,
     pub background_music: Handle<AudioSource>,
-    pub tether_hit: Handle<AudioSource>,
-    pub player_blink: Handle<AudioSource>,
-    pub glacial_nova_hit: Handle<AudioSource>,
-    pub chain_lightning_zap: Handle<AudioSource>,
-    pub shadow_orb_pulse: Handle<AudioSource>, // Added handle for new sound
 }
 
 #[derive(Component)]
 struct BackgroundMusicController;
+
+// --- ActiveLoopingSounds Resource (Added as per Step 3) ---
+#[derive(Resource, Default)]
+pub struct ActiveLoopingSounds(pub std::collections::HashMap<Entity, Entity>);
 
 pub struct GameAudioPlugin;
 
@@ -52,6 +55,7 @@ impl Plugin for GameAudioPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<PlaySoundEvent>()
+            .init_resource::<ActiveLoopingSounds>() // Initialize the new resource
             .add_systems(Startup, setup_audio_handles)
             .add_systems(Update, play_sound_system)
             .add_systems(OnEnter(AppState::InGame), start_background_music)
@@ -61,7 +65,7 @@ impl Plugin for GameAudioPlugin {
 
 fn setup_audio_handles(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(GameAudioHandles {
-        ritual_cast: asset_server.load("audio/ritual_cast_placeholder.ogg"),
+        // Removed: ritual_cast, tether_hit, player_blink, glacial_nova_hit, chain_lightning_zap, shadow_orb_pulse
         horror_hit: asset_server.load("audio/horror_hit_placeholder.ogg"),
         horror_death: asset_server.load("audio/horror_death_placeholder.ogg"),
         survivor_hit: asset_server.load("audio/survivor_hit_placeholder.ogg"),
@@ -71,11 +75,6 @@ fn setup_audio_handles(mut commands: Commands, asset_server: Res<AssetServer>) {
         omen_accepted: asset_server.load("audio/omen_accepted_placeholder.ogg"),
         horror_projectile: asset_server.load("audio/horror_projectile_placeholder.ogg"),
         background_music: asset_server.load("audio/cyclopean_ruins_ambience_placeholder.ogg"),
-        tether_hit: asset_server.load("audio/tether_hit_placeholder.ogg"),
-        player_blink: asset_server.load("audio/player_blink_placeholder.ogg"),
-        glacial_nova_hit: asset_server.load("audio/glacial_nova_hit_placeholder.ogg"),
-        chain_lightning_zap: asset_server.load("audio/chain_lightning_zap_placeholder.ogg"),
-        shadow_orb_pulse: asset_server.load("audio/aura_pulse_placeholder.ogg"), // Loaded new sound
     });
 }
 
@@ -83,29 +82,70 @@ fn play_sound_system(
     mut commands: Commands,
     mut sound_events: EventReader<PlaySoundEvent>,
     audio_handles: Res<GameAudioHandles>,
+    asset_server: Res<AssetServer>, // Added asset_server
+    mut active_loops: ResMut<ActiveLoopingSounds>, // Added active_loops
 ) {
     for event in sound_events.read() {
         info!("Playing sound effect: {:?}", event.0); // Added logging line
-        let source = match event.0 {
-            SoundEffect::RitualCast => audio_handles.ritual_cast.clone(),
-            SoundEffect::HorrorHit => audio_handles.horror_hit.clone(),
-            SoundEffect::HorrorDeath => audio_handles.horror_death.clone(),
-            SoundEffect::SurvivorHit => audio_handles.survivor_hit.clone(),
-            SoundEffect::Revelation => audio_handles.revelation.clone(),
-            SoundEffect::SoulCollect => audio_handles.soul_collect.clone(),
-            SoundEffect::MadnessConsumes => audio_handles.madness_consumes.clone(),
-            SoundEffect::OmenAccepted => audio_handles.omen_accepted.clone(),
-            SoundEffect::HorrorProjectile => audio_handles.horror_projectile.clone(),
-            SoundEffect::TetherHit => audio_handles.tether_hit.clone(),
-            SoundEffect::PlayerBlink => audio_handles.player_blink.clone(),
-            SoundEffect::GlacialNovaHit => audio_handles.glacial_nova_hit.clone(),
-            SoundEffect::ChainLightningZap => audio_handles.chain_lightning_zap.clone(),
-            SoundEffect::ShadowOrbPulse => audio_handles.shadow_orb_pulse.clone(), // Added handler for new sound
-        };
-        commands.spawn(AudioBundle {
-            source,
+        
+        // Temporary variable for single-shot sources
+        let mut source_to_play_once: Option<Handle<AudioSource>> = None;
+
+        match event.0 {
+            // Keep existing direct handle matches
+            SoundEffect::HorrorHit => source_to_play_once = Some(audio_handles.horror_hit.clone()),
+            SoundEffect::HorrorDeath => source_to_play_once = Some(audio_handles.horror_death.clone()),
+            SoundEffect::SurvivorHit => source_to_play_once = Some(audio_handles.survivor_hit.clone()),
+            SoundEffect::Revelation => source_to_play_once = Some(audio_handles.revelation.clone()),
+            SoundEffect::SoulCollect => source_to_play_once = Some(audio_handles.soul_collect.clone()),
+            SoundEffect::MadnessConsumes => source_to_play_once = Some(audio_handles.madness_consumes.clone()),
+            SoundEffect::OmenAccepted => source_to_play_once = Some(audio_handles.omen_accepted.clone()),
+            SoundEffect::HorrorProjectile => source_to_play_once = Some(audio_handles.horror_projectile.clone()),
+            
+            // Handle new path-based and loop sounds
+            SoundEffect::Path(ref path_str) => { // path_str is &String
+                let source = asset_server.load(path_str.clone()); // Clone path_str for loading
+                commands.spawn(AudioBundle {
+                    source,
+                    settings: PlaybackSettings::DESPAWN.with_volume(Volume::new_relative(0.5)),
+                });
+            }
+            SoundEffect::LoopPathStart(owner_entity, ref path_str) => { // owner_entity is Entity, path_str is &String
+                if let Some(old_audio_entity) = active_loops.0.remove(&owner_entity) {
+                    commands.entity(old_audio_entity).despawn_recursive();
+                }
+                let source = asset_server.load(path_str.clone()); // Clone path_str for loading
+                let audio_entity = commands.spawn(AudioBundle {
+                    source,
+                    settings: PlaybackSettings {
+                        mode: bevy::audio::PlaybackMode::Loop,
+                        volume: Volume::new_relative(0.4),
+                        ..default()
+                    },
+                }).id();
+                active_loops.0.insert(owner_entity, audio_entity);
+            }
+            SoundEffect::StopLoop(owner_entity) => { // owner_entity is Entity
+                if let Some(audio_entity) = active_loops.0.remove(&owner_entity) {
+                    commands.entity(audio_entity).despawn_recursive();
+                }
+            }
+            // Default or removed sounds - these should ideally not be called if handles are removed
+            // For safety during transition, we can log an error or do nothing.
+            SoundEffect::RitualCast | SoundEffect::TetherHit | SoundEffect::PlayerBlink | 
+            SoundEffect::GlacialNovaHit | SoundEffect::ChainLightningZap | SoundEffect::ShadowOrbPulse => {
+                // These were removed from GameAudioHandles. If an event for these comes, it's an issue.
+                // For now, let's just log it. In future, these variants might be removed or repurposed.
+                error!("Attempted to play sound effect {:?} which no longer has a direct handle. It should be path-based.", event.0);
+            }
+        }
+
+        if let Some(source) = source_to_play_once {
+            commands.spawn(AudioBundle {
+                source,
             settings: PlaybackSettings::DESPAWN.with_volume(Volume::new_relative(0.5)),
-        });
+			});
+		}
     }
 }
 

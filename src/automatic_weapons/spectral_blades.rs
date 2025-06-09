@@ -15,6 +15,7 @@ pub fn define_spectral_blades() -> AutomaticWeaponDefinition {
             projectile_speed: 400.0,
             travel_distance: 300.0,
             piercing: 999,
+            fire_sound_effect: Some("assets/audio/spectral_blades_fire.ogg".to_string()),
         }),
     }
 }

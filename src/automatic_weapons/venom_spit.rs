@@ -16,6 +16,7 @@ pub fn define_venom_spit() -> AutomaticWeaponDefinition {
             projectile_size: Vec2::new(15.0, 15.0),
             projectile_color: Color::rgb(0.2, 0.8, 0.1),
             projectile_lifetime_secs: 1.8,
+            fire_sound_effect: Some("assets/audio/venom_spit_fire.ogg".to_string()),
         }),
     }
 }

@@ -16,6 +16,9 @@ pub fn define_eldritch_gatling() -> AutomaticWeaponDefinition {
             max_duration_secs: None,
             cooldown_secs: None,
             is_automatic: false,
+            fire_sound_effect: Some("assets/audio/eldritch_gatling_fire.ogg".to_string()),
+            loop_sound_effect: Some("assets/audio/eldritch_gatling_loop.ogg".to_string()),
+            stop_sound_effect: Some("assets/audio/eldritch_gatling_stop.ogg".to_string()),
         }),
     }
 }

@@ -51,6 +51,8 @@ pub fn define_void_cannon() -> AutomaticWeaponDefinition {
                     aoe_radius_on_impact: Some(50.0), // Example AoE
                 },
             ],
+            charge_sound_effect: None,
+            release_sound_effect: None,
         }),
     }
 }

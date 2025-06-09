@@ -13,6 +13,7 @@ pub fn define_glacial_spike() -> AutomaticWeaponDefinition {
             visual_duration_secs: 0.3,
             slow_effect_multiplier: 0.5,
             slow_duration_secs: 2.0,
+            fire_sound_effect: Some("assets/audio/glacial_spike_nova.ogg".to_string()),
         }),
     }
 }

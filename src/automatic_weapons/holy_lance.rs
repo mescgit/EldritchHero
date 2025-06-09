@@ -14,6 +14,7 @@ pub fn define_holy_lance() -> AutomaticWeaponDefinition {
             piercing_cap: 5,
             dash_trail_color: Some(Color::rgba(1.0, 1.0, 0.7, 0.5)),
             invulnerable_during_dash: true,
+            fire_sound_effect: Some("assets/audio/holy_lance_fire.ogg".to_string()),
         }),
     }
 }

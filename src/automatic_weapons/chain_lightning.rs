@@ -15,6 +15,7 @@ pub fn define_chain_lightning() -> AutomaticWeaponDefinition {
             zap_color: Color::rgb(0.5, 0.8, 1.0),
             zap_width: 5.0,
             zap_duration_secs: 0.15,
+            fire_sound_effect: None,
         }),
     }
 }

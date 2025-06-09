@@ -15,6 +15,9 @@ pub fn define_arcane_ray() -> AutomaticWeaponDefinition {
             max_duration_secs: Some(3.0),
             cooldown_secs: Some(5.0),
             is_automatic: true,
+            fire_sound_effect: None,
+            loop_sound_effect: None,
+            stop_sound_effect: None,
         }),
     }
 }

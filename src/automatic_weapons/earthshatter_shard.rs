@@ -18,6 +18,7 @@ pub fn define_earthshatter_shard() -> AutomaticWeaponDefinition {
             aoe_visual_duration_secs: 0.5,
             knock_up_strength: 100.0,
             root_duration_secs: None,
+            fire_sound_effect: Some("assets/audio/earthshatter_shard_fire.ogg".to_string()),
         }),
     }
 }

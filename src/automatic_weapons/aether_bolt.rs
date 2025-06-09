@@ -19,6 +19,7 @@ pub fn define_aether_bolt() -> AutomaticWeaponDefinition {
             blink_to_target_behind: true,
             blink_requires_kill: false,
             num_projectiles_per_shot: 2,
+            fire_sound_effect: None,
         }),
     }
 }

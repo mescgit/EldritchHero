@@ -1,0 +1,61 @@
+The audio system has been updated to support dynamic sound loading!
+
+To recap, these are the sound fields per weapon type that now need specific .ogg file paths (e.g., "assets/audio/your_sound.ogg"):
+
+    StandardProjectileParams: fire_sound_effect
+    ReturningProjectileParams: fire_sound_effect
+    ChanneledBeamParams: fire_sound_effect, loop_sound_effect, stop_sound_effect
+    ConeAttackParams: fire_sound_effect
+    LobbedAoEPoolParams: fire_sound_effect
+    ChargeUpEnergyShotParams: charge_sound_effect, release_sound_effect
+    TrailOfFireParams: fire_sound_effect
+    ChainZapParams: fire_sound_effect (e.g., "assets/audio/ChainLightningZap.ogg")
+    PointBlankNovaParams: fire_sound_effect (e.g., "assets/audio/GlacialNovaHit.ogg")
+    PersistentAuraParams: activation_sound_effect, deactivation_sound_effect
+    DebuffAuraParams: activation_sound_effect
+    ExpandingEnergyBombParams: launch_sound_effect, detonation_sound_effect
+    HomingDebuffProjectileParams: fire_sound_effect
+    BouncingProjectileParams: fire_sound_effect
+    LifestealProjectileParams: fire_sound_effect
+    GroundTargetedAoEParams: fire_sound_effect
+    LineDashAttackParams: fire_sound_effect
+    OrbitingPetParams: spawn_sound_effect
+    RepositioningTetherParams: fire_sound_effect
+    BlinkStrikeProjectileParams: fire_sound_effect
+    LobbedBouncingMagmaParams: fire_sound_effect
+
+And here is the list of weapons and their corresponding types again:
+
+    primordial_ichor_blast (LobbedAoEPoolParams)
+    eldritch_gatling (ChanneledBeamParams)
+    void_cannon (ChargeUpEnergyShotParams)
+    spectral_blades (ReturningProjectileParams)
+    inferno_bolt (TrailOfFireParams)
+    chain_lightning (ChainZapParams)
+    arcane_ray (ChanneledBeamParams)
+    shadow_orb (OrbitingPetParams)
+    holy_lance (LineDashAttackParams)
+    venom_spit (StandardProjectileParams)
+    glacial_spike (PointBlankNovaParams)
+    earthshatter_shard (GroundTargetedAoEParams)
+    sunfire_burst (ConeAttackParams)
+    moonbeam_dart (HomingDebuffProjectileParams)
+    spirit_bomb (ExpandingEnergyBombParams)
+    void_tendril (ConeAttackParams)
+    crystal_shard (BouncingProjectileParams)
+    magma_ball (LobbedBouncingMagmaParams)
+    sand_blast (DebuffAuraParams)
+    metal_shrapnel (PersistentAuraParams)
+    natures_wrath (GroundTargetedAoEParams)
+    chi_bolt (LifestealProjectileParams)
+    psionic_lash (RepositioningTetherParams)
+    aether_bolt (BlinkStrikeProjectileParams)
+
+Available unique sounds (you may need to create more):
+
+    assets/audio/ChainLightningZap.ogg
+    assets/audio/GlacialNovaHit.ogg And various placeholders like: aura_pulse_placeholder.ogg, horror_projectile_placeholder.ogg, largeweaponplaceholder.ogg.
+
+Please provide the list of sound file assignments you'd like for each weapon. For example: venom_spit.fire_sound_effect: "assets/audio/venom_spit_fire.ogg" eldritch_gatling.loop_sound_effect: "assets/audio/gatling_loop.ogg"
+
+Once I have these, I will update the files in src/automatic_weapons/ accordingly. After that, we can move to making sure everything works as expected.

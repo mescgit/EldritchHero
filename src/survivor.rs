@@ -425,7 +425,7 @@ fn survivor_casting_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
-    mut player_query: Query<(Entity, &Transform, &Survivor, Option<&mut SanityStrain>, Option<&SurvivorBuffEffect>)>,
+    mut player_query: Query<(Entity, &Transform, &mut Survivor, Option<&mut SanityStrain>, Option<&SurvivorBuffEffect>)>, // Survivor is now &mut
     mut channeling_status_query: Query<&mut crate::weapon_systems::IsChannelingComponent>, 
     charging_comp_query: Query<&crate::weapon_systems::ChargingWeaponComponent>,
     reticule_query: Query<(&GlobalTransform, &Parent), With<crate::weapon_systems::LobbedWeaponTargetReticuleComponent>>,
@@ -451,7 +451,7 @@ fn survivor_casting_system(
         unsafe { PREV_PLAYER_COUNT = current_player_count };
     }
 
-    for (survivor_entity, survivor_transform, survivor_stats, opt_mut_sanity_strain, buff_effect_opt) in player_query.iter_mut() {
+    for (survivor_entity, survivor_transform, mut survivor_stats, opt_mut_sanity_strain, buff_effect_opt) in player_query.iter_mut() { // survivor_stats is now &mut
         static mut PREV_WEAPON_ID: Option<AutomaticWeaponId> = None;
         static mut PREV_SURVIVOR_ENTITY: Option<Entity> = None;
 
@@ -499,7 +499,14 @@ fn survivor_casting_system(
                         if let Some(ref mut duration_timer) = channeling_comp.active_duration_timer {
                             duration_timer.tick(time.delta());
                             if duration_timer.finished() { 
-                                if let Some(beam_e) = channeling_comp.beam_entity.take() { commands.entity(beam_e).despawn_recursive(); }
+                                if let Some(beam_e) = channeling_comp.beam_entity.take() {
+                                    commands.entity(beam_e).despawn_recursive();
+                                    // Play stop sound for automatic beam ending due to duration
+                                    if let Some(sound_path) = &params.stop_sound_effect {
+                                        // TODO: Audio system needs to stop loop for beam_e
+                                        sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                                    }
+                                }
                                 if let Some(cd_secs) = params.cooldown_secs { 
                                     channeling_comp.cooldown_timer = Some(Timer::from_seconds(cd_secs, TimerMode::Once));
                                 } else { 
@@ -590,54 +597,82 @@ fn survivor_casting_system(
                         error!("Automatic Channeled Beam (ID: {:?}) first activation has no max_duration_secs defined. Beam may not stop automatically.", weapon_def.id);
                     }
                     commands.entity(survivor_entity).insert(new_channeling_comp);
-                    sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast));
+                        // Play automatic beam start sounds
+                        if let Some(sound_path) = &params.fire_sound_effect {
+                            sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                        }
+                        if let Some(sound_path) = &params.loop_sound_effect {
+                            // TODO: Audio system needs to handle this as a looping sound tied to beam_entity_id
+                            sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                        }
                 }
-            } else {
+                } else { // Manual beam logic
                 if let Ok(mut channeling_comp) = channeling_status_query.get_mut(survivor_entity) {
+                        // Cooldown handling (applies to manual beam after use or if it had a duration)
                     if let Some(ref mut cd_timer) = channeling_comp.cooldown_timer {
                         cd_timer.tick(time.delta());
                         if !cd_timer.finished() {
-                            continue;
+                                continue; 
                         } else {
-                            channeling_comp.cooldown_timer = None;
+                                channeling_comp.cooldown_timer = None; // Cooldown finished
                         }
                     }
 
+                        // If mouse is pressed for a manual beam
                     if mouse_button_input.pressed(MouseButton::Left) {
-                        if channeling_comp.beam_entity.is_some() {
+                            if channeling_comp.beam_entity.is_some() { // Beam is active
+                                // Check for max duration for manual beam if it exists
                             if let Some(ref mut duration_timer) = channeling_comp.active_duration_timer {
                                 duration_timer.tick(time.delta());
-                                if duration_timer.finished() {
+                                    if duration_timer.finished() { // Max duration reached
                                     if let Some(beam_e) = channeling_comp.beam_entity.take() {
                                         commands.entity(beam_e).despawn_recursive();
+                                            // Play stop sound for manual beam ending due to duration
+                                            if let Some(sound_path) = &params.stop_sound_effect {
+                                                // TODO: Audio system needs to stop loop for beam_e
+                                                sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                                            }
                                     }
-                                    if let Some(cd_secs) = params.cooldown_secs {
+                                        if let Some(cd_secs) = params.cooldown_secs { // Setup cooldown if any
                                         channeling_comp.cooldown_timer = Some(Timer::from_seconds(cd_secs, TimerMode::Once));
-                                    } else {
+                                        } else { // No cooldown, just remove component
                                         commands.entity(survivor_entity).remove::<crate::weapon_systems::IsChannelingComponent>();
                                     }
-                                    continue;
+                                        continue; // End processing for this frame
                                 }
                             }
+                                // Beam is active and duration (if any) not ended, so continue channeling
                             continue;
                         }
-                    } else {
-                        if channeling_comp.beam_entity.is_some() {
+                            // else beam_entity is None, meaning we might be able to start it (handled below)
+                        } else { // Mouse button is NOT pressed (released or not pressed at all)
+                            if channeling_comp.beam_entity.is_some() { // Beam was active, now stop it
                             if let Some(beam_e) = channeling_comp.beam_entity.take() {
                                 commands.entity(beam_e).despawn_recursive();
+                                    // Play stop sound for manual beam
+                                    if let Some(sound_path) = &params.stop_sound_effect {
+                                        // TODO: Audio system needs to stop loop for beam_e
+                                        sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                                    }
                             }
-                            if let Some(cd_secs) = params.cooldown_secs {
+                                if let Some(cd_secs) = params.cooldown_secs { // Setup cooldown if any
                                 channeling_comp.cooldown_timer = Some(Timer::from_seconds(cd_secs, TimerMode::Once));
-                            } else {
+                                } else { // No cooldown, just remove component
                                 commands.entity(survivor_entity).remove::<crate::weapon_systems::IsChannelingComponent>();
                             }
                         }
+                            // If beam_entity was None and mouse not pressed, do nothing, just continue.
                         continue;
                     }
                 }
 
+                    // Try to start a new manual beam if mouse is pressed and not on cooldown
                 if mouse_button_input.pressed(MouseButton::Left) {
-                    if channeling_status_query.get(survivor_entity).map_or(true, |comp| comp.beam_entity.is_none() && comp.cooldown_timer.is_none()) {
+                        // Check if we can start: no existing beam AND (no channeling component OR (no beam_entity AND cooldown is None or finished))
+                        let can_start_new_beam = channeling_status_query.get(survivor_entity)
+                            .map_or(true, |comp| comp.beam_entity.is_none() && comp.cooldown_timer.as_ref().map_or(true, |t| t.finished()));
+
+                        if can_start_new_beam {
                         let beam_aim_direction = survivor_stats.aim_direction;
                         if beam_aim_direction == Vec2::ZERO { continue; }
 
@@ -648,8 +683,8 @@ fn survivor_casting_system(
                             SpriteBundle { 
                                 texture: asset_server.load(String::from("sprites/channeled_beam_placeholder.png")), 
                                 sprite: Sprite { 
-                                    custom_size: Some(Vec2::new(params.beam_range, params.beam_width)), // Corrected: range -> beam_range
-                                    color: params.color, // Corrected: beam_color -> color
+                                        custom_size: Some(Vec2::new(params.beam_range, params.beam_width)),
+                                        color: params.color,
                                     anchor: bevy::sprite::Anchor::CenterLeft, 
                                     ..default() 
                                 }, 
@@ -658,11 +693,11 @@ fn survivor_casting_system(
                                 ..default() 
                             },
                             crate::weapon_systems::ChanneledBeamComponent {
-                                damage_per_tick: params.damage_per_tick + survivor_stats.auto_weapon_damage_bonus, // Corrected: base_damage_per_tick -> damage_per_tick
-                                tick_timer: Timer::from_seconds(params.tick_interval_secs, TimerMode::Repeating), // Corrected: tick_rate_secs -> tick_interval_secs
-                                range: params.beam_range, // Corrected: range -> beam_range
+                                    damage_per_tick: params.damage_per_tick + survivor_stats.auto_weapon_damage_bonus,
+                                    tick_timer: Timer::from_seconds(params.tick_interval_secs, TimerMode::Repeating),
+                                    range: params.beam_range,
                                 width: params.beam_width, 
-                                color: params.color, // Corrected: beam_color -> color
+                                    color: params.color,
                                 owner: survivor_entity,
                             },
                             Name::new("ChanneledBeamWeaponInstance (Manual)"),
@@ -671,18 +706,22 @@ fn survivor_casting_system(
                         let mut new_channeling_comp = crate::weapon_systems::IsChannelingComponent {
                             beam_entity: Some(beam_entity_id),
                             beam_params: params.clone(),
-                            active_duration_timer: None,
-                            cooldown_timer: None,
+                                active_duration_timer: params.max_duration_secs.map(|d| Timer::from_seconds(d, TimerMode::Once)),
+                                cooldown_timer: None, // Cooldown will be set when beam stops
                         };
-                        if let Some(max_duration) = params.max_duration_secs {
-                            new_channeling_comp.active_duration_timer = Some(Timer::from_seconds(max_duration, TimerMode::Once));
-                        }
                         commands.entity(survivor_entity).insert(new_channeling_comp);
-                        sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast));
+                            // Play manual beam start sounds
+                            if let Some(sound_path) = &params.fire_sound_effect {
+                                sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                            }
+                            if let Some(sound_path) = &params.loop_sound_effect {
+                                // TODO: Audio system needs to handle this as a looping sound tied to beam_entity_id
+                                sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                            }
                     }
                 }
             }
-            continue;
+                continue; // Important: skip general fire timer logic for channeled beams
         }
         if let AttackTypeData::ChargeUpEnergyShot(ref shot_params) = weapon_def.attack_data {
             sanity_strain.fire_timer.tick(time.delta());
@@ -735,7 +774,9 @@ fn survivor_casting_system(
                     sanity_strain.fire_timer.set_duration(Duration::from_secs_f32(shot_params.base_fire_rate_secs));
                     sanity_strain.fire_timer.set_mode(TimerMode::Once);
                     sanity_strain.fire_timer.reset();
-                    sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast));
+                    if let Some(sound_path) = &shot_params.release_sound_effect {
+                        sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                    }
                 }
             }
             continue; 
@@ -755,10 +796,14 @@ fn survivor_casting_system(
 
         if sanity_strain.fire_timer.just_finished() {
             if survivor_stats.aim_direction != Vec2::ZERO {
-                sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast));
+                // Removed general RitualCast sound, will be handled per weapon type
 
                 match &weapon_def.attack_data {
                     AttackTypeData::StandardProjectile(params) => {
+                        if let Some(sound_path) = &params.fire_sound_effect {
+                            sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                        }
+                        // Removed generic RitualCast sound for this specific type
                         let current_damage = params.base_damage + survivor_stats.auto_weapon_damage_bonus;
                         let effective_projectile_lifetime_secs = params.projectile_lifetime_secs * survivor_stats.auto_attack_projectile_duration_multiplier;
                         let current_speed = params.projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier; // Corrected: base_projectile_speed -> projectile_speed
@@ -803,6 +848,9 @@ fn survivor_casting_system(
                         }
                     }
                     AttackTypeData::TrailOfFire(params) => {
+                        if let Some(sound_path) = &params.fire_sound_effect {
+                            sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                        }
                         crate::automatic_projectiles::spawn_automatic_projectile(
                             &mut commands,
                             &asset_server,
@@ -835,6 +883,7 @@ fn survivor_casting_system(
                             params,
                             weapon_def.id,
                             survivor_transform,
+                            &mut sound_event_writer,
                         );
                     }
                     AttackTypeData::PersistentAura(_params) => {
@@ -860,9 +909,13 @@ fn survivor_casting_system(
                             params,
                             weapon_def.id,
                             final_target_pos,
+                            &mut sound_event_writer,
                         );
                     }
                     AttackTypeData::LifestealProjectile(params) => {
+                        if let Some(sound_path) = &params.fire_sound_effect {
+                            sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                        }
                         let current_damage = params.base_damage + survivor_stats.auto_weapon_damage_bonus;
                         let effective_projectile_lifetime_secs = params.projectile_lifetime_secs * survivor_stats.auto_attack_projectile_duration_multiplier;
                         let current_speed = params.projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier;
@@ -928,112 +981,99 @@ fn survivor_casting_system(
                             weapon_def.id,
                             survivor_entity,
                             survivor_stats,
+                            &mut sound_event_writer,
                         );
                     }
                     AttackTypeData::ReturningProjectile(params) => {
+                        // Sound handled by spawn_returning_projectile_attack
                         crate::weapon_systems::spawn_returning_projectile_attack(
                             &mut commands,
                             &asset_server,
                             params,
                             survivor_transform,
+                            survivor_transform,
                             survivor_stats.aim_direction,
+                            &mut sound_event_writer,
                         );
                     }
                     AttackTypeData::ConeAttack(params) => {
-                        let survivor_pos = survivor_transform.translation.truncate();
-                        
-                        if let Some(sprite_path_str) = &params.visual_sprite_path {
-                            let num_visual_sprites = 5;
-                            let total_fan_angle_rad = params.cone_angle_degrees.to_radians();
-                            let base_aim_angle_rad = survivor_stats.aim_direction.y.atan2(survivor_stats.aim_direction.x);
-                            
-                            let first_sprite_offset_rad = if num_visual_sprites > 1 { -total_fan_angle_rad / 2.0 } else { 0.0 };
-                            let angle_step_rad = if num_visual_sprites > 1 { total_fan_angle_rad / (num_visual_sprites - 1) as f32 } else { 0.0 };
-
-                            let visual_anchor = params.visual_anchor_offset.map_or(Anchor::CenterLeft, |offset| Anchor::Custom(offset / params.cone_radius * 2.0));
-                            let (radius_scale_factor, _original_angle_scale_factor) = params.visual_size_scale_with_radius_angle.unwrap_or((1.0, 1.0));
-                            let fan_segment_angle_scale_factor = 0.35;
-
-                            let base_final_x_scale = params.cone_radius * radius_scale_factor;
-                            let base_final_y_scale = params.cone_radius * fan_segment_angle_scale_factor;
-
-                            let final_x_scale = base_final_x_scale * 2.0;
-                            let final_y_scale = base_final_y_scale * 2.0;
-                            
-                            let initial_scale_vec3 = Vec3::new(0.1, 0.1, 1.0);
-                            let final_scale_vec3 = Vec3::new(final_x_scale, final_y_scale, 1.0);
-
-                            for i in 0..num_visual_sprites {
-                                let current_sprite_angle_rad = base_aim_angle_rad + first_sprite_offset_rad + (i as f32 * angle_step_rad);
-
-                                let mut visual_transform = *survivor_transform;
-                                visual_transform.rotation = Quat::from_rotation_z(current_sprite_angle_rad);
-                                visual_transform.scale = initial_scale_vec3;
-
-                                commands.spawn((
-                                    SpriteBundle {
-                                        texture: asset_server.load(sprite_path_str.clone()),
-                                        sprite: Sprite {
-                                            color: params.color,
-                                            custom_size: Some(Vec2::ONE),
-                                            anchor: visual_anchor,
-                                            ..default()
-                                        },
-                                        transform: visual_transform,
-                                        ..default()
-                                    },
-                                    ExpandingWaveVisual {
-                                        initial_scale: initial_scale_vec3,
-                                        final_scale: final_scale_vec3,
-                                    },
-                                    Lifetime { timer: Timer::from_seconds(0.25, TimerMode::Once) },
-                                    Name::new(format!("ConeAttackFanVisual_{}", i)),
-                                ));
-                            }
-                        }
-
-                        for (horror_entity, horror_transform, mut horror_health, _horror_tag) in horror_query.iter_mut() {
-                            let enemy_pos = horror_transform.translation.truncate();
-                            let direction_to_enemy = (enemy_pos - survivor_pos).normalize_or_zero();
-
-                            if direction_to_enemy == Vec2::ZERO {
-                                continue;
-                            }
-
-                            let distance_to_enemy_sq = survivor_pos.distance_squared(enemy_pos);
-                            if distance_to_enemy_sq < params.cone_radius * params.cone_radius {
-                                let angle_diff_rad = survivor_stats.aim_direction.angle_between(direction_to_enemy);
-                                if angle_diff_rad.abs() <= params.cone_angle_degrees.to_radians() / 2.0 {
-                                    let total_damage = params.base_damage + survivor_stats.auto_weapon_damage_bonus;
-                                    horror_health.0 = horror_health.0.saturating_sub(total_damage);
-                                    spawn_damage_text(
-                                        &mut commands,
-                                        &asset_server,
-                                        horror_transform.translation,
-                                        total_damage,
-                                        &time
-                                    );
-
-                                    if horror_health.0 > 0 {
-                                        if params.applies_burn == Some(true) {
-                                            if let (Some(burn_dmg), Some(burn_dur), Some(burn_tick_interval)) = 
-                                                (params.burn_damage_per_tick, params.burn_duration_secs, params.burn_tick_interval_secs)
-                                            {
-                                                commands.entity(horror_entity).insert(BurnStatusEffect {
-                                                    damage_per_tick: burn_dmg,
-                                                    tick_interval_secs: burn_tick_interval,
-                                                    duration_timer: Timer::from_seconds(burn_dur, TimerMode::Once),
-                                                    tick_timer: Timer::from_seconds(burn_tick_interval, TimerMode::Repeating),
-                                                    source_weapon_id: Some(weapon_def.id.0),
-                                                });
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        // Sound, visuals, and damage are handled by execute_cone_attack
+                        crate::weapon_systems::execute_cone_attack(
+                            &mut commands,
+                            &asset_server,
+                            params,
+                            survivor_transform,
+                            survivor_stats.aim_direction,
+                            &mut horror_query, // Pass the Query directly
+                            &time,
+                            &mut sound_event_writer,
+                        );
                     }
+                    AttackTypeData::ChainZap(_params) => {
+                        // Sound and logic are handled by chain_lightning_attack_system
+                    }
+                    AttackTypeData::PointBlankNova(params) => {
+                        if let Some(sound_path) = &params.fire_sound_effect {
+                            sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                        }
+                        // TODO: Actual PointBlankNova logic (e.g., call a system or function)
+                    }
+                    AttackTypeData::GroundTargetedAoE(params) => {
+                        let mut final_target_pos = survivor_transform.translation + survivor_stats.aim_direction.extend(0.0) * params.targeting_range;
+                        for (reticule_g_transform, parent) in reticule_query.iter() {
+                            if parent.get() == survivor_entity {
+                                final_target_pos = reticule_g_transform.translation();
+                                break;
+                            }
+                        }
+                        // Sound handled by spawn_pending_ground_aoe_attack
+                        crate::weapon_systems::spawn_pending_ground_aoe_attack(
+                            &mut commands,
+                            params,
+                            final_target_pos,
+                            &mut sound_event_writer,
+                        );
+                    }
+                    AttackTypeData::LineDashAttack(params) => {
+                        // Sound handled by spawn_line_dash_attack
+                        crate::weapon_systems::spawn_line_dash_attack(
+                            &mut commands,
+                            survivor_entity,
+                            &mut survivor_stats, // Now correctly mutable
+                            survivor_transform,
+                            params,
+                            &mut sound_event_writer,
+                        );
+                    }
+                    AttackTypeData::OrbitingPet(_params) => {
+                        // Sound is handled by manage_player_orbs_system -> spawn_orbiting_pet_attack
+                    }
+                    AttackTypeData::PersistentAura(params) => {
+                        // Activation sound logic might be complex here if tied to fire_timer.
+                        // Ideally, this is played when the aura becomes active.
+                        if let Some(sound_path) = &params.activation_sound_effect {
+                            sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                        }
+                        // TODO: Implement actual PersistentAura logic (e.g., adding/removing a component)
+                    }
+                    AttackTypeData::DebuffAura(params) => {
+                        // Activation sound logic might be complex here if tied to fire_timer.
+                        // Ideally, this is played when the cloud/aura is spawned.
+                        if let Some(sound_path) = &params.activation_sound_effect {
+                            sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                        }
+                        // TODO: Implement actual DebuffAura logic (e.g., spawning a cloud entity)
+                    }
+                    AttackTypeData::ExpandingEnergyBomb(params) => {
+                        if let Some(sound_path) = &params.launch_sound_effect {
+                            sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
+                        }
+                        // TODO: Implement actual bomb spawning logic
+                    }
+                    // Other cases will be handled in subsequent steps
                     _ => {
+                        // Default handling for any other types, perhaps a generic sound or nothing
+                        sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast));
                     }
                 }
             }

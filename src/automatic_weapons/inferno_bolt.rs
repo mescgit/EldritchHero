@@ -19,6 +19,7 @@ pub fn define_inferno_bolt() -> AutomaticWeaponDefinition {
             trail_segment_duration_secs: 2.0,
             trail_segment_width: 30.0,
             trail_segment_color: Color::rgba(1.0, 0.5, 0.0, 0.7),
+            fire_sound_effect: None,
         }),
     }
 }
