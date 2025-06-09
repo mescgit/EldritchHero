@@ -15,7 +15,7 @@ pub fn define_chi_bolt() -> AutomaticWeaponDefinition {
             projectile_lifetime_secs: 1.5,
             piercing: 0,
             lifesteal_percentage: 0.10,
-            fire_sound_effect: Some("assets/audio/chi_bolt_fire.ogg".to_string()),
+            fire_sound_effect: Some("audio/chi_bolt_fire.ogg".to_string()),
         }),
     }
 }

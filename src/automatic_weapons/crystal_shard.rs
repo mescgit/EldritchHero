@@ -18,7 +18,7 @@ pub fn define_crystal_shard() -> AutomaticWeaponDefinition {
             damage_loss_per_bounce_multiplier: 0.75,
             speed_loss_per_bounce_multiplier: 0.9,
             spread_angle_degrees: 30.0,
-            fire_sound_effect: Some("assets/audio/crystal_shard_fire.ogg".to_string()),
+            fire_sound_effect: Some("audio/crystal_shard_fire.ogg".to_string()),
         }),
     }
 }

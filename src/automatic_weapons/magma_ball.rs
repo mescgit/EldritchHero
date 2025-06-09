@@ -24,7 +24,7 @@ pub fn define_magma_ball() -> AutomaticWeaponDefinition {
             projectile_lifetime_secs: 10.0, 
             explosion_radius_on_final_bounce: 75.0,
             explosion_damage_on_final_bounce: 40,
-            fire_sound_effect: Some("assets/audio/magma_ball_fire.ogg".to_string()),
+            fire_sound_effect: Some("audio/magma_ball_fire.ogg".to_string()),
         }),
     }
 }

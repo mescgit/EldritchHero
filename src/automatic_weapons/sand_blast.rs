@@ -14,7 +14,7 @@ pub fn define_sand_blast() -> AutomaticWeaponDefinition {
             debuff_type: AuraDebuffType::ReduceAccuracy,
             debuff_magnitude: 0.20,
             debuff_duration_secs: 3.0,
-            activation_sound_effect: Some("assets/audio/sand_blast_activate.ogg".to_string()),
+            activation_sound_effect: Some("audio/sand_blast_activate.ogg".to_string()),
         }),
     }
 }

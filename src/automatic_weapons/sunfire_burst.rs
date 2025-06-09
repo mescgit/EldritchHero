@@ -20,7 +20,7 @@ pub fn define_sunfire_burst() -> AutomaticWeaponDefinition {
             burn_damage_per_tick: Some(5),
             burn_duration_secs: Some(3.0),
             burn_tick_interval_secs: Some(0.5),
-            fire_sound_effect: Some("assets/audio/sunfire_burst_fire.ogg".to_string()),
+            fire_sound_effect: Some("audio/sunfire_burst_fire.ogg".to_string()),
         }),
     }
 }

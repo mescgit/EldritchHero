@@ -20,7 +20,7 @@ pub fn define_primordial_ichor_blast() -> AutomaticWeaponDefinition {
             pool_tick_interval_secs: 0.5,
             pool_color: Color::rgba(0.5, 0.3, 0.8, 0.5),
             max_active_pools: 3,
-            fire_sound_effect: Some("assets/audio/primordial_ichor_blast_fire.ogg".to_string()),
+            fire_sound_effect: Some("audio/primordial_ichor_blast_fire.ogg".to_string()),
         }),
     }
 }

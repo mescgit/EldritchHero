@@ -6,7 +6,7 @@ use crate::game::AppState;
 #[derive(Event)]
 pub struct PlaySoundEvent(pub SoundEffect);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SoundEffect {
     RitualCast,
     HorrorHit,

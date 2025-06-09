@@ -18,7 +18,7 @@ pub fn define_natures_wrath() -> AutomaticWeaponDefinition {
             aoe_visual_duration_secs: 0.6,
             knock_up_strength: 0.0,
             root_duration_secs: Some(2.5),
-            fire_sound_effect: Some("assets/audio/natures_wrath_fire.ogg".to_string()),
+            fire_sound_effect: Some("audio/natures_wrath_fire.ogg".to_string()),
         }),
     }
 }

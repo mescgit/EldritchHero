@@ -19,7 +19,7 @@ pub fn define_void_tendril() -> AutomaticWeaponDefinition {
             burn_damage_per_tick: None,
             burn_duration_secs: None,
             burn_tick_interval_secs: None,
-            fire_sound_effect: Some("assets/audio/void_tendril_fire.ogg".to_string()),
+            fire_sound_effect: Some("audio/void_tendril_fire.ogg".to_string()),
         }),
     }
 }

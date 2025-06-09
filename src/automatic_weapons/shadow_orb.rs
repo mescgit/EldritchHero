@@ -31,7 +31,7 @@ pub fn define_shadow_orb() -> AutomaticWeaponDefinition {
             bolt_color: Some(Color::rgb(0.3, 0.1, 0.5)), // Unused
             bolt_lifetime_secs: Some(1.0), // Unused
             bolt_homing_strength: Some(0.5), // Unused
-            spawn_sound_effect: Some("assets/audio/shadow_orb_spawn.ogg".to_string()),
+            spawn_sound_effect: Some("audio/shadow_orb_spawn.ogg".to_string()),
         }),
     }
 }

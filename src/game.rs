@@ -231,37 +231,29 @@ fn debug_character_switch_system(
                 survivor.inherent_weapon_id = new_inherent_weapon_id;
                 survivor.equipped_weapon_definition = Some(new_weapon_def.clone());
                 
-                let mut new_base_fire_rate = 0.5_f32; // Default fire rate
-                // Update fire rate and manage ChargingWeaponComponent based on the new weapon's specific attack type
-                match &new_weapon_def.attack_data {
-                    AttackTypeData::ChargeUpEnergyShot(params) => {
-                        new_base_fire_rate = params.base_fire_rate_secs;
-                        // This is a charge-up weapon, ensure ChargingWeaponComponent is present and configured
-                        // For now, we are only focusing on removal if NOT a charge weapon.
-                        // A more complete implementation would add/update ChargingWeaponComponent here.
-                        // Example: commands.entity(player_entity).insert(ChargingWeaponComponent { weapon_id: new_inherent_weapon_id, ... });
-                    }
-                    AttackTypeData::StandardProjectile(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::ReturningProjectile(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::ChanneledBeam(params) => new_base_fire_rate = params.tick_interval_secs,
-                    AttackTypeData::ConeAttack(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::LobbedAoEPool(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::TrailOfFire(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::ChainZap(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::PointBlankNova(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::PersistentAura(params) => new_base_fire_rate = params.fire_rate_secs_placeholder,
-                    AttackTypeData::DebuffAura(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::ExpandingEnergyBomb(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::HomingDebuffProjectile(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::BouncingProjectile(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::LifestealProjectile(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::GroundTargetedAoE(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::LineDashAttack(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::OrbitingPet(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::RepositioningTether(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::BlinkStrikeProjectile(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::LobbedBouncingMagma(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                }
+                let new_base_fire_rate = match &new_weapon_def.attack_data {
+                    AttackTypeData::ChargeUpEnergyShot(params) => params.base_fire_rate_secs,
+                    AttackTypeData::StandardProjectile(params) => params.base_fire_rate_secs,
+                    AttackTypeData::ReturningProjectile(params) => params.base_fire_rate_secs,
+                    AttackTypeData::ChanneledBeam(params) => params.tick_interval_secs,
+                    AttackTypeData::ConeAttack(params) => params.base_fire_rate_secs,
+                    AttackTypeData::LobbedAoEPool(params) => params.base_fire_rate_secs,
+                    AttackTypeData::TrailOfFire(params) => params.base_fire_rate_secs,
+                    AttackTypeData::ChainZap(params) => params.base_fire_rate_secs,
+                    AttackTypeData::PointBlankNova(params) => params.base_fire_rate_secs,
+                    AttackTypeData::PersistentAura(params) => params.fire_rate_secs_placeholder,
+                    AttackTypeData::DebuffAura(params) => params.base_fire_rate_secs,
+                    AttackTypeData::ExpandingEnergyBomb(params) => params.base_fire_rate_secs,
+                    AttackTypeData::HomingDebuffProjectile(params) => params.base_fire_rate_secs,
+                    AttackTypeData::BouncingProjectile(params) => params.base_fire_rate_secs,
+                    AttackTypeData::LifestealProjectile(params) => params.base_fire_rate_secs,
+                    AttackTypeData::GroundTargetedAoE(params) => params.base_fire_rate_secs,
+                    AttackTypeData::LineDashAttack(params) => params.base_fire_rate_secs,
+                    AttackTypeData::OrbitingPet(params) => params.base_fire_rate_secs,
+                    AttackTypeData::RepositioningTether(params) => params.base_fire_rate_secs,
+                    AttackTypeData::BlinkStrikeProjectile(params) => params.base_fire_rate_secs,
+                    AttackTypeData::LobbedBouncingMagma(params) => params.base_fire_rate_secs,
+                };
 
                 // If the new weapon is NOT a charge-up type, remove ChargingWeaponComponent
                 if !matches!(&new_weapon_def.attack_data, AttackTypeData::ChargeUpEnergyShot(_)) {

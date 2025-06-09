@@ -17,7 +17,7 @@ pub fn define_psionic_lash() -> AutomaticWeaponDefinition {
             push_strength: 100.0,
             reactivation_window_secs: 1.5,
             effect_duration_secs: 0.2,
-            fire_sound_effect: Some("assets/audio/psionic_lash_fire.ogg".to_string()),
+            fire_sound_effect: Some("audio/psionic_lash_fire.ogg".to_string()),
         }),
     }
 }

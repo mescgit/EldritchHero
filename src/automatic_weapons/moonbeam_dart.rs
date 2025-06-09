@@ -20,7 +20,7 @@ pub fn define_moonbeam_dart() -> AutomaticWeaponDefinition {
             debuff_magnitude_per_stack: 0.05,
             max_debuff_stacks: 5,
             debuff_duration_secs_on_target: 3.0,
-            fire_sound_effect: Some("assets/audio/moonbeam_dart_fire.ogg".to_string()),
+            fire_sound_effect: Some("audio/moonbeam_dart_fire.ogg".to_string()),
         }),
     }
 }

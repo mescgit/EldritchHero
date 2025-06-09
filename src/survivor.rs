@@ -4,7 +4,7 @@ use std::time::Duration;
 use rand::Rng;
 
 use crate::{
-    components::{Velocity, Health as ComponentHealth, BurnStatusEffect, Lifetime, ExpandingWaveVisual, PlayerSparkAuraComponent}, // Added PlayerSparkAuraComponent
+    components::{Velocity, Health as ComponentHealth, PlayerSparkAuraComponent}, // Added PlayerSparkAuraComponent
     game::{AppState, ItemCollectedEvent, SelectedCharacter},
     automatic_projectiles::{spawn_automatic_projectile},
     items::AutomaticWeaponDefinition, 
@@ -13,9 +13,7 @@ use crate::{
     audio::{PlaySoundEvent, SoundEffect},
     skills::{ActiveSkillInstance, SkillLibrary, SkillId, SurvivorBuffEffect, ActiveShield},
     items::{ItemId, ItemDrop, ItemLibrary, ItemEffect, RetaliationNovaEffect, AutomaticWeaponId, AutomaticWeaponLibrary, AttackTypeData}, 
-    visual_effects::spawn_damage_text, 
 };
-use bevy::sprite::Anchor; 
 
 pub const SURVIVOR_SIZE: Vec2 = Vec2::new(50.0, 50.0);
 const XP_FOR_LEVEL: [u32; 10] = [100, 150, 250, 400, 600, 850, 1100, 1400, 1800, 2500];
@@ -980,7 +978,7 @@ fn survivor_casting_system(
                             survivor_stats.aim_direction,
                             weapon_def.id,
                             survivor_entity,
-                            survivor_stats,
+                            &survivor_stats, // Changed to reference
                             &mut sound_event_writer,
                         );
                     }
@@ -990,8 +988,7 @@ fn survivor_casting_system(
                             &mut commands,
                             &asset_server,
                             params,
-                            survivor_transform,
-                            survivor_transform,
+                            survivor_transform, // Removed extra survivor_transform
                             survivor_stats.aim_direction,
                             &mut sound_event_writer,
                         );
@@ -1004,7 +1001,7 @@ fn survivor_casting_system(
                             params,
                             survivor_transform,
                             survivor_stats.aim_direction,
-                            &mut horror_query, // Pass the Query directly
+                            &mut horror_query, // Pass as mutable reference
                             &time,
                             &mut sound_event_writer,
                         );
@@ -1045,25 +1042,9 @@ fn survivor_casting_system(
                             &mut sound_event_writer,
                         );
                     }
-                    AttackTypeData::OrbitingPet(_params) => {
-                        // Sound is handled by manage_player_orbs_system -> spawn_orbiting_pet_attack
-                    }
-                    AttackTypeData::PersistentAura(params) => {
-                        // Activation sound logic might be complex here if tied to fire_timer.
-                        // Ideally, this is played when the aura becomes active.
-                        if let Some(sound_path) = &params.activation_sound_effect {
-                            sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
-                        }
-                        // TODO: Implement actual PersistentAura logic (e.g., adding/removing a component)
-                    }
-                    AttackTypeData::DebuffAura(params) => {
-                        // Activation sound logic might be complex here if tied to fire_timer.
-                        // Ideally, this is played when the cloud/aura is spawned.
-                        if let Some(sound_path) = &params.activation_sound_effect {
-                            sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));
-                        }
-                        // TODO: Implement actual DebuffAura logic (e.g., spawning a cloud entity)
-                    }
+                    // AttackTypeData::OrbitingPet(_params) => {} // Commented out/Removed - Unreachable
+                    // AttackTypeData::PersistentAura(params) => {} // Commented out/Removed - Unreachable
+                    // AttackTypeData::DebuffAura(params) => {} // Commented out/Removed - Unreachable
                     AttackTypeData::ExpandingEnergyBomb(params) => {
                         if let Some(sound_path) = &params.launch_sound_effect {
                             sound_event_writer.send(PlaySoundEvent(SoundEffect::Path(sound_path.clone())));

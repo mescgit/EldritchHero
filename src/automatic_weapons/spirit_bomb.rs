@@ -15,8 +15,8 @@ pub fn define_spirit_bomb() -> AutomaticWeaponDefinition {
             visual_sprite_path: Some("sprites/spirit_bomb_effect_placeholder.png".to_string()),
             detonation_can_be_manual: true,
             auto_detonation_delay_after_max_expansion_secs: 1.0,
-            launch_sound_effect: Some("assets/audio/spirit_bomb_launch.ogg".to_string()),
-            detonation_sound_effect: Some("assets/audio/spirit_bomb_detonate.ogg".to_string()),
+            launch_sound_effect: Some("audio/spirit_bomb_launch.ogg".to_string()),
+            detonation_sound_effect: Some("audio/spirit_bomb_detonate.ogg".to_string()),
         }),
     }
 }
