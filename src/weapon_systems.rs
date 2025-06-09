@@ -2683,7 +2683,7 @@ pub fn execute_cone_attack(
     params: &ConeAttackParams,
     player_transform: &Transform,
     aim_direction: Vec2,
-    mut enemy_query: Query<(&Transform, &mut Health), With<Horror>>,
+    enemy_query: &mut Query<(Entity, &Transform, &mut Health, &Horror), With<Horror>>,
     time: &Res<Time>,
     sound_event_writer: &mut EventWriter<PlaySoundEvent>,
 ) {
@@ -2730,7 +2730,7 @@ pub fn execute_cone_attack(
         ));
     }
 
-    for (enemy_transform, mut enemy_health) in enemy_query.iter_mut() {
+    for (_enemy_entity, enemy_transform, mut enemy_health, _horror_tag) in enemy_query.iter_mut() {
         let enemy_pos = enemy_transform.translation.truncate();
         let vector_to_enemy = enemy_pos - player_pos;
 
