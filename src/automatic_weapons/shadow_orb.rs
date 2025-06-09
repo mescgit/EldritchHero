@@ -7,7 +7,7 @@ pub fn define_shadow_orb() -> AutomaticWeaponDefinition {
         id: AutomaticWeaponId(7),
         name: "Shadow Orb".to_string(),
         attack_data: AttackTypeData::OrbitingPet(OrbitingPetParams {
-            base_fire_rate_secs: 5.0,  // New cooldown value
+            base_fire_rate_secs: 1.0,  // Reduced respawn cooldown to 1 second
             max_active_orbs: 1,          // Start with one orb
             orb_duration_secs: 15.0,     // Moderate duration
             orb_sprite_path: "sprites/auto_shadow_orb.png".to_string(),
@@ -19,9 +19,9 @@ pub fn define_shadow_orb() -> AutomaticWeaponDefinition {
             deployment_range: 300.0,     // Sensible deployment range
             pulses_aoe: true,            // Pulse AoE is primary
             pulse_damage: 12,            // Adjusted pulse damage
-            pulse_radius: 70.0,          // Adjusted pulse radius
+            pulse_radius: 32.0,          // Damage radius now matches visual max radius (orb_size.x * 1.0 = 32.0)
             pulse_interval_secs: 1.8,    // Adjusted pulse interval
-            pulse_color: Some(Color::rgba(0.3, 0.1, 0.5, 0.5)), // Keep or adjust
+            pulse_color: Some(Color::rgba(0.3, 0.1, 0.5, 1.0)), // Made opaque for wave effect
             fires_seeking_bolts: false,  // Disable seeking bolts
             bolt_damage: 0,              // Zero out bolt damage
             bolt_speed: 400.0,           // Unused, can remain

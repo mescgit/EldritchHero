@@ -7,7 +7,7 @@ use std::time::Instant; // Added for log state
 
 use crate::items::{
     StandardProjectileParams, ReturningProjectileParams, ChanneledBeamParams, ConeAttackParams,
-    AutomaticWeaponId, AttackTypeData, OrbitingPetParams, AutomaticWeaponLibrary
+    AutomaticWeaponId, AttackTypeData, AutomaticWeaponLibrary
 };
 use crate::components::{
     Velocity, Damage, Lifetime, Health, RootedComponent, HorrorLatchedByTetherComponent, PlayerRequestsOrbDeployment
@@ -17,11 +17,11 @@ use crate::camera_systems::MainCamera;
 use crate::horror::Horror;
 use crate::game::AppState;
 use crate::visual_effects;
-// use crate::audio::{PlaySoundEvent, SoundEffect}; // Removed unused audio imports
+use crate::audio::{PlaySoundEvent, SoundEffect}; // Re-added for orb pulse sound
 
 // --- Chain Lightning Log State Resource ---
 #[derive(Resource, Default)]
-struct ChainLightningLogState {
+pub struct ChainLightningLogState { // Made public to resolve private_interfaces warning
     last_log_time: Option<Instant>,
     last_targets_hit_count: Option<usize>,
 }
@@ -830,8 +830,28 @@ pub fn chain_lightning_visual_system(
     }
 }
 
-pub fn nova_visual_system(mut _commands: Commands) {
-    // TODO: Implement system
+pub fn nova_visual_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut NovaVisualComponent, &mut Sprite)>, 
+) {
+    for (entity, mut visual, mut sprite) in query.iter_mut() {
+        visual.duration_timer.tick(time.delta());
+        let progress = visual.duration_timer.percent();
+
+        if visual.duration_timer.finished() {
+            // Despawn immediately when max size/duration is reached for the "wave" effect
+            commands.entity(entity).despawn_recursive();
+        } else {
+            // Scale animation:
+            // NovaVisualComponent stores radius, sprite.custom_size is diameter
+            let current_diameter = (visual.initial_radius + (visual.max_radius - visual.initial_radius) * progress) * 2.0;
+            sprite.custom_size = Some(Vec2::splat(current_diameter.max(0.0))); // Ensure non-negative size
+
+            // Keep fully opaque during expansion (use alpha from component's base color)
+            sprite.color.set_a(visual.color.a()); 
+        }
+    }
 }
 
 pub fn manage_persistent_aura_system(mut _commands: Commands) {
@@ -1673,7 +1693,8 @@ pub fn manage_player_orbs_system(
     asset_server: Res<AssetServer>,
     weapon_library: Res<crate::items::AutomaticWeaponLibrary>,
     mut player_query: Query<(Entity, &Transform, &Survivor, Option<&mut PlayerOrbControllerComponent>)>,
-    orb_query: Query<Entity, With<OrbitingPetComponent>>,
+    // Changed orb_query to all_orbs_query to reflect its new role and components
+    all_orbs_query: Query<(Entity, &OrbitingPetComponent)>, 
 ) {
     let Ok((player_entity, player_transform, player_stats, opt_orb_controller)) = player_query.get_single_mut() else { return; };
 
@@ -1686,13 +1707,29 @@ pub fn manage_player_orbs_system(
     }
 
     if let Some(params) = shadow_orb_params_opt {
-        if let Some(mut controller) = opt_orb_controller { // Re-add mut here
-            controller.spawn_cooldown_timer.tick(time.delta());
-            if controller.spawn_cooldown_timer.finished() && controller.active_orb_entities.len() < controller.max_orbs_allowed as usize {
-                spawn_orbiting_pet_attack(&mut commands, &asset_server, player_entity, player_transform, &params, &mut controller);
-                controller.spawn_cooldown_timer.reset();
+        if let Some(mut controller) = opt_orb_controller {
+            // 1. Get the true count of live orbs owned by this player.
+            let mut current_live_orbs_owned_by_player: Vec<Entity> = Vec::new();
+            for (orb_entity, orb_data) in all_orbs_query.iter() {
+                if orb_data.owner_player_entity == player_entity {
+                    current_live_orbs_owned_by_player.push(orb_entity);
+                }
             }
-            controller.active_orb_entities.retain(|&orb_e| orb_query.get(orb_e).is_ok());
+            let live_orb_count = current_live_orbs_owned_by_player.len();
+
+            // 2. Synchronize the controller's list with reality.
+            controller.active_orb_entities = current_live_orbs_owned_by_player;
+
+            // 3. Tick the cooldown timer.
+            controller.spawn_cooldown_timer.tick(time.delta());
+
+            // 4. Check conditions (using the accurate live_orb_count) and spawn if necessary.
+            if controller.spawn_cooldown_timer.finished() && live_orb_count < controller.max_orbs_allowed as usize {
+                // spawn_orbiting_pet_attack will add the new (pending) orb ID to controller.active_orb_entities.
+                // This is fine, as this list is reconstructed from reality at the start of the next frame/run.
+                spawn_orbiting_pet_attack(&mut commands, &asset_server, player_entity, player_transform, &params, &mut controller);
+                controller.spawn_cooldown_timer.reset(); 
+            }
         } else {
             let mut new_controller = PlayerOrbControllerComponent {
                 active_orb_entities: Vec::new(),
@@ -1700,32 +1737,30 @@ pub fn manage_player_orbs_system(
                 spawn_cooldown_timer: Timer::from_seconds(params.base_fire_rate_secs, TimerMode::Repeating),
             };
             // Spawn initial orb(s)
-            // Note: spawn_orbiting_pet_attack might spawn one orb at a time.
-            // If max_orbs_allowed can be > 1 initially, this might need a loop,
-            // but for Shadow Orb starting with 1, a single call is fine.
+            // Spawn initial orb(s). This logic remains the same, as new_controller.active_orb_entities is empty.
             if new_controller.active_orb_entities.len() < new_controller.max_orbs_allowed as usize {
                  spawn_orbiting_pet_attack(&mut commands, &asset_server, player_entity, player_transform, &params, &mut new_controller);
-                 // If spawn_orbiting_pet_attack adds to active_orb_entities itself, ensure it doesn't go over max_orbs_allowed.
-                 // The current spawn_orbiting_pet_attack adds one orb and pushes to controller.active_orb_entities.
-                 // So, if new_controller.max_orbs_allowed is 1, this single call is correct.
                  new_controller.spawn_cooldown_timer.reset(); // Reset timer after this initial spawn
             }
             commands.entity(player_entity).insert(new_controller);
         }
     } else {
-        if let Some(controller) = opt_orb_controller { // Remove mut here
-            for orb_entity in controller.active_orb_entities.iter() {
-                if orb_query.get(*orb_entity).is_ok() {
-                    commands.entity(*orb_entity).despawn_recursive();
+        // If shadow orb params are not present (e.g. player changed weapon),
+        // despawn all orbs owned by this player.
+        if opt_orb_controller.is_some() { // Check if controller exists before trying to query orbs
+            for (orb_entity, orb_data) in all_orbs_query.iter() {
+                if orb_data.owner_player_entity == player_entity {
+                    commands.entity(orb_entity).despawn_recursive();
                 }
             }
+            // Remove the controller component from the player
             commands.entity(player_entity).remove::<PlayerOrbControllerComponent>();
         }
     }
 }
 
 pub fn deploy_orbiting_pet_system(
-    mut commands: Commands,
+    _commands: Commands,
     mut player_query: Query<(Entity, &mut PlayerRequestsOrbDeployment), With<Survivor>>,
     // Query for orbs that are NOT currently deployed and belong to the player.
     // We might need to refine this query or iterate through all player orbs.
@@ -1735,7 +1770,7 @@ pub fn deploy_orbiting_pet_system(
     if let Ok((player_entity, mut deploy_request)) = player_query.get_single_mut() {
         if deploy_request.0 { // If true, a deployment is requested
             let mut deployed_an_orb = false;
-            for (orb_entity, mut orb_comp, orb_transform) in orb_query.iter_mut() {
+            for (_orb_entity, mut orb_comp, orb_transform) in orb_query.iter_mut() {
                 // Check if this orb belongs to the player who made the request
                 // AND if it's not already deployed.
                 if orb_comp.owner_player_entity == player_entity && !orb_comp.is_deployed {
@@ -1771,6 +1806,7 @@ pub fn orbiting_pet_behavior_system(
     player_query: Query<&Transform, (With<Survivor>, Without<OrbitingPetComponent>)>,
     horror_query: Query<(Entity, &GlobalTransform), With<Horror>>,
     mut horror_health_query: Query<&mut Health, With<Horror>>,
+    mut sound_event_writer: EventWriter<PlaySoundEvent>, // Added to play sounds
 ) {
     for (orb_entity, mut orb_transform, mut orb_comp) in pet_query.iter_mut() {
         orb_comp.duration_timer.tick(time.delta());
@@ -1809,29 +1845,38 @@ pub fn orbiting_pet_behavior_system(
             if let Some(ref mut pulse_timer) = orb_comp.pulse_timer {
                 pulse_timer.tick(time.delta());
                 if pulse_timer.just_finished() {
-                    let orb_position = orb_transform.translation;
+                    let orb_position = orb_transform.translation; // World position of the orb
                     if let Some(pulse_viz_color) = orb_comp.params_snapshot.pulse_color {
-                         commands.spawn((
+                        // Define wave parameters before spawning
+                        let wave_initial_radius_val = orb_comp.params_snapshot.orb_size.x * 0.1; // e.g., 32.0 * 0.1 = 3.2 radius
+                        let wave_max_radius_val = orb_comp.params_snapshot.orb_size.x * 1.0;    // e.g., 32.0 * 1.0 = 32.0 radius (for 64.0 diameter)
+                        let wave_duration_secs = 0.25; // Short duration for quick wave expansion
+                        
+                        // Spawn the pulse visual as a child of the orb entity
+                        let pulse_visual_entity = commands.spawn((
                             SpriteBundle {
-                                texture: asset_server.load("sprites/pulse_effect_placeholder.png"),
+                                texture: asset_server.load("sprites/pulse_effect_placeholder.png"), // This sprite should ideally be a circle/ring
                                 sprite: Sprite {
-                                    color: pulse_viz_color,
-                                    custom_size: Some(Vec2::splat(orb_comp.params_snapshot.pulse_radius * 0.25)),
+                                    color: pulse_viz_color, // Should be opaque from params now
+                                    custom_size: Some(Vec2::splat(wave_initial_radius_val * 2.0)), // Initial diameter
                                     ..default()
                                 },
-                                transform: Transform::from_translation(orb_position),
+                                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.01)), 
                                 ..default()
                             },
                             NovaVisualComponent {
-                                initial_radius: orb_comp.params_snapshot.pulse_radius * 0.25,
-                                max_radius: orb_comp.params_snapshot.pulse_radius,
-                                duration_timer: Timer::from_seconds(0.3, TimerMode::Once),
-                                color: pulse_viz_color,
+                                initial_radius: wave_initial_radius_val,
+                                max_radius: wave_max_radius_val,
+                                duration_timer: Timer::from_seconds(wave_duration_secs, TimerMode::Once),
+                                color: pulse_viz_color, // Passed to system, which will use its alpha
                             },
-                            Name::new("OrbPulseVisual"),
-                        ));
+                            Name::new("OrbWavePulseVisual"), // Renamed for clarity
+                        )).id();
+                        commands.entity(orb_entity).add_child(pulse_visual_entity);
+                        sound_event_writer.send(PlaySoundEvent(SoundEffect::ShadowOrbPulse)); // Play pulse sound
                     }
 
+                    // Damage application logic remains unchanged
                     for (horror_entity, horror_gtransform) in horror_query.iter() {
                         if horror_gtransform.translation().distance_squared(orb_position) < orb_comp.params_snapshot.pulse_radius.powi(2) {
                             if let Ok(mut health) = horror_health_query.get_mut(horror_entity) {

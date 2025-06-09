@@ -200,8 +200,9 @@ fn global_key_listener(
 }
 
 fn debug_character_switch_system(
-    keyboard_input: Res<Input<KeyCode>>, // Changed ButtonInput to Input
-    mut player_query: Query<(&mut Survivor, &mut SanityStrain, &mut Name)>,
+    mut commands: Commands, // Added Commands
+    keyboard_input: Res<Input<KeyCode>>, 
+    mut player_query: Query<(Entity, &mut Survivor, &mut SanityStrain, &mut Name)>, // Added Entity
     weapon_library: Res<AutomaticWeaponLibrary>,
     current_app_state: Res<State<AppState>>,
 ) {
@@ -209,7 +210,7 @@ fn debug_character_switch_system(
         return;
     }
 
-    if let Ok((mut survivor, mut sanity_strain, mut name)) = player_query.get_single_mut() {
+    if let Ok((player_entity, mut survivor, mut sanity_strain, mut name)) = player_query.get_single_mut() { // Added player_entity
         let num_defined_weapons = weapon_library.weapons.len() as u32;
         if num_defined_weapons == 0 { return; }
 
@@ -231,14 +232,20 @@ fn debug_character_switch_system(
                 survivor.equipped_weapon_definition = Some(new_weapon_def.clone());
                 
                 let mut new_base_fire_rate = 0.5_f32; // Default fire rate
-                // Update fire rate based on the new weapon's specific attack type
+                // Update fire rate and manage ChargingWeaponComponent based on the new weapon's specific attack type
                 match &new_weapon_def.attack_data {
+                    AttackTypeData::ChargeUpEnergyShot(params) => {
+                        new_base_fire_rate = params.base_fire_rate_secs;
+                        // This is a charge-up weapon, ensure ChargingWeaponComponent is present and configured
+                        // For now, we are only focusing on removal if NOT a charge weapon.
+                        // A more complete implementation would add/update ChargingWeaponComponent here.
+                        // Example: commands.entity(player_entity).insert(ChargingWeaponComponent { weapon_id: new_inherent_weapon_id, ... });
+                    }
                     AttackTypeData::StandardProjectile(params) => new_base_fire_rate = params.base_fire_rate_secs,
                     AttackTypeData::ReturningProjectile(params) => new_base_fire_rate = params.base_fire_rate_secs,
                     AttackTypeData::ChanneledBeam(params) => new_base_fire_rate = params.tick_interval_secs,
                     AttackTypeData::ConeAttack(params) => new_base_fire_rate = params.base_fire_rate_secs,
                     AttackTypeData::LobbedAoEPool(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    AttackTypeData::ChargeUpEnergyShot(params) => new_base_fire_rate = params.base_fire_rate_secs,
                     AttackTypeData::TrailOfFire(params) => new_base_fire_rate = params.base_fire_rate_secs,
                     AttackTypeData::ChainZap(params) => new_base_fire_rate = params.base_fire_rate_secs,
                     AttackTypeData::PointBlankNova(params) => new_base_fire_rate = params.base_fire_rate_secs,
@@ -254,8 +261,13 @@ fn debug_character_switch_system(
                     AttackTypeData::RepositioningTether(params) => new_base_fire_rate = params.base_fire_rate_secs,
                     AttackTypeData::BlinkStrikeProjectile(params) => new_base_fire_rate = params.base_fire_rate_secs,
                     AttackTypeData::LobbedBouncingMagma(params) => new_base_fire_rate = params.base_fire_rate_secs,
-                    // Add other cases as needed, or keep default if appropriate
                 }
+
+                // If the new weapon is NOT a charge-up type, remove ChargingWeaponComponent
+                if !matches!(&new_weapon_def.attack_data, AttackTypeData::ChargeUpEnergyShot(_)) {
+                    commands.entity(player_entity).remove::<crate::weapon_systems::ChargingWeaponComponent>();
+                }
+                
                 sanity_strain.base_fire_rate_secs = new_base_fire_rate;
                 
                 survivor.auto_weapon_damage_bonus = 0; 
@@ -266,7 +278,6 @@ fn debug_character_switch_system(
                 *name = Name::new(format!("Survivor ({})", new_weapon_def.name));
                 sanity_strain.fire_timer.reset();
                 sanity_strain.fire_timer.set_duration(std::time::Duration::from_secs_f32(new_base_fire_rate.max(0.05)));
-
             }
         }
     }

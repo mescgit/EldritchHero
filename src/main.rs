@@ -9,22 +9,24 @@ use eldritch_hero::survivor;
 use eldritch_hero::components;
 use eldritch_hero::horror;
 use eldritch_hero::game;
-use eldritch_hero::echoing_soul;
-use eldritch_hero::upgrades;
+
+
 use eldritch_hero::level_event_effects;
 use eldritch_hero::weapons;
 use eldritch_hero::visual_effects;
 use eldritch_hero::audio;
 use eldritch_hero::camera_systems;
 use eldritch_hero::background;
-use eldritch_hero::debug_menu;
-use eldritch_hero::in_game_debug_ui;
+
+
 use eldritch_hero::skills;
 use eldritch_hero::items;
-use eldritch_hero::glyphs;
+
 use eldritch_hero::weapon_systems;
-use eldritch_hero::automatic_weapons;
+
 use eldritch_hero::automatic_projectiles; // Ensure this use statement is present
+use eldritch_hero::player_input::PlayerInputPlugin; // Added for the new player input plugin
+use eldritch_hero::glyphs::GlyphsPlugin; // Added for Glyphs
 
 // Modules specific to main.rs (if any)
 // mod automatic_projectiles; // This line should be removed
@@ -85,6 +87,8 @@ fn main() {
             SkillsPlugin,
             ItemsPlugin,
             WeaponSystemsPlugin, // Added
+            PlayerInputPlugin, // Added new plugin
+            GlyphsPlugin, // Re-added GlyphsPlugin
             // crate::glyphs::GlyphsPlugin, // Removed as per instruction
         ))
         .add_systems(Startup,

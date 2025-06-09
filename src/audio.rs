@@ -21,6 +21,7 @@ pub enum SoundEffect {
     PlayerBlink,
     GlacialNovaHit,
     ChainLightningZap,
+    ShadowOrbPulse, // Added new sound effect
 }
 
 #[derive(Resource)]
@@ -39,6 +40,7 @@ pub struct GameAudioHandles {
     pub player_blink: Handle<AudioSource>,
     pub glacial_nova_hit: Handle<AudioSource>,
     pub chain_lightning_zap: Handle<AudioSource>,
+    pub shadow_orb_pulse: Handle<AudioSource>, // Added handle for new sound
 }
 
 #[derive(Component)]
@@ -73,6 +75,7 @@ fn setup_audio_handles(mut commands: Commands, asset_server: Res<AssetServer>) {
         player_blink: asset_server.load("audio/player_blink_placeholder.ogg"),
         glacial_nova_hit: asset_server.load("audio/glacial_nova_hit_placeholder.ogg"),
         chain_lightning_zap: asset_server.load("audio/chain_lightning_zap_placeholder.ogg"),
+        shadow_orb_pulse: asset_server.load("audio/aura_pulse_placeholder.ogg"), // Loaded new sound
     });
 }
 
@@ -82,6 +85,7 @@ fn play_sound_system(
     audio_handles: Res<GameAudioHandles>,
 ) {
     for event in sound_events.read() {
+        info!("Playing sound effect: {:?}", event.0); // Added logging line
         let source = match event.0 {
             SoundEffect::RitualCast => audio_handles.ritual_cast.clone(),
             SoundEffect::HorrorHit => audio_handles.horror_hit.clone(),
@@ -96,6 +100,7 @@ fn play_sound_system(
             SoundEffect::PlayerBlink => audio_handles.player_blink.clone(),
             SoundEffect::GlacialNovaHit => audio_handles.glacial_nova_hit.clone(),
             SoundEffect::ChainLightningZap => audio_handles.chain_lightning_zap.clone(),
+            SoundEffect::ShadowOrbPulse => audio_handles.shadow_orb_pulse.clone(), // Added handler for new sound
         };
         commands.spawn(AudioBundle {
             source,

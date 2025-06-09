@@ -34,19 +34,19 @@ impl GlyphLibrary {
     }
 }
 
-// pub struct GlyphsPlugin; // Commented out
+pub struct GlyphsPlugin; // Uncommented
 
-// impl Plugin for GlyphsPlugin { // Commented out
-//     fn build(&self, app: &mut App) {
-//         app
-//             .register_type::<GlyphId>()
-//             .register_type::<GlyphEffectType>()
-//             .register_type::<GlyphDefinition>()
-//             .register_type::<GlyphLibrary>()
-//             .init_resource::<GlyphLibrary>()
-//             .add_systems(Startup, populate_glyph_library);
-//     }
-// }
+impl Plugin for GlyphsPlugin { // Uncommented
+    fn build(&self, app: &mut App) {
+        app
+            .register_type::<GlyphId>()
+            .register_type::<GlyphEffectType>()
+            .register_type::<GlyphDefinition>()
+            .register_type::<GlyphLibrary>()
+            .init_resource::<GlyphLibrary>()
+            .add_systems(Startup, populate_glyph_library);
+    }
+}
 
 fn populate_glyph_library(mut library: ResMut<GlyphLibrary>) {
     library.glyphs.push(GlyphDefinition {

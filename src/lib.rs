@@ -21,6 +21,7 @@ pub mod debug_menu; // If tests interact with debug features
 pub mod in_game_debug_ui; // If tests verify UI elements
 pub mod glyphs;
 pub mod weapon_systems; // If tests need to interact with these systems/components directly
+pub mod player_input; // Added for player input systems
 
 // You might also need to re-export specific items if you want shorter paths,
 // but for now, just declaring the modules as public should be enough
