@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, DebuffAuraParams, AuraDebuffType};
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_sand_blast() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -17,4 +18,8 @@ pub fn define_sand_blast() -> AutomaticWeaponDefinition {
             activation_sound_effect: Some("audio/sand_blast_activate.ogg".to_string()),
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }

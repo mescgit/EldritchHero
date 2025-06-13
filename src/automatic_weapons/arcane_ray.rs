@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, ChanneledBeamParams};
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_arcane_ray() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -20,4 +21,8 @@ pub fn define_arcane_ray() -> AutomaticWeaponDefinition {
             stop_sound_effect: None,
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }

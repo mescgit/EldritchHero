@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, HomingDebuffProjectileParams, ProjectileDebuffType};
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_moonbeam_dart() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -23,4 +24,8 @@ pub fn define_moonbeam_dart() -> AutomaticWeaponDefinition {
             fire_sound_effect: Some("audio/moonbeam_dart_fire.ogg".to_string()),
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }

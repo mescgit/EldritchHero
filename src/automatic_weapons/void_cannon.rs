@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, ChargeUpEnergyShotParams, ChargeLevelParams};
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_void_cannon() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -55,4 +56,8 @@ pub fn define_void_cannon() -> AutomaticWeaponDefinition {
             release_sound_effect: None,
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, PersistentAuraParams};
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_metal_shrapnel() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -17,4 +18,8 @@ pub fn define_metal_shrapnel() -> AutomaticWeaponDefinition {
             deactivation_sound_effect: Some("audio/metal_shrapnel_deactivate.ogg".to_string()),
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }

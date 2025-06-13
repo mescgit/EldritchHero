@@ -1,5 +1,6 @@
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, LobbedBouncingMagmaParams};
 use bevy::prelude::{Color, Vec2}; // Added for Color and Vec2
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_magma_ball() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -27,4 +28,8 @@ pub fn define_magma_ball() -> AutomaticWeaponDefinition {
             fire_sound_effect: Some("audio/magma_ball_fire.ogg".to_string()),
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }

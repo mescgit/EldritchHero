@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, RepositioningTetherParams, RepositioningTetherMode};
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_psionic_lash() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -20,4 +21,8 @@ pub fn define_psionic_lash() -> AutomaticWeaponDefinition {
             fire_sound_effect: Some("audio/psionic_lash_fire.ogg".to_string()),
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }

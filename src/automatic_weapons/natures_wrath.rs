@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, GroundTargetedAoEParams};
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_natures_wrath() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -21,4 +22,8 @@ pub fn define_natures_wrath() -> AutomaticWeaponDefinition {
             fire_sound_effect: Some("audio/natures_wrath_fire.ogg".to_string()),
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }

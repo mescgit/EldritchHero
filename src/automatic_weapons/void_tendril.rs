@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, ConeAttackParams};
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_void_tendril() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -22,4 +23,8 @@ pub fn define_void_tendril() -> AutomaticWeaponDefinition {
             fire_sound_effect: Some("audio/void_tendril_fire.ogg".to_string()),
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, BouncingProjectileParams};
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_crystal_shard() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -21,4 +22,8 @@ pub fn define_crystal_shard() -> AutomaticWeaponDefinition {
             fire_sound_effect: Some("audio/crystal_shard_fire.ogg".to_string()),
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }

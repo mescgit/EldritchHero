@@ -36,7 +36,7 @@ pub fn define_shadow_orb() -> AutomaticWeaponDefinition {
     }
 }
 
-pub fn get_shadow_orb_upgrade_cards() -> Vec<UpgradeCard> {
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
     let shadow_orb_weapon_id = AutomaticWeaponId(7); // Matches existing definition
     vec![
         // Upgrade MaxActiveOrbs

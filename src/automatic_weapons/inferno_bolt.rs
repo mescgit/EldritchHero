@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, TrailOfFireParams};
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_inferno_bolt() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -22,4 +23,8 @@ pub fn define_inferno_bolt() -> AutomaticWeaponDefinition {
             fire_sound_effect: None,
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }
