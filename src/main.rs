@@ -75,26 +75,24 @@ fn main() {
         .register_type::<AutomaticWeaponLibrary>()
         .register_type::<components::PlayerRequestsOrbDeployment>() // Added registration
         .add_event::<crate::components::PlayerBlinkEvent>()
-        .add_plugins((
-            GamePlugin,
-            SurvivorPlugin,
-            HorrorPlugin,
-            AutomaticProjectilesPlugin, // Changed
-            LevelEventEffectsPlugin,
-            // WeaponsPlugin, // Removed
-            CircleOfWardingPlugin, // Added
-            SwarmOfNightmaresPlugin, // Added
-            VisualEffectsPlugin,
-            GameAudioPlugin,
-            CameraSystemsPlugin,
-            BackgroundPlugin,
-            SkillsPlugin,
-            ItemsPlugin,
-            WeaponSystemsPlugin, // Added
-            PlayerInputPlugin, // Added new plugin
-            GlyphsPlugin, // Re-added GlyphsPlugin
-            // crate::glyphs::GlyphsPlugin, // Removed as per instruction
-        ))
+        .add_plugins(GamePlugin)
+        .add_plugins(SurvivorPlugin)
+        .add_plugins(HorrorPlugin)
+        .add_plugins(AutomaticProjectilesPlugin) // Changed
+        .add_plugins(LevelEventEffectsPlugin)
+        // WeaponsPlugin, // Removed
+        .add_plugins(CircleOfWardingPlugin) // Added
+        .add_plugins(SwarmOfNightmaresPlugin) // Added
+        .add_plugins(VisualEffectsPlugin)
+        .add_plugins(GameAudioPlugin)
+        .add_plugins(CameraSystemsPlugin)
+        .add_plugins(BackgroundPlugin)
+        .add_plugins(SkillsPlugin)
+        .add_plugins(ItemsPlugin)
+        .add_plugins(WeaponSystemsPlugin) // Added
+        .add_plugins(PlayerInputPlugin) // Added new plugin
+        .add_plugins(GlyphsPlugin) // Re-added GlyphsPlugin
+        // crate::glyphs::GlyphsPlugin, // Removed as per instruction
         .add_systems(Startup,
             (
                 setup_global_camera,
