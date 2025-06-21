@@ -12,7 +12,9 @@ use eldritch_hero::game;
 
 
 use eldritch_hero::level_event_effects;
-use eldritch_hero::weapons;
+// use eldritch_hero::weapons; // Removed
+use eldritch_hero::custom_weapons::circle_of_warding::CircleOfWardingPlugin; // Added
+use eldritch_hero::custom_weapons::swarm_of_nightmares::SwarmOfNightmaresPlugin; // Added
 use eldritch_hero::visual_effects;
 use eldritch_hero::audio;
 use eldritch_hero::camera_systems;
@@ -36,7 +38,7 @@ use horror::HorrorPlugin;
 use automatic_projectiles::AutomaticProjectilesPlugin; // Changed
 use game::{GamePlugin, SCREEN_WIDTH, SCREEN_HEIGHT};
 use level_event_effects::LevelEventEffectsPlugin;
-use weapons::WeaponsPlugin;
+// use weapons::WeaponsPlugin; // Removed
 use visual_effects::VisualEffectsPlugin;
 use audio::GameAudioPlugin;
 use camera_systems::{CameraSystemsPlugin, MainCamera};
@@ -79,7 +81,9 @@ fn main() {
             HorrorPlugin,
             AutomaticProjectilesPlugin, // Changed
             LevelEventEffectsPlugin,
-            WeaponsPlugin,
+            // WeaponsPlugin, // Removed
+            CircleOfWardingPlugin, // Added
+            SwarmOfNightmaresPlugin, // Added
             VisualEffectsPlugin,
             GameAudioPlugin,
             CameraSystemsPlugin,

@@ -10,7 +10,8 @@ use crate::components::Health as ComponentHealth;
 use crate::skills::SkillLibrary; 
 // Changed items import as per request
 use crate::items::{ItemLibrary, AutomaticWeaponLibrary, AttackTypeData}; 
-use crate::weapons::{CircleOfWarding, SwarmOfNightmares};
+use crate::custom_weapons::circle_of_warding::CircleOfWarding; // Changed
+use crate::custom_weapons::swarm_of_nightmares::SwarmOfNightmares; // Changed
 // Ensured GlyphLibrary import is active and other glyph types are removed
 use crate::glyphs::GlyphLibrary; 
 

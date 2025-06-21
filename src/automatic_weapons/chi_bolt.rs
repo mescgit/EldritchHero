@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, LifestealProjectileParams};
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_chi_bolt() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -18,4 +19,8 @@ pub fn define_chi_bolt() -> AutomaticWeaponDefinition {
             fire_sound_effect: Some("audio/chi_bolt_fire.ogg".to_string()),
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }

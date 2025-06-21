@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, LineDashAttackParams};
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_holy_lance() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -17,4 +18,8 @@ pub fn define_holy_lance() -> AutomaticWeaponDefinition {
             fire_sound_effect: Some("audio/holy_lance_fire.ogg".to_string()),
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, ChainZapParams};
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_chain_lightning() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -18,4 +19,8 @@ pub fn define_chain_lightning() -> AutomaticWeaponDefinition {
             fire_sound_effect: None,
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }

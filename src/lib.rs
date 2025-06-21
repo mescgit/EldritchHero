@@ -12,7 +12,7 @@ pub mod automatic_weapons; // For weapon definitions and specific upgrade functi
 pub mod horror; // If any horror definitions/components are needed by tests
 pub mod echoing_soul;
 pub mod level_event_effects;
-pub mod weapons; // General weapon components/systems if distinct from automatic_weapons
+mod custom_weapons; // Added for refactored weapons
 pub mod visual_effects;
 pub mod audio;
 pub mod camera_systems;

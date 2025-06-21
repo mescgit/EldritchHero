@@ -57,16 +57,29 @@ pub fn get_all_weapon_definitions() -> Vec<AutomaticWeaponDefinition> {
 
 pub fn get_all_specific_weapon_upgrades() -> Vec<UpgradeCard> {
     let mut specific_upgrades = Vec::new();
-
-    // Call get_specific_upgrades for weapons that have it
     specific_upgrades.extend(primordial_ichor_blast::get_specific_upgrades());
     specific_upgrades.extend(eldritch_gatling::get_specific_upgrades());
+    specific_upgrades.extend(void_cannon::get_specific_upgrades());
     specific_upgrades.extend(spectral_blades::get_specific_upgrades());
+    specific_upgrades.extend(inferno_bolt::get_specific_upgrades());
+    specific_upgrades.extend(chain_lightning::get_specific_upgrades());
+    specific_upgrades.extend(arcane_ray::get_specific_upgrades());
+    specific_upgrades.extend(shadow_orb::get_specific_upgrades()); // Renamed
+    specific_upgrades.extend(holy_lance::get_specific_upgrades());
     specific_upgrades.extend(venom_spit::get_specific_upgrades());
+    specific_upgrades.extend(glacial_spike::get_specific_upgrades());
+    specific_upgrades.extend(earthshatter_shard::get_specific_upgrades());
     specific_upgrades.extend(sunfire_burst::get_specific_upgrades());
-    // As more weapons get this function, add their calls here
-
-    specific_upgrades.extend(shadow_orb::get_shadow_orb_upgrade_cards());
-
+    specific_upgrades.extend(moonbeam_dart::get_specific_upgrades());
+    specific_upgrades.extend(spirit_bomb::get_specific_upgrades());
+    specific_upgrades.extend(void_tendril::get_specific_upgrades());
+    specific_upgrades.extend(crystal_shard::get_specific_upgrades());
+    specific_upgrades.extend(magma_ball::get_specific_upgrades());
+    specific_upgrades.extend(sand_blast::get_specific_upgrades());
+    specific_upgrades.extend(metal_shrapnel::get_specific_upgrades());
+    specific_upgrades.extend(natures_wrath::get_specific_upgrades());
+    specific_upgrades.extend(chi_bolt::get_specific_upgrades());
+    specific_upgrades.extend(psionic_lash::get_specific_upgrades());
+    specific_upgrades.extend(aether_bolt::get_specific_upgrades());
     specific_upgrades
 }

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, ExpandingEnergyBombParams};
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_spirit_bomb() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -19,4 +20,8 @@ pub fn define_spirit_bomb() -> AutomaticWeaponDefinition {
             detonation_sound_effect: Some("audio/spirit_bomb_detonate.ogg".to_string()),
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }
