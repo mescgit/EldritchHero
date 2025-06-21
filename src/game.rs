@@ -7,7 +7,8 @@ use crate::{
     survivor::{Survivor, SanityStrain},
     components::Health,
     upgrades::{UpgradePlugin, UpgradePool, OfferedUpgrades, UpgradeCard, UpgradeType, UpgradeRarity, LobbedAoEPoolField, ChanneledBeamField, ReturningProjectileField, StandardProjectileField, ConeAttackField}, // Added UpgradeRarity and new Field enums
-    weapons::{CircleOfWarding, SwarmOfNightmares},
+    custom_weapons::circle_of_warding::CircleOfWarding, // Changed
+    custom_weapons::swarm_of_nightmares::SwarmOfNightmares, // Changed
     audio::{PlaySoundEvent, SoundEffect},
     debug_menu::DebugMenuPlugin,
     items::{ItemId, ItemLibrary, AutomaticWeaponId, AutomaticWeaponLibrary, AttackTypeData}, 

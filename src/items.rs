@@ -9,7 +9,8 @@ use crate::{
     visual_effects, // Import the module
     audio::{PlaySoundEvent, SoundEffect},
     skills::{SkillId, SkillLibrary, ActiveSkillInstance},
-    weapons::{CircleOfWarding, SwarmOfNightmares},
+    custom_weapons::circle_of_warding::CircleOfWarding, // Changed
+    custom_weapons::swarm_of_nightmares::SwarmOfNightmares, // Changed
 };
 use crate::automatic_weapons;
 
@@ -825,7 +826,7 @@ fn apply_collected_item_effects_system(
                                 pickup_radius_increase,
                                 auto_weapon_projectile_speed_multiplier_increase
                             } => {
-                                if let Some(hp_boost) = max_health_increase { player.max_health += *hp_boost; if let Some(ref mut health_comp) = opt_health_component { health_comp.0 += *hp_boost; health_comp.0 = health_comp.0.min(player.max_health); } }
+                                if let Some(hp_boost) = max_health_increase { player.max_health += *hp_boost; if let Some(ref mut health_comp) = opt_health_component { (*health_comp).0 += *hp_boost; (*health_comp).0 = (*health_comp).0.min(player.max_health); } }
                                 if let Some(speed_mult) = speed_multiplier { player.speed *= *speed_mult; }
                                 if let Some(dmg_inc) = damage_increase { player.auto_weapon_damage_bonus += *dmg_inc; }
                                 if let Some(xp_mult) = xp_gain_multiplier { player.xp_gain_multiplier *= *xp_mult; }
@@ -844,28 +845,28 @@ fn apply_collected_item_effects_system(
                             }
                             ItemEffect::ActivateCircleOfWarding { base_damage, base_radius, base_tick_interval } => {
                                 if let Some(ref mut circle_aura) = opt_circle_aura {
-                                    if !circle_aura.is_active {
-                                        circle_aura.is_active = true;
-                                        circle_aura.base_damage_per_tick = *base_damage;
-                                        circle_aura.current_radius = *base_radius;
-                                        circle_aura.damage_tick_timer = Timer::from_seconds(*base_tick_interval, TimerMode::Repeating);
+                                    if !(*circle_aura).is_active {
+                                        (*circle_aura).is_active = true;
+                                        (*circle_aura).base_damage_per_tick = *base_damage;
+                                        (*circle_aura).current_radius = *base_radius;
+                                        (*circle_aura).damage_tick_timer = Timer::from_seconds(*base_tick_interval, TimerMode::Repeating);
                                     } else {
-                                        circle_aura.base_damage_per_tick += 1;
-                                        circle_aura.current_radius *= 1.05;
+                                        (*circle_aura).base_damage_per_tick += 1;
+                                        (*circle_aura).current_radius *= 1.05;
                                     }
                                 } else { applied_successfully = false; }
                             }
                             ItemEffect::ActivateSwarmOfNightmares { num_larvae, base_damage, base_orbit_radius, base_rotation_speed } => {
                                 if let Some(ref mut nightmare_swarm) = opt_nightmare_swarm {
-                                    if !nightmare_swarm.is_active {
-                                        nightmare_swarm.is_active = true;
-                                        nightmare_swarm.num_larvae = *num_larvae;
-                                        nightmare_swarm.damage_per_hit = *base_damage;
-                                        nightmare_swarm.orbit_radius = *base_orbit_radius;
-                                        nightmare_swarm.rotation_speed = *base_rotation_speed;
+                                    if !(*nightmare_swarm).is_active {
+                                        (*nightmare_swarm).is_active = true;
+                                        (*nightmare_swarm).num_larvae = *num_larvae;
+                                        (*nightmare_swarm).damage_per_hit = *base_damage;
+                                        (*nightmare_swarm).orbit_radius = *base_orbit_radius;
+                                        (*nightmare_swarm).rotation_speed = *base_rotation_speed;
                                     } else {
-                                        nightmare_swarm.num_larvae = (nightmare_swarm.num_larvae + 1).min(8);
-                                        nightmare_swarm.damage_per_hit += 1;
+                                        (*nightmare_swarm).num_larvae = ((*nightmare_swarm).num_larvae + 1).min(8);
+                                        (*nightmare_swarm).damage_per_hit += 1;
                                     }
                                 } else { applied_successfully = false; }
                             }

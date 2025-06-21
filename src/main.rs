@@ -12,7 +12,9 @@ use eldritch_hero::game;
 
 
 use eldritch_hero::level_event_effects;
-use eldritch_hero::weapons;
+// use eldritch_hero::weapons; // Removed
+use eldritch_hero::custom_weapons::circle_of_warding::CircleOfWardingPlugin; // Added
+use eldritch_hero::custom_weapons::swarm_of_nightmares::SwarmOfNightmaresPlugin; // Added
 use eldritch_hero::visual_effects;
 use eldritch_hero::audio;
 use eldritch_hero::camera_systems;
@@ -36,7 +38,7 @@ use horror::HorrorPlugin;
 use automatic_projectiles::AutomaticProjectilesPlugin; // Changed
 use game::{GamePlugin, SCREEN_WIDTH, SCREEN_HEIGHT};
 use level_event_effects::LevelEventEffectsPlugin;
-use weapons::WeaponsPlugin;
+// use weapons::WeaponsPlugin; // Removed
 use visual_effects::VisualEffectsPlugin;
 use audio::GameAudioPlugin;
 use camera_systems::{CameraSystemsPlugin, MainCamera};
@@ -73,24 +75,24 @@ fn main() {
         .register_type::<AutomaticWeaponLibrary>()
         .register_type::<components::PlayerRequestsOrbDeployment>() // Added registration
         .add_event::<crate::components::PlayerBlinkEvent>()
-        .add_plugins((
-            GamePlugin,
-            SurvivorPlugin,
-            HorrorPlugin,
-            AutomaticProjectilesPlugin, // Changed
-            LevelEventEffectsPlugin,
-            WeaponsPlugin,
-            VisualEffectsPlugin,
-            GameAudioPlugin,
-            CameraSystemsPlugin,
-            BackgroundPlugin,
-            SkillsPlugin,
-            ItemsPlugin,
-            WeaponSystemsPlugin, // Added
-            PlayerInputPlugin, // Added new plugin
-            GlyphsPlugin, // Re-added GlyphsPlugin
-            // crate::glyphs::GlyphsPlugin, // Removed as per instruction
-        ))
+        .add_plugins(GamePlugin)
+        .add_plugins(SurvivorPlugin)
+        .add_plugins(HorrorPlugin)
+        .add_plugins(AutomaticProjectilesPlugin) // Changed
+        .add_plugins(LevelEventEffectsPlugin)
+        // WeaponsPlugin, // Removed
+        .add_plugins(CircleOfWardingPlugin) // Added
+        .add_plugins(SwarmOfNightmaresPlugin) // Added
+        .add_plugins(VisualEffectsPlugin)
+        .add_plugins(GameAudioPlugin)
+        .add_plugins(CameraSystemsPlugin)
+        .add_plugins(BackgroundPlugin)
+        .add_plugins(SkillsPlugin)
+        .add_plugins(ItemsPlugin)
+        .add_plugins(WeaponSystemsPlugin) // Added
+        .add_plugins(PlayerInputPlugin) // Added new plugin
+        .add_plugins(GlyphsPlugin) // Re-added GlyphsPlugin
+        // crate::glyphs::GlyphsPlugin, // Removed as per instruction
         .add_systems(Startup,
             (
                 setup_global_camera,

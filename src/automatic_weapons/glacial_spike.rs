@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::items::{AutomaticWeaponDefinition, AutomaticWeaponId, AttackTypeData, PointBlankNovaParams};
+use crate::upgrades::UpgradeCard; // Added import
 
 pub fn define_glacial_spike() -> AutomaticWeaponDefinition {
     AutomaticWeaponDefinition {
@@ -16,4 +17,8 @@ pub fn define_glacial_spike() -> AutomaticWeaponDefinition {
             fire_sound_effect: Some("audio/glacial_spike_nova.ogg".to_string()),
         }),
     }
+}
+
+pub fn get_specific_upgrades() -> Vec<UpgradeCard> {
+    vec![]
 }

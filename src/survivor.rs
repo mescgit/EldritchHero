@@ -9,7 +9,8 @@ use crate::{
     automatic_projectiles::{spawn_automatic_projectile},
     items::AutomaticWeaponDefinition, 
     horror::Horror,
-    weapons::{CircleOfWarding, SwarmOfNightmares},
+    custom_weapons::circle_of_warding::CircleOfWarding, // Changed
+    custom_weapons::swarm_of_nightmares::SwarmOfNightmares, // Changed
     audio::{PlaySoundEvent, SoundEffect},
     skills::{ActiveSkillInstance, SkillLibrary, SkillId, SurvivorBuffEffect, ActiveShield},
     items::{ItemId, ItemDrop, ItemLibrary, ItemEffect, RetaliationNovaEffect, AutomaticWeaponId, AutomaticWeaponLibrary, AttackTypeData}, 
@@ -701,7 +702,7 @@ fn survivor_casting_system(
                             Name::new("ChanneledBeamWeaponInstance (Manual)"),
                         )).id();
 
-                        let mut new_channeling_comp = crate::weapon_systems::IsChannelingComponent {
+                        let new_channeling_comp = crate::weapon_systems::IsChannelingComponent {
                             beam_entity: Some(beam_entity_id),
                             beam_params: params.clone(),
                                 active_duration_timer: params.max_duration_secs.map(|d| Timer::from_seconds(d, TimerMode::Once)),
